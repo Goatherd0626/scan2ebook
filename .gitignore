@@ -1,0 +1,18 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# 输出与示例
+output/
+sample/
+
+# 下载的 pandoc 二进制（约 80MB）
+vendor/pandoc-*/
+vendor/*.zip
+
+# 密钥
+.env
+
+# macOS
+.DS_Store
