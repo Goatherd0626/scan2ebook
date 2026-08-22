@@ -1,17 +1,13 @@
-"""版面分析：根据块坐标与文本特征，把 OCR 块分类为 页眉/页脚/页码/脚注/正文。
+"""版面分析：根据块坐标与文本特征，把 OCR 块分类为 页眉/页脚/脚注/正文。
 
 坐标均为归一化 (0~1)，原点左上。
 """
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from .config import LAYOUT_FOOTER_BAND, LAYOUT_FOOTNOTE_BAND, LAYOUT_HEADER_BAND
-from .page_model import KIND_BODY, KIND_FOOTER, KIND_FOOTNOTE, KIND_HEADER, KIND_PAGE_NUM, Page, TextBlock
-
-# 页码形态：纯数字 / 带装饰符号 / 罗马数字（正文 i ii iii / 序言等）
-PAGE_NUM_RE = re.compile(r"^[\s\-–—·•．.]*(\d{1,4}|[IVXLCivxlc]{1,8})[\s\-–—·•．.]*$")
+from .page_model import KIND_BODY, KIND_FOOTER, KIND_FOOTNOTE, KIND_HEADER, Page, TextBlock
 
 # 脚注起始标记：数字加点、圈号、星号剑号等
 FOOTNOTE_MARK_RE = re.compile(r"^(?:\d{1,3}[\.、．\s]|[①②③④⑤⑥⑦⑧⑨⑩]|[*†‡§¶]|〔\d+〕|\d{1,3}\s*\))")
@@ -20,17 +16,15 @@ FOOTNOTE_MARK_RE = re.compile(r"^(?:\d{1,3}[\.、．\s]|[①②③④⑤⑥⑦�
 HEADER_MAX_CHARS = 60
 
 
-def looks_like_page_number(text: str) -> bool:
-    return bool(PAGE_NUM_RE.match(text.strip()))
-
-
 def looks_like_footnote_start(text: str) -> bool:
     return bool(FOOTNOTE_MARK_RE.match(text.strip()))
 
 
 def classify_page(page: Page) -> None:
-    """就地给 page.blocks 打上 kind，并提取 printed_page。"""
-    printed: Optional[str] = None
+    """就地给 page.blocks 打上 kind。
+
+    页脚区内容（含页码）一律丢弃——页码锚定一律以 PDF 页为准。
+    """
     in_footnote = False  # 脚注延续状态：区内的后续块视为脚注（OCR 常把一条脚注拆成多块）
 
     for b in sorted(page.blocks, key=lambda x: (x.y0, x.x0)):
@@ -45,12 +39,7 @@ def classify_page(page: Page) -> None:
             b.kind = KIND_HEADER
             in_footnote = False
         elif y0 >= LAYOUT_FOOTER_BAND:
-            if looks_like_page_number(clean):
-                b.kind = KIND_PAGE_NUM
-                if printed is None:
-                    printed = _extract_page_number(clean)
-            else:
-                b.kind = KIND_FOOTER
+            b.kind = KIND_FOOTER
             in_footnote = False
         elif y0 >= LAYOUT_FOOTNOTE_BAND:
             if looks_like_footnote_start(clean) or in_footnote:
@@ -61,15 +50,6 @@ def classify_page(page: Page) -> None:
         else:
             b.kind = KIND_BODY
             in_footnote = False
-
-    page.printed_page = printed
-
-
-def _extract_page_number(text: str) -> Optional[str]:
-    m = PAGE_NUM_RE.match(text.strip())
-    if m:
-        return m.group(1)
-    return None
 
 
 def detect_columns(blocks: list[TextBlock]) -> int:

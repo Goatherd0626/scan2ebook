@@ -2,12 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 # 块类型
 KIND_HEADER = "header"        # 页眉（书眉/章节名）
-KIND_FOOTER = "footer"        # 页脚（除页码外的页脚文字，一般丢弃）
-KIND_PAGE_NUM = "page_number" # 页脚中的页码
+KIND_FOOTER = "footer"        # 页脚（页码等，一律丢弃）
 KIND_FOOTNOTE = "footnote"    # 脚注
 KIND_BODY = "body"            # 正文
 KIND_BLANK = "blank"          # 空块
@@ -69,7 +67,6 @@ class Page:
     width: int
     height: int
     blocks: list[TextBlock] = field(default_factory=list)
-    printed_page: Optional[str] = None  # 书页号（可能带 i/ii 等罗马数字前缀页）
 
     def body_blocks(self) -> list[TextBlock]:
         return [b for b in self.blocks if b.kind == KIND_BODY]
@@ -86,13 +83,10 @@ class Paragraph:
     kind: str = PARA_BODY
     level: int = 0            # 标题层级 1/2/3
     pdf_pages: list[int] = field(default_factory=list)
-    printed_pages: list[str] = field(default_factory=list)
 
-    def add_page(self, pdf_page: int, printed: Optional[str]) -> None:
+    def add_page(self, pdf_page: int) -> None:
         if pdf_page not in self.pdf_pages:
             self.pdf_pages.append(pdf_page)
-        if printed and printed not in self.printed_pages:
-            self.printed_pages.append(printed)
 
 
 @dataclass
@@ -102,8 +96,3 @@ class Book:
     pages: list[Page] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
     source_path: str = ""
-
-    @property
-    def page_mapping(self) -> dict[int, Optional[str]]:
-        """pdf_page -> printed_page"""
-        return {p.pdf_page: p.printed_page for p in self.pages}

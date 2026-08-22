@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import logging
 import sys
@@ -81,15 +80,7 @@ def _textlayer_pages(doc) -> list[Page]:
 
 
 def _save_sidecars(out_dir: Path, book, stream) -> dict:
-    # PDF页 → 书页 映射表
-    map_path = out_dir / "page_map.csv"
-    with open(map_path, "w", newline="", encoding="utf-8-sig") as f:
-        w = csv.writer(f)
-        w.writerow(["pdf_page", "printed_page"])
-        for p in book.pages:
-            w.writerow([p.pdf_page, p.printed_page or ""])
-
-    # 段落级页码索引
+    # 段落级页码索引（一律以 PDF 页为准）
     para_path = out_dir / "paragraphs.jsonl"
     n_paras = 0
     with open(para_path, "w", encoding="utf-8") as f:
@@ -102,7 +93,6 @@ def _save_sidecars(out_dir: Path, book, stream) -> dict:
                 "level": item.level,
                 "text": item.text[:200],
                 "pdf_pages": item.pdf_pages,
-                "printed_pages": item.printed_pages,
             }
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
@@ -114,7 +104,7 @@ def _save_sidecars(out_dir: Path, book, stream) -> dict:
     with open(meta_path, "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
-    return {"page_map": map_path, "paragraphs": para_path, "meta": meta_path}
+    return {"paragraphs": para_path, "meta": meta_path}
 
 
 def main(argv=None) -> int:
@@ -182,10 +172,9 @@ def main(argv=None) -> int:
     # 汇总
     headings = sum(1 for it in stream if isinstance(it, Paragraph) and it.kind == PARA_HEADING)
     footnotes = sum(1 for it in stream if isinstance(it, Paragraph) and it.kind == PARA_FOOTNOTE)
-    mapped = sum(1 for p in pages if p.printed_page)
-    log.info("完成：正文段 %d，标题 %d，脚注 %d，识别出书页号 %d/%d 页",
+    log.info("完成：正文段 %d，标题 %d，脚注 %d（共 %d 页）",
              sum(1 for it in stream if isinstance(it, Paragraph) and it.kind == PARA_BODY),
-             headings, footnotes, mapped, len(pages))
+             headings, footnotes, len(pages))
     print(f"\n✅ 输出目录：{out_dir}")
     for k, p in side.items():
         print(f"   - {k}: {p}")

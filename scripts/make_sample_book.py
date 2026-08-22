@@ -1,7 +1,7 @@
 """生成一本模拟的「扫描版」示例书（图像型 PDF，无文字层）。
 
-用于端到端测试：包含书名页/版权页、页眉、脚注、书页号与 PDF 页错位、
-跨页续段、中英混排、一级/二级标题等典型场景。
+用于端到端测试：包含书名页/版权页、页眉、脚注、跨页续段、中英混排、
+一级/二级标题等典型场景。页码锚定一律以 PDF 页为准。
 
 用法：.venv/bin/python scripts/make_sample_book.py
 输出：sample/示例书_扫描版.pdf
@@ -25,13 +25,11 @@ TEXT_W = W - 2 * MARGIN_LR
 BODY_TOP, BODY_BOTTOM = 400, 2720
 HEADER_Y = 140
 FOOTNOTE_Y0 = 2780
-PAGE_NUM_Y = 3320
 
 FONT_BODY, LEADING_BODY = 50, 88          # 正文 12pt，行距 1.76
 FONT_H1, FONT_H2 = 78, 62                 # 一级/二级标题
 FONT_HEADER = 42
 FONT_FOOTNOTE, LEADING_FOOTNOTE = 38, 56
-FONT_PAGENUM = 46
 INDENT = 2 * FONT_BODY                    # 段首缩进两字
 
 FONT_CANDIDATES_CJK = [
@@ -85,7 +83,7 @@ def wrap(text: str, font: ImageFont.FreeTypeFont, max_w: int) -> list[str]:
 
 
 class Sheet:
-    def __init__(self, header: str = "", footer_num: str = ""):
+    def __init__(self, header: str = ""):
         self.img = Image.new("RGB", (W, H), "white")
         self.d = ImageDraw.Draw(self.img)
         self.y = BODY_TOP
@@ -94,11 +92,6 @@ class Sheet:
             f = load_font(FONT_HEADER)
             tw = f.getlength(header)
             self.d.text(((W - tw) / 2, HEADER_Y), header, font=f, fill="black")
-        if footer_num:
-            f = load_font(FONT_PAGENUM)
-            s = f"·{footer_num}·"
-            tw = f.getlength(s)
-            self.d.text(((W - tw) / 2, PAGE_NUM_Y), s, font=f, fill="black")
 
     def _newline(self, leading: int):
         self.y += leading
@@ -144,7 +137,7 @@ class Sheet:
 def build_pages() -> list[Image.Image]:
     pages: list[Image.Image] = []
 
-    # ---- 第 1 页（PDF 1）：书名页 + 版权页，无书页号 ----
+    # ---- 第 1 页（PDF 1）：书名页 + 版权页 ----
     s = Sheet()
     s.y = 900
     s.heading("近代中国商业与金融史", level=1)
@@ -162,8 +155,8 @@ def build_pages() -> list[Image.Image]:
     s.para("图书在版编目（CIP）数据", indent=False)
     pages.append(s.img)
 
-    # ---- 第 2 页（PDF 2，书页 3）----
-    s = Sheet(header="第一章 导论", footer_num="3")
+    # ---- 第 2 页（PDF 2）----
+    s = Sheet(header="第一章 导论")
     s.heading("第一章 导论", level=1)
     s.para("近代中国的商业变迁，是理解国家转型的关键线索。学者们普遍认为，晚清以降的市场整合程度远超以往任何时期，这一判断已逐渐成为学界的共识。")
     s.para("本书的核心问题是：制度变迁如何塑造了近代中国金融市场的格局？为回答这一问题，我们有必要从长时段的视角考察商业组织的演变，并比较不同区域之间的差异。")
@@ -171,23 +164,23 @@ def build_pages() -> list[Image.Image]:
     s.footnote("①参见吴承明：《中国资本主义与国内市场》，中国社会科学出版社，1985年，第12—15页。")
     pages.append(s.img)
 
-    # ---- 第 3 页（PDF 3，书页 4）----
-    s = Sheet(header="第一章 导论", footer_num="4")
+    # ---- 第 3 页（PDF 3）----
+    s = Sheet(header="第一章 导论")
     # 跨页续段：真实排版中，续行不缩进
     s.para("energy, trade, and colonial expansion, rather than the expression of any timeless civilizational hierarchy. 本章将首先回顾相关文献，然后提出本书的分析框架，最后说明各章的安排。", indent=False)
     s.para("需要说明的是，本书所依据的史料主要包括各地商会档案、银行年鉴以及当事人的回忆录，这些材料各有优劣，使用时应相互参证。")
     s.footnote("②See Kenneth Pomeranz, The Great Divergence: China, Europe, and the Making of the Modern World Economy, Princeton University Press, 2000, p. 45.")
     pages.append(s.img)
 
-    # ---- 第 4 页（PDF 4，书页 5）----
-    s = Sheet(header="第一章 导论", footer_num="5")
+    # ---- 第 4 页（PDF 4）----
+    s = Sheet(header="第一章 导论")
     s.heading("一、研究缘起", level=2)
     s.para("选择商业与金融作为观察窗口，是因为二者最能体现国家与市场之间的张力。近代中国既没有出现欧洲式的完全放任，也未曾真正建立起统制经济，制度上的模糊恰恰构成了历史研究的富矿。")
     s.para("在研究方法上，本书综合运用计量分析与个案深描，既关心总体趋势，也不忽略具体人物的选择与行动。")
     pages.append(s.img)
 
-    # ---- 第 5 页（PDF 5，书页 6）----
-    s = Sheet(header="第二章 研究方法", footer_num="6")
+    # ---- 第 5 页（PDF 5）----
+    s = Sheet(header="第二章 研究方法")
     s.heading("第二章 研究方法", level=1)
     s.para("本书以档案文献为主要依据，辅以报刊数据与口述访谈。档案方面，重点利用上海市档案馆藏商会档案全宗；报刊方面，则系统检索《申报》《大公报》等主要报纸的商业栏目。")
     s.para("数据处理遵循可复现原则：所有原始数据均标注来源页码，方便读者复核。这正是本书坚持为每一段引文注明出处页的原因。")
@@ -212,8 +205,6 @@ def main():
     doc.save(str(pdf_path))
     doc.close()
     print(f"已生成：{pdf_path}（{len(pages)} 页，图像型 PDF 无文字层）")
-    for i, p in enumerate(pages):
-        print(f"  PDF页{i+1} -> 书页 {[None,3,4,5,6][i]}")
 
 
 if __name__ == "__main__":

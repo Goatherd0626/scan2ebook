@@ -41,10 +41,9 @@ HEADING_END_PUNCT_RE = re.compile(r"[。！？!?，,；;：:、]$")
 
 @dataclass
 class PageMarker:
-    """页面边界标记，用于在 Markdown 中记录来源页。"""
+    """页面边界标记，用于在 Markdown 中记录来源 PDF 页。"""
 
     pdf_page: int
-    printed_page: Optional[str] = None
 
 
 Item = PageMarker | Paragraph
@@ -196,7 +195,7 @@ def build_stream(pages: list[Page], use_llm_headings: bool = False) -> list[Item
         if not body and not footnotes:
             continue  # 空白页
 
-        stream.append(PageMarker(page.pdf_page, page.printed_page))
+        stream.append(PageMarker(page.pdf_page))
         line_h = _median_height(body) or 0.02
         # 常规行距基准：取「行距中位数」与「行高中位数」较小者，
         # 避免书名页/版权页等大间距页面污染基准导致整页并段
@@ -237,7 +236,7 @@ def build_stream(pages: list[Page], use_llm_headings: bool = False) -> list[Item
                 and not (first_block and _is_indented(first_block, body))
             ):
                 prev_para.text = _join_texts(prev_para.text, first.text)
-                prev_para.add_page(page.pdf_page, page.printed_page)
+                prev_para.add_page(page.pdf_page)
                 page_paras = page_paras[1:]
         elif prev_para is not None and prev_para.kind == PARA_BODY and not page_paras:
             pass  # 本页只有脚注，正文段继续等待
@@ -262,7 +261,7 @@ def build_stream(pages: list[Page], use_llm_headings: bool = False) -> list[Item
         # ---- 脚注 ----
         for fg in footnote_groups:
             fp = Paragraph(text=_merge_lines(fg), kind=PARA_FOOTNOTE)
-            fp.add_page(page.pdf_page, page.printed_page)
+            fp.add_page(page.pdf_page)
             final_paras.append(fp)
 
         stream.extend(final_paras)
@@ -281,7 +280,7 @@ def build_stream(pages: list[Page], use_llm_headings: bool = False) -> list[Item
 def _paragraph_from_lines(lines: list[TextBlock], page: Page) -> Paragraph:
     text = _merge_lines(lines)
     p = Paragraph(text=text, kind=PARA_BODY)
-    p.add_page(page.pdf_page, page.printed_page)
+    p.add_page(page.pdf_page)
     return p
 
 
@@ -327,16 +326,13 @@ def to_markdown(
 
     for item in stream:
         if isinstance(item, PageMarker):
-            tag = f"PDF 第 {item.pdf_page} 页"
-            if item.printed_page:
-                tag += f"（书页 {item.printed_page}）"
-            out.append(f"\n<!-- ⏸ {tag} -->\n")
+            out.append(f"\n<!-- ⏸ PDF 第 {item.pdf_page} 页 -->\n")
         else:
             p: Paragraph = item
             if inline_pages and p.kind == PARA_BODY:
                 pages = "、".join(f"PDF第{x}页" for x in p.pdf_pages)
                 p = Paragraph(text=p.text + f" 〔{pages}〕", kind=p.kind, level=p.level,
-                              pdf_pages=p.pdf_pages, printed_pages=p.printed_pages)
+                              pdf_pages=p.pdf_pages)
             if p.kind == PARA_HEADING:
                 prefix = "#" * p.level
                 out.append(f"\n{prefix} {p.text}\n")
