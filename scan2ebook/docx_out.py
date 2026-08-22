@@ -84,6 +84,25 @@ def docx_fallback(md_path: str, docx_path: str) -> None:
     doc.save(docx_path)
 
 
+def md_to_epub(md_path: str, epub_path: str) -> bool:
+    """用 pandoc 转 EPUB；成功返回 True。"""
+    pandoc = find_pandoc()
+    if not pandoc:
+        return False
+    cmd = [
+        pandoc,
+        md_path,
+        "-o", epub_path,
+        "--toc",
+        "--metadata", "lang=zh-CN",
+    ]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        log.warning("pandoc EPUB 转换失败：%s", r.stderr[:500])
+        return False
+    return True
+
+
 def convert(md_path: str, docx_path: str) -> str:
     """入口：返回使用的转换器名称（'pandoc' / 'python-docx'）。"""
     if md_to_docx(md_path, docx_path):
