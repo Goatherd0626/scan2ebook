@@ -52,6 +52,7 @@ def docx_fallback(md_path: str, docx_path: str) -> None:
     from docx.shared import Pt
 
     doc = Document()
+    footnote_ref = re.compile(r"\[\^p\d+\]")
     with open(md_path, encoding="utf-8") as f:
         lines = f.readlines()
 
@@ -59,6 +60,9 @@ def docx_fallback(md_path: str, docx_path: str) -> None:
         line = raw.rstrip("\n").rstrip()
         if not line.strip():
             continue
+        if re.match(r"^\[\^p\d+\]:", line.strip()):
+            continue  # 页码脚注定义（兜底模式不支持脚注，直接丢弃）
+        line = footnote_ref.sub("", line)
         if line.startswith("### "):
             doc.add_heading(line[4:], level=3)
         elif line.startswith("## "):

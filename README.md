@@ -41,7 +41,8 @@ python3 -m venv .venv
 
 # 常用选项
 #   --force-ocr     PDF 自带文字层时也强制走 OCR（默认检测到文字层直接抽取）
-#   --inline-pages  每个正文段落后追加〔PDF第N页〕标记（Word 中可见）
+#   --inline-pages  每个正文段落后追加〔PDF 第N页〕可见标记（Markdown 与 Word 都显示）
+#   --no-page-notes Word 中不添加 PDF 页码脚注（默认 Word 以脚注形式标注 PDF 页码）
 #   --no-footnotes  丢弃脚注
 #   --no-docx       只生成 Markdown
 ```
@@ -51,11 +52,15 @@ python3 -m venv .venv
 | 文件 | 说明 |
 |---|---|
 | `输出目录/书名.md` | 带 PDF 页码注释的 Markdown（正文+标题+脚注） |
-| `输出目录/书名.docx` | Word 版（标题样式、目录；页码注释对 Word 隐藏） |
+| `输出目录/书名.docx` | Word 版（标题样式、目录；**每个 PDF 页第一个段落后有脚注「PDF 第 N 页」**） |
 | `输出目录/paragraphs.jsonl` | 每个段落的来源 PDF 页码索引（程序化检索用） |
 | `输出目录/meta.json` | 元数据与统计 |
 
-Markdown 中的页码标记（Word 里自动隐藏）：
+**PDF 页码在 Word 里的体现**：默认在每个 PDF 页的第一个段落后生成一个
+真正的 Word 脚注「PDF 第 N 页」（引用时看页脚即可核对出处）；不需要时可加
+`--no-page-notes` 去掉，或用 `--inline-pages` 改成行内〔PDF 第N页〕标记。
+
+Markdown 源文件中的页码注释（Word 里默认隐藏）：
 `<!-- ⏸ PDF 第 12 页 -->`
 
 ## 项目结构

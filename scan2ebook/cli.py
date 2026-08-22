@@ -37,7 +37,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     ap.add_argument("--with-llm", action="store_true",
                     help="使用 DeepSeek API 精修标题与提取元数据（需 DEEPSEEK_API_KEY）")
     ap.add_argument("--inline-pages", action="store_true",
-                    help="在每个正文段落后追加〔PDF第N页〕标记（Word 中可见）")
+                    help="每个正文段落后追加〔PDF 第N页〕可见标记（Markdown 与 Word 都显示）")
+    ap.add_argument("--no-page-notes", action="store_true",
+                    help="Word 中不添加 PDF 页码脚注（默认：Word 以脚注形式标注 PDF 页码）")
     ap.add_argument("--no-footnotes", action="store_true", help="丢弃脚注内容")
     ap.add_argument("--no-docx", action="store_true", help="只生成 Markdown，不转 Word")
     ap.add_argument("--verbose", action="store_true")
@@ -153,7 +155,7 @@ def main(argv=None) -> int:
     if args.no_footnotes:
         stream = [it for it in stream if not (isinstance(it, Paragraph) and it.kind == PARA_FOOTNOTE)]
 
-    # Markdown
+    # Markdown（页码以 HTML 注释形式记录，源文件可读）
     md_text = to_markdown(stream, metadata=metadata, inline_pages=args.inline_pages)
     md_path = out_dir / f"{stem}.md"
     md_path.write_text(md_text, encoding="utf-8")
@@ -163,11 +165,19 @@ def main(argv=None) -> int:
     book = type("Book", (), {"pages": pages, "metadata": metadata, "source_path": src.name})()
     side = _save_sidecars(out_dir, book, stream)
 
-    # Word
+    # Word（默认以「脚注」形式体现 PDF 页码；--inline-pages 则用行内标记）
     if not args.no_docx:
         docx_path = out_dir / f"{stem}.docx"
-        engine = convert_to_docx(str(md_path), str(docx_path))
-        log.info("Word 已生成（%s）：%s", engine, docx_path)
+        if args.inline_pages or args.no_page_notes:
+            docx_md = md_text
+        else:
+            docx_md = to_markdown(stream, metadata=metadata, page_markers="footnote")
+        tmp = out_dir / "_docx_source.md"
+        tmp.write_text(docx_md, encoding="utf-8")
+        engine = convert_to_docx(str(tmp), str(docx_path))
+        tmp.unlink(missing_ok=True)
+        log.info("Word 已生成（%s，页码%s）：%s",
+                 engine, "脚注标注" if not (args.inline_pages or args.no_page_notes) else "已按要求处理", docx_path)
 
     # 汇总
     headings = sum(1 for it in stream if isinstance(it, Paragraph) and it.kind == PARA_HEADING)
