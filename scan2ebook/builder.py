@@ -313,12 +313,14 @@ def to_markdown(
     stream: list[Item],
     metadata: Optional[dict] = None,
     inline_pages: bool = False,
-    page_markers: str = "comment",  # comment | footnote
+    page_markers: str = "comment",  # comment | banner | footnote
 ) -> str:
     """生成 Markdown。
 
     - page_markers="comment"：页码以 HTML 注释 `<!-- ⏸ PDF 第 N 页 -->` 记录
-      （Markdown 源文件可读；pandoc 转 Word 时自动丢弃）。
+      （Markdown 源文件可读；pandoc 转 Word/EPUB 时自动丢弃）。
+    - page_markers="banner"：页码渲染为高亮横幅 `==PDF 第 N 页==`，
+      每个 PDF 页内容之前一行（Word 里为黄底高亮，EPUB 里为 <mark>），非常显眼。
     - page_markers="footnote"：页码转为真正的 Markdown 脚注 `[^pN]`，
       挂在每个 PDF 页第一个段落后，pandoc 会转成 Word 页脚注。
     - inline_pages=True：每个正文段落后追加〔PDF 第 N 页〕可见标记。
@@ -359,7 +361,9 @@ def to_markdown(
         if isinstance(item, PageMarker):
             if page_markers == "comment":
                 out.append(f"\n<!-- ⏸ PDF 第 {item.pdf_page} 页 -->\n")
-            else:
+            elif page_markers == "banner":
+                out.append(f"\n==PDF 第 {item.pdf_page} 页==\n")
+            else:  # footnote
                 pending_page = item.pdf_page
             continue
         emit(item)

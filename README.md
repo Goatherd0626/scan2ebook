@@ -41,8 +41,10 @@ python3 -m venv .venv
 
 # 常用选项
 #   --force-ocr     PDF 自带文字层时也强制走 OCR（默认检测到文字层直接抽取）
-#   --inline-pages  每个正文段落后追加〔PDF 第N页〕可见标记（Markdown 与 Word 都显示）
-#   --no-page-notes Word 中不添加 PDF 页码脚注（默认 Word 以脚注形式标注 PDF 页码）
+#   --page-marks    页码呈现方式：banner=页面高亮横幅（默认）/ inline=每段后行内标记
+#                   / footnote=页脚注 / none=不显示
+#   --inline-pages  等价于 --page-marks inline（旧参数）
+#   --no-page-notes 等价于 --page-marks none（旧参数）
 #   --no-footnotes  丢弃脚注
 #   --no-docx       只生成 Markdown，不转 Word
 #   --no-epub       不生成 EPUB
@@ -58,10 +60,10 @@ python3 -m venv .venv
 | `输出目录/paragraphs.jsonl` | 每个段落的来源 PDF 页码索引（程序化检索用） |
 | `输出目录/meta.json` | 元数据与统计 |
 
-**PDF 页码在 Word 里的体现**：默认在每个 PDF 页的第一个段落后生成一个
-真正的 Word 脚注「PDF 第 N 页」（引用时看页脚即可核对出处）；不需要时可加
-`--no-page-notes` 去掉，或用 `--inline-pages` 改成行内〔PDF 第N页〕标记。
-EPUB 中页码转为章末注释，阅读器点按即可查看。
+**PDF 页码的呈现（默认高亮横幅，很显眼）**：每个 PDF 页的内容之前都有一条
+黄色高亮的「PDF 第 N 页」横幅（Word 黄底高亮；EPUB 为 `<mark>` 标记），
+阅读时随时知道当前在第几页。其他方式：`--page-marks inline`（每段后
+〔PDF 第N页〕）、`--page-marks footnote`（页脚注）、`--page-marks none`（不显示）。
 
 Markdown 源文件中的页码注释（Word 里默认隐藏）：
 `<!-- ⏸ PDF 第 12 页 -->`

@@ -36,10 +36,13 @@ def parse_args(argv=None) -> argparse.Namespace:
                     help="即使 PDF 自带文字层也强制走 OCR")
     ap.add_argument("--with-llm", action="store_true",
                     help="使用 DeepSeek API 精修标题与提取元数据（需 DEEPSEEK_API_KEY）")
+    ap.add_argument("--page-marks", choices=["banner", "inline", "footnote", "none"],
+                    help="Word/EPUB 中页码的呈现方式：banner=页面横幅高亮（默认）"
+                         "，inline=每段后行内标记，footnote=页脚注，none=不显示")
     ap.add_argument("--inline-pages", action="store_true",
-                    help="每个正文段落后追加〔PDF 第N页〕可见标记（Markdown 与 Word 都显示）")
+                    help="等价于 --page-marks inline（每个正文段落后〔PDF 第N页〕）")
     ap.add_argument("--no-page-notes", action="store_true",
-                    help="Word 中不添加 PDF 页码脚注（默认：Word 以脚注形式标注 PDF 页码）")
+                    help="等价于 --page-marks none（Word/EPUB 中不显示页码）")
     ap.add_argument("--no-footnotes", action="store_true", help="丢弃脚注内容")
     ap.add_argument("--no-docx", action="store_true", help="只生成 Markdown，不转 Word")
     ap.add_argument("--no-epub", action="store_true", help="不生成 EPUB")
@@ -156,12 +159,23 @@ def main(argv=None) -> int:
     if args.no_footnotes:
         stream = [it for it in stream if not (isinstance(it, Paragraph) and it.kind == PARA_FOOTNOTE)]
 
+    # 页码呈现方式：--page-marks 优先，其次兼容旧参数
+    if args.page_marks is not None:
+        marks_style = args.page_marks
+    elif args.inline_pages:
+        marks_style = "inline"
+    elif args.no_page_notes:
+        marks_style = "none"
+    else:
+        marks_style = "banner"
+
     # 元数据（无 LLM 时至少给个标题，方便 EPUB/Word 元数据）
     meta = dict(metadata) if metadata else {}
     meta.setdefault("title", stem)
 
     # Markdown（页码以 HTML 注释形式记录，源文件可读）
-    md_text = to_markdown(stream, metadata=meta, inline_pages=args.inline_pages)
+    md_text = to_markdown(stream, metadata=meta,
+                          inline_pages=(marks_style == "inline"))
     md_path = out_dir / f"{stem}.md"
     md_path.write_text(md_text, encoding="utf-8")
     log.info("Markdown 已生成：%s", md_path)
@@ -170,21 +184,23 @@ def main(argv=None) -> int:
     book = type("Book", (), {"pages": pages, "metadata": metadata, "source_path": src.name})()
     side = _save_sidecars(out_dir, book, stream)
 
-    # Word / EPUB（默认以「脚注」形式体现 PDF 页码；--inline-pages 则用行内标记）
+    # Word / EPUB（页码呈现方式由 marks_style 决定）
     if not args.no_docx or not args.no_epub:
-        marker = "comment" if (args.inline_pages or args.no_page_notes) else "footnote"
-        out_md = to_markdown(stream, metadata=meta, inline_pages=args.inline_pages,
-                             page_markers=marker)
+        marker_map = {"banner": "banner", "inline": "comment",
+                      "footnote": "footnote", "none": "comment"}
+        out_md = to_markdown(stream, metadata=meta,
+                             inline_pages=(marks_style == "inline"),
+                             page_markers=marker_map[marks_style])
         tmp = out_dir / "_conversion_source.md"
         tmp.write_text(out_md, encoding="utf-8")
         if not args.no_docx:
             docx_path = out_dir / f"{stem}.docx"
             engine = convert_to_docx(str(tmp), str(docx_path))
-            log.info("Word 已生成（%s）：%s", engine, docx_path)
+            log.info("Word 已生成（%s，页码:%s）：%s", engine, marks_style, docx_path)
         if not args.no_epub:
             epub_path = out_dir / f"{stem}.epub"
             if md_to_epub(str(tmp), str(epub_path)):
-                log.info("EPUB 已生成：%s", epub_path)
+                log.info("EPUB 已生成（页码:%s）：%s", marks_style, epub_path)
             else:
                 log.warning("EPUB 生成失败或缺少 pandoc，已跳过")
         tmp.unlink(missing_ok=True)

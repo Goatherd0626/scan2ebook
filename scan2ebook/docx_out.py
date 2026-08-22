@@ -36,7 +36,7 @@ def md_to_docx(md_path: str, docx_path: str) -> bool:
         pandoc,
         md_path,
         "-o", docx_path,
-        "--from", "markdown+yaml_metadata_block+footnotes+smart",
+        "--from", "markdown+yaml_metadata_block+footnotes+smart+mark",
         "--toc",
     ]
     r = subprocess.run(cmd, capture_output=True, text=True)
@@ -93,6 +93,7 @@ def md_to_epub(md_path: str, epub_path: str) -> bool:
         pandoc,
         md_path,
         "-o", epub_path,
+        "--from", "markdown+yaml_metadata_block+footnotes+smart+mark",
         "--toc",
         "--metadata", "lang=zh-CN",
     ]
