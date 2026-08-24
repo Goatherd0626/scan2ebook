@@ -90,3 +90,21 @@ console.log('详情面板显示:', dp && !dp.hidden);
 console.log('详情含作者/出版社:', dp?.textContent.includes('出版社') ? '有' : '无', '| 页数:', dp?.textContent.includes('45 页') ? '有' : '无');
 console.log('选中行高亮:', document.querySelector('#home-table .ht-row.selected') ? '有' : '无');
 console.log('=== 阶段错误 ===', errors.filter((e) => !/pdf|PDF|renderTasks|canvas/i.test(e)).join('\n') || '（无）');
+
+/* ==== 原地编辑：单击值框 → 输入 → blur 自动保存 ==== */
+const authorBox = document.querySelector('#detail-panel .dp-edit[data-key="author"]');
+authorBox?.click();
+await new Promise((r) => setTimeout(r, 100));
+const inline = document.querySelector('#detail-panel input.dp-inline');
+console.log('=== 原地编辑 ===');
+console.log('点击后出现输入框:', !!inline, '| 预填值:', inline?.value);
+if (inline) {
+  inline.value = '测试作者·王五';
+  inline.dispatchEvent(new window.Event('blur'));
+  await new Promise((r) => setTimeout(r, 400));
+}
+const book2 = state.books.find((b) => b.id === 'test-book');
+console.log('blur 后已保存:', book2.meta.author === '测试作者·王五' ? '是' : '否 (' + book2.meta.author + ')');
+const dp2 = document.getElementById('detail-panel');
+console.log('面板回显新作者:', dp2.textContent.includes('测试作者·王五') ? '是' : '否');
+console.log('=== 阶段错误 ===', errors.filter((e) => !/pdf|PDF|renderTasks|canvas/i.test(e)).join('\n') || '（无）');

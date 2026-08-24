@@ -709,87 +709,87 @@ function renderDetail() {
   panel.innerHTML = `
     <div class="dp-head">
       <span class="dp-title">详细信息</span>
-      <button class="mini" id="dp-close" title="关闭">✕</button>
     </div>
     <div class="dp-body">
       <div class="dp-cover c${ci}">${escapeHtml((book.meta.title || book.s2eName || '书').slice(0, 1))}</div>
-      <h3 class="dp-book">${escapeHtml(book.meta.title || book.s2eName || '未命名')}</h3>
-      ${dpRow('作者', book.meta.author)}
-      ${dpRow('出版社', book.meta.publisher)}
-      ${dpRow('版次', book.meta.edition)}
-      ${dpRow('ISBN', book.meta.isbn)}
-      ${dpRow('页数', book.bookJson.pages ? book.bookJson.pages.length + ' 页' : '—')}
-      ${dpRow('文件夹', folder ? folder.name : '（书库根目录）')}
-      ${dpRow('导入时间', fmt(book.importedAt))}
-      ${book.progress && book.progress.page ? dpRow('上次阅读', 'PDF 第 ' + book.progress.page + ' 页') : ''}
-    </div>
-    <div class="dp-actions">
-      <button class="mini primary" id="dp-edit">✎ 编辑</button>
-      <button class="mini danger" id="dp-delete">删除</button>
+      <h3 class="dp-book dp-edit-title" data-key="title" title="单击修改书名">${escapeHtml(book.meta.title || book.s2eName || '未命名')}</h3>
+      ${dpField('作者', 'author', book.meta.author)}
+      ${dpField('出版社', 'publisher', book.meta.publisher)}
+      ${dpField('版次', 'edition', book.meta.edition)}
+      ${dpField('ISBN', 'isbn', book.meta.isbn)}
+      <div class="dp-row"><span class="dp-label">文件夹</span><span class="dp-value" data-key="folder" data-editable="select">${escapeHtml(folder ? folder.name : '（书库根目录）')}</span></div>
+      ${dpField('页数', null, book.bookJson.pages ? book.bookJson.pages.length + ' 页' : '—', false)}
+      ${dpField('导入时间', null, fmt(book.importedAt), false)}
+      ${book.progress && book.progress.page ? dpField('上次阅读', null, 'PDF 第 ' + book.progress.page + ' 页', false) : ''}
     </div>`;
-  $('dp-close').addEventListener('click', () => { selectedBookId = null; renderHome(); renderDetail(); });
-  $('dp-edit').addEventListener('click', () => renderDetailEdit());
-  $('dp-delete').addEventListener('click', async () => {
-    if (!confirm('删除「' + (book.meta.title || book.s2eName) + '」？阅读器存储中的副本将被移除。')) return;
-    await db.deleteBooks(state.db, [book.id]);
-    if (state.tabs.some((t) => t.bookId === book.id)) closeTab(book.id);
-    selectedBookId = null;
-    await loadLibrary(); renderLibrary(); renderHome(); renderDetail();
-    toast('已删除');
-  });
-}
-
-function dpRow(label, value) {
-  return `<div class="dp-row"><span class="dp-label">${label}</span><span class="dp-value">${escapeHtml(value || '—')}</span></div>`;
+  bindInlineEdit(book);
 }
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function renderDetailEdit() {
+function dpField(label, key, value, editable = true) {
+  const cls = editable ? ' dp-edit' : '';
+  const data = editable ? ` data-key="${key}" data-editable="input"` : '';
+  return `<div class="dp-row"><span class="dp-label">${label}</span><span class="dp-value${cls}"${data}>${escapeHtml(value || '—')}</span></div>`;
+}
+
+/* 原地编辑：单击值框 → 变输入框/下拉；点别处（blur）自动保存，无需确认 */
+function bindInlineEdit(book) {
   const panel = $('detail-panel');
-  const book = state.books.find((b) => b.id === selectedBookId);
-  if (!panel || !book) return;
-  const folderOpts = '<option value="">（书库根目录）</option>'
-    + state.folders.map((f) => `<option value="${f.id}" ${f.id === book.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
-  panel.innerHTML = `
-    <div class="dp-head">
-      <span class="dp-title">编辑信息</span>
-      <button class="mini" id="dp-cancel" title="取消">✕</button>
-    </div>
-    <div class="dp-body">
-      ${dpEdit('书名', 'mf-title', book.meta.title || '')}
-      ${dpEdit('作者', 'mf-author', book.meta.author || '')}
-      ${dpEdit('出版社', 'mf-publisher', book.meta.publisher || '')}
-      ${dpEdit('版次', 'mf-edition', book.meta.edition || '')}
-      ${dpEdit('ISBN', 'mf-isbn', book.meta.isbn || '')}
-      <div class="dp-row"><span class="dp-label">文件夹</span><span class="dp-value"><select id="mf-folder" class="dp-input">${folderOpts}</select></span></div>
-    </div>
-    <div class="dp-actions">
-      <button class="mini" id="dp-cancel2">取消</button>
-      <button class="mini primary" id="dp-save">保存</button>
-    </div>`;
-  const close = () => renderDetail();
-  $('dp-cancel').addEventListener('click', close);
-  $('dp-cancel2').addEventListener('click', close);
-  $('dp-save').addEventListener('click', async () => {
-    book.meta.title = $('mf-title').value.trim() || book.s2eName || '未命名';
-    book.meta.author = $('mf-author').value.trim();
-    book.meta.publisher = $('mf-publisher').value.trim();
-    book.meta.edition = $('mf-edition').value.trim();
-    book.meta.isbn = $('mf-isbn').value.trim();
-    book.folderId = $('mf-folder').value || null;
-    await db.updateBook(state.db, book);
-    await loadLibrary(); renderLibrary(); renderHome();
-    refreshTabTitles();
-    renderDetail();
-    toast('已保存书籍信息');
+  panel.querySelectorAll('[data-editable], .dp-edit-title').forEach((box) => {
+    box.addEventListener('click', (e) => {
+      if (e.target.closest('input, select')) return;
+      if (panel.querySelector('input.dp-inline, select.dp-inline')) return; // 已有编辑进行中
+      const key = box.dataset.key;
+      const isTitle = box.classList.contains('dp-edit-title');
+      const isFolder = key === 'folder';
+      const current = isTitle ? (book.meta.title || '') : (isFolder ? (book.folderId || '') : (book.meta[key] || ''));
+      box.classList.add('editing');
+      box.textContent = '';
+      if (isFolder) {
+        const sel = document.createElement('select');
+        sel.className = 'dp-inline';
+        sel.innerHTML = '<option value="">（书库根目录）</option>'
+          + state.folders.map((f) => `<option value="${f.id}" ${f.id === book.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
+        box.appendChild(sel);
+        sel.addEventListener('change', async () => {
+          book.folderId = sel.value || null;
+          await ctxDbSave(book);
+        });
+      } else {
+        const input = document.createElement('input');
+        input.className = 'dp-inline';
+        input.value = current;
+        box.appendChild(input);
+        input.focus();
+        input.select();
+        const done = (save) => async () => {
+          if (input.dataset.done) return;
+          input.dataset.done = '1';
+          const v = input.value.trim();
+          if (save && v !== (current || '')) {
+            if (isTitle) book.meta.title = v || book.s2eName || '未命名';
+            else book.meta[key] = v;
+            await ctxDbSave(book);
+          } else {
+            renderDetail();
+          }
+        };
+        input.addEventListener('blur', done(true));
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') done(false)(); });
+      }
+    });
   });
 }
 
-function dpEdit(label, id, value) {
-  return `<div class="dp-row"><span class="dp-label">${label}</span><span class="dp-value"><input id="${id}" class="dp-input" value="${escapeHtml(value || '')}"></span></div>`;
+async function ctxDbSave(book) {
+  await db.updateBook(state.db, book);
+  await loadLibrary(); renderLibrary(); renderHome();
+  refreshTabTitles();
+  renderDetail();
+  toast('已保存');
 }
 /* ============================ 工具 ============================ */
 export function toast(msg) {
