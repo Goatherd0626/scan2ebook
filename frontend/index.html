@@ -15,12 +15,18 @@
   <div id="topbar-right">
     <div class="tb-group" id="view-mode-group">
       <div id="view-modes" class="seg" role="tablist">
-        <button data-mode="split" class="active" title="双栏视图">⬛ 双栏</button>
-        <button data-mode="pdf" title="仅 PDF">▤ PDF</button>
-        <button data-mode="text" title="仅文字">▥ 文字</button>
+        <button data-mode="split" class="active" title="双栏视图" aria-label="双栏视图">
+          <img class="vm-pdf" src="src/assets/icons/pdf.svg" alt="">
+          <span class="vm-bar"></span>
+          <span class="sf i-t"></span>
+        </button>
+        <button data-mode="pdf" title="仅 PDF 视图" aria-label="仅 PDF 视图">
+          <img class="vm-pdf" src="src/assets/icons/pdf.svg" alt="">
+        </button>
+        <button data-mode="text" title="仅文字视图" aria-label="仅文字视图">
+          <span class="sf i-t"></span>
+        </button>
       </div>
-      <button id="btn-spread" class="icon-btn" title="PDF 双页摊开">📖</button>
-      <button id="btn-sync" class="icon-btn" title="同步滚动">⇅</button>
     </div>
     <div class="tb-group" id="plugin-toolbar"></div>
     <div class="tb-group">
@@ -40,14 +46,14 @@
       <div class="panel-head">
         <span class="panel-title">书库</span>
         <span class="panel-actions">
-          <button id="btn-import-lib" class="mini" title="导入电子书" aria-label="导入电子书">
+          <button id="btn-import-lib" class="mini act" title="导入电子书" aria-label="导入电子书">
             <span class="sf i-upload"></span>
           </button>
-          <button id="btn-new-folder" class="mini" title="新建文件夹" aria-label="新建文件夹">
-            <span class="sf i-folder"></span>
-          </button>
-          <button id="btn-batch" class="mini" title="多选" aria-label="多选">
+          <button id="btn-batch" class="mini act" title="多选" aria-label="多选">
             <span class="sf i-list"></span>
+          </button>
+          <button id="btn-new-folder" class="mini act" title="新建文件夹" aria-label="新建文件夹">
+            <span class="sf i-folder"></span>
           </button>
         </span>
       </div>

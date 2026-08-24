@@ -64,10 +64,19 @@ input { font-family: var(--sans); }
 .sf { display: inline-block; background: currentColor; flex: 0 0 auto;
   -webkit-mask: var(--sf) center / contain no-repeat;
   mask: var(--sf) center / contain no-repeat; }
-.i-list { --sf: url("../assets/icons/list-bullet.png"); width: 17px; height: 12px; }
-.i-folder { --sf: url("../assets/icons/folder-badge-plus.png"); width: 17px; height: 12.6px; }
-.i-upload { --sf: url("../assets/icons/square-and-arrow-up.png"); width: 14px; height: 16.5px; }
-.i-gear { --sf: url("../assets/icons/gearshape.png"); width: 18px; height: 17.4px; }
+.i-list { --sf: url("./assets/icons/list-bullet.png"); }
+.i-folder { --sf: url("./assets/icons/folder-badge-plus.png"); }
+.i-upload { --sf: url("./assets/icons/square-and-arrow-up.png"); }
+.i-gear { --sf: url("./assets/icons/gearshape.png"); }
+.i-t { --sf: url("./assets/icons/t-square.png"); }
+/* 统一 icon 盒：mask contain 自适应，按钮内图标一致大小 */
+.sf { width: 19px; height: 19px; }
+/* 书库操作按钮：统一正方形加大 */
+.mini.act {
+  width: 30px; height: 30px; padding: 0;
+  border-radius: var(--r-sm);
+}
+.mini.act .sf { width: 18px; height: 18px; }
 
 /* ================= 顶栏 ================= */
 #topbar {
@@ -342,8 +351,15 @@ body.batch-mode .ht-check { display: inline-block; }
 
 .pdf-panel {
   flex: 1 1 50%; overflow: auto; background: var(--pdf-bg);
-  padding: 22px 16px; scrollbar-width: thin;
+  padding: 22px 16px; scrollbar-width: thin; position: relative;
 }
+.pdf-tools {
+  position: sticky; top: 0; z-index: 5; display: none;
+  justify-content: flex-end; gap: 6px; padding: 2px 2px 8px; margin: -16px -12px 0;
+}
+body[data-mode="pdf"] .pdf-tools { display: flex; }
+.pdf-tools .jump { width: 28px; height: 28px; font-size: 13px; }
+.jump.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .text-panel { flex: 1 1 50%; overflow: auto; background: var(--paper); }
 .divider {
   flex: 0 0 36px; display: flex; flex-direction: column; align-items: center;

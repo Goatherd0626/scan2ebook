@@ -286,9 +286,16 @@ function createBookView(book) {
   wv.className = 'book-view';
   wv.dataset.book = book.id;
   wv.innerHTML = `
-    <div class="pdf-panel"><div class="pdf-holder"></div></div>
+    <div class="pdf-panel">
+      <div class="pdf-tools">
+        <button class="jump sync-btn" data-act="sync" title="同步滚动（双栏视图内也可用）">⇅</button>
+        <button class="jump spread-btn" data-act="spread" title="PDF 双页摊开（仅 PDF 视图）">⿻</button>
+      </div>
+      <div class="pdf-holder"></div>
+    </div>
     <div class="divider">
       <button class="jump" data-dir="text" title="PDF → 文字">←文字</button>
+      <button class="jump sync-btn" data-act="sync" title="同步滚动">⇅</button>
       <button class="jump" data-dir="pdf" title="文字 → PDF">PDF→</button>
     </div>
     <div class="text-panel"><div class="text-content"></div></div>`;
@@ -313,6 +320,19 @@ function createBookView(book) {
   pdfPromise.then((doc) => pdfView.load(doc));
 
   const view = { bookId: book.id, wv, pdfView, textView, model, pdfPromise };
+  wv.querySelectorAll('[data-act="spread"]').forEach((b) => b.addEventListener('click', () => {
+    const on = !b.classList.contains('active');
+    wv.querySelectorAll('[data-act="spread"]').forEach((x) => x.classList.toggle('active', on));
+    pdfView.setSpread(on);
+  }));
+  wv.querySelectorAll('[data-act="sync"]').forEach((b) => {
+    b.classList.toggle('active', state.syncScroll);
+    b.addEventListener('click', () => {
+      state.syncScroll = !state.syncScroll;
+      document.querySelectorAll('.sync-btn').forEach((x) => x.classList.toggle('active', state.syncScroll));
+      toast(state.syncScroll ? '已开启同步滚动' : '已关闭同步滚动');
+    });
+  });
   let lock = false;
   pdfView.onPageChange = (n) => {
     if (state.syncScroll && !lock) { lock = true; textView.scrollToPage(n); setTimeout(() => { lock = false; }, 150); }
@@ -494,17 +514,6 @@ function bindTopbar() {
     document.body.dataset.mode = b.dataset.mode;
     $('view-modes').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
     bus.emit('view:mode', b.dataset.mode);
-  });
-  $('btn-sync').addEventListener('click', () => {
-    state.syncScroll = !state.syncScroll;
-    $('btn-sync').classList.toggle('active', state.syncScroll);
-    toast(state.syncScroll ? '已开启同步滚动' : '已关闭同步滚动');
-  });
-  $('btn-spread').addEventListener('click', () => {
-    const view = activeView();
-    if (!view) return;
-    $('btn-spread').classList.toggle('active');
-    view.pdfView.setSpread($('btn-spread').classList.contains('active'));
   });
   $('btn-import').addEventListener('click', () => $('import-input').click());
   $('btn-import-lib').addEventListener('click', () => $('import-input').click());
