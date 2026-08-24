@@ -56,6 +56,7 @@ export async function init() {
   renderToolbarWidgets();
 
   createHomeView();              // 首页（Zotero 式书库管理）
+  enableCustomTooltips();        // title → 样式化悬浮提示
   const q = new URLSearchParams(location.search).get('book');
   if (q) openBook(q);
   else switchHome();
@@ -320,6 +321,7 @@ function createBookView(book) {
   pdfPromise.then((doc) => pdfView.load(doc));
 
   const view = { bookId: book.id, wv, pdfView, textView, model, pdfPromise };
+  enableCustomTooltips(wv);
   wv.querySelectorAll('[data-act="spread"]').forEach((b) => b.addEventListener('click', () => {
     const on = !b.classList.contains('active');
     wv.querySelectorAll('[data-act="spread"]').forEach((x) => x.classList.toggle('active', on));
@@ -810,6 +812,12 @@ async function ctxDbSave(book) {
   toast('已保存');
 }
 /* ============================ 工具 ============================ */
+export function enableCustomTooltips(root = document) {
+  root.querySelectorAll('[title]').forEach((el) => {
+    el.dataset.tip = el.title;
+    el.removeAttribute('title');
+  });
+}
 export function toast(msg) {
   const t = $('toast');
   t.textContent = msg;

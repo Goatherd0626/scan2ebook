@@ -78,6 +78,28 @@ input { font-family: var(--sans); }
 }
 .mini.act .sf { width: 18px; height: 18px; }
 
+/* ================= 自定义悬浮提示（替换浏览器原生 title） ================= */
+[data-tip] { position: relative; }
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; top: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+  padding: 5px 11px; border-radius: 8px;
+  background: rgba(35, 33, 28, .85);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  color: #f3eee1; font-size: 12px; line-height: 1.5; font-family: var(--sans);
+  white-space: nowrap; pointer-events: none; z-index: 2100;
+  opacity: 0; transition: opacity .15s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .22);
+}
+[data-tip]::before {
+  content: ""; position: absolute; top: calc(100% + 6px); left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 6px; height: 6px; border-radius: 1.5px;
+  background: rgba(35, 33, 28, .85); pointer-events: none; z-index: 2100;
+  opacity: 0; transition: opacity .15s ease;
+}
+[data-tip]:hover::after, [data-tip]:hover::before { opacity: 1; }
+
 /* ================= 顶栏 ================= */
 #topbar {
   display: flex; align-items: center; gap: 10px; height: var(--tbar-h);
