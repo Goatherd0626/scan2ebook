@@ -121,6 +121,14 @@ input { font-family: var(--sans); }
 .seg button:first-child { border-left: none; }
 .seg button:hover { background: var(--panel-2); }
 .seg button.active { background: var(--accent); color: #fff; font-weight: 600; }
+/* 视图切换：logo 化按钮（此前规则漏写，导致 pdf.svg 按 200px 原始尺寸渲染） */
+#view-modes button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 5px 11px;
+}
+#view-modes .vm-pdf { width: 16px !important; height: 16px !important; display: block; }
+#view-modes .vm-bar { width: 2px; height: 14px; background: currentColor; border-radius: 1px; }
+#view-modes .sf { width: 16px; height: 16px; }
 .mini {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 4px 10px; border-radius: var(--r-sm); font-size: 12px;
