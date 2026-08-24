@@ -142,27 +142,26 @@ console.log('再切仅PDF:', wv2.querySelector('.pdf-panel').classList.contains(
 console.log('====');
 
 /* ==== 首页搜索：元数据过滤 ==== */
-document.querySelectorAll('#tabs .tab')[0].click();
-await new Promise((r) => setTimeout(r, 300));
-const si = document.getElementById('search-input');
-const setSearch = (v) => { si.value = v; si.dispatchEvent(new window.Event('input', { bubbles: true })); };
-await new Promise((r) => setTimeout(r, 100));
-const drop = document.getElementById('search-drop');
-const countRows = () => [...document.querySelectorAll('#home-table .ht-row')].filter((r) => r.style.display !== 'none').length;
-const countItems = () => drop.querySelectorAll('.sr-item').length;
-console.log('=== 搜索场景与弹窗 ===');
-console.log('首页占位提示:', document.getElementById('search-input').placeholder);
-setSearch('中国城市出版社');
+/* ==== 搜索：VS Code 查找条 ==== */
+const setFind = (v) => { const i = document.getElementById('find-input'); i.value = v; i.dispatchEvent(new window.Event('input', { bubbles: true })); };
+const countRowsFn = () => [...document.querySelectorAll('#home-table .ht-row')].filter((r) => r.style.display !== 'none').length;
+setFind('中国城市出版社');
 await new Promise((r) => setTimeout(r, 150));
-console.log('搜「中国城市出版社」: 表格命中', countRows(), '本 | 弹窗条目', countItems(), '| 无结果提示:', !!drop.querySelector('.sr-empty'));
-setSearch('不存在关键字xyz');
+console.log('=== 查找条 ===');
+console.log('查找条可见:', !document.getElementById('findbar').hidden, '| 计数:', document.getElementById('find-count').textContent);
+console.log('首页命中表格行:', countRowsFn(), '本');
+setFind('不存在关键字xyz');
 await new Promise((r) => setTimeout(r, 150));
-console.log('搜不存在词: 表格命中', countRows(), '本 | 弹窗显示「无结果」:', !!drop.querySelector('.sr-empty'));
-setSearch('');
+console.log('无结果计数:', document.getElementById('find-count').textContent);
+setFind('');
 await new Promise((r) => setTimeout(r, 150));
-console.log('清空后: 表格显示', countRows(), '本 | 弹窗关闭:', drop.hidden);
-// 打开书看看占位提示切换
+console.log('清空后表格:', countRowsFn(), '本');
 document.querySelectorAll('#tabs .tab')[1].click();
-await new Promise((r) => setTimeout(r, 250));
-console.log('开书后占位提示:', document.getElementById('search-input').placeholder);
+await new Promise((r) => setTimeout(r, 300));
+setFind('马克思');
+await new Promise((r) => setTimeout(r, 200));
+console.log('开书搜索「马克思」: 计数', document.getElementById('find-count').textContent, '| 高亮数', document.querySelectorAll('mark.hit').length);
+document.getElementById('find-input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+await new Promise((r) => setTimeout(r, 150));
+console.log('Enter 后计数:', document.getElementById('find-count').textContent, '| 当前高亮:', document.querySelectorAll('mark.hit.current').length);
 console.log('====');

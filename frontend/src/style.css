@@ -584,6 +584,30 @@ body.dark .sw { background: rgba(120, 120, 128, .45); }
 #ctxbar button:hover { background: rgba(255, 255, 255, .18); }
 
 /* 提示 */
+#search-drop {
+  position: fixed; z-index: 860; width: 300px; max-height: 320px; overflow: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+  box-shadow: var(--shadow-float); font-family: var(--sans); font-size: 13px;
+  padding: 6px; animation: fadeUp .14s ease;
+}
+#search-drop .sr-head {
+  padding: 5px 9px; font-size: 11px; color: var(--ink-3); letter-spacing: 1px;
+  border-bottom: 1px solid var(--line-soft); position: sticky; top: 0; background: var(--surface);
+}
+#search-drop .sr-empty { padding: 16px; text-align: center; color: var(--ink-3); }
+.sr-item {
+  display: flex; gap: 8px; align-items: flex-start; padding: 6px 9px;
+  border-radius: var(--r-sm); cursor: pointer;
+}
+.sr-item:hover { background: var(--panel-2); }
+.sr-item.current { background: var(--accent); color: #fff; }
+.sr-item.current .sr-sub, .sr-item.current .sr-idx { color: rgba(255,255,255,.85); }
+.sr-idx { flex: 0 0 16px; color: var(--ink-3); font-size: 11px; text-align: center; padding-top: 1px; }
+.sr-snippet { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-sub { display: block; color: var(--ink-3); font-size: 12px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; }
+.sr-sub mark { background: var(--mark); color: inherit; }
+
 #toast {
   position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 1100;
   background: var(--ink); color: var(--paper); padding: 9px 22px; border-radius: 999px;
