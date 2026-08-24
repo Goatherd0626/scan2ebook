@@ -13,10 +13,14 @@ from __future__ import annotations
 import json
 import re
 
+from .toc import build_book_toc
+
 # 正文脚注引用标记：⟦g12⟧（全局脚注序号）
 MARKER_RE = re.compile(r"⟦(\d+)⟧")
 # 句子结束标点（跨页续段用）
 SENTENCE_END_RE = re.compile(r"[。！？!?…\.\"”’』」）\)]$")
+# 阅读器不渲染的页面类型（封面/版权/空白/目录页）
+HIDE_KINDS = {"cover", "copyright", "blank", "toc"}
 
 
 def _renumber_footnotes(pages: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -50,8 +54,9 @@ def _renumber_footnotes(pages: list[dict]) -> tuple[list[dict], list[dict]]:
 
 
 def build_reader_data(pages: list[dict], metadata: dict) -> dict:
-    """组装网页阅读器数据（含全局脚注与跨页续段合并标记）。"""
+    """组装网页阅读器数据（含全局脚注、书级目录与跨页续段标记）。"""
     pages, footnotes = _renumber_footnotes(pages)
+    toc = build_book_toc(pages)
 
     # 跨页续段：仅用于显示提示，不真正合并文本
     for i in range(1, len(pages)):
@@ -65,7 +70,7 @@ def build_reader_data(pages: list[dict], metadata: dict) -> dict:
                     and len(first["text"]) >= 6):
                 first["_continued"] = True
 
-    return {"pages": pages, "footnotes": footnotes, "metadata": metadata}
+    return {"pages": pages, "footnotes": footnotes, "metadata": metadata, "toc": toc}
 
 
 # ---------------------------------------------------------------------------
@@ -161,8 +166,28 @@ const tocEl = document.getElementById('toc');
 const popover = document.getElementById('popover');
 const copybar = document.getElementById('copybar');
 
-/* ---------- 目录 ---------- */
+/* ---------- 目录（优先用书级 TOC，回退到正文标题） ---------- */
 function renderTOC() {
+  const toc = BOOK.toc && BOOK.toc.length ? BOOK.toc : null;
+  if (toc) {
+    for (const e of toc) {
+      const a = document.createElement('a');
+      a.className = 'toc-item l' + (e.level || 2);
+      a.textContent = (e.number ? e.number + ' ' : '') + e.text;
+      if (e.pdf_page) {
+        a.href = '#p' + e.pdf_page;
+        a.addEventListener('click', () => { document.getElementById('p' + e.pdf_page).scrollIntoView({behavior:'smooth'}); });
+        const sp = document.createElement('span');
+        sp.className = 'toc-page'; sp.textContent = 'P' + e.pdf_page;
+        a.appendChild(sp);
+      } else {
+        a.style.opacity = '0.5'; a.style.cursor = 'default';
+        a.title = '未匹配到正文标题';
+      }
+      tocEl.appendChild(a);
+    }
+    return;
+  }
   for (const pg of BOOK.pages) for (const it of pg.items) {
     if (it.type !== 'heading') continue;
     const a = document.createElement('a');
@@ -178,6 +203,7 @@ function renderTOC() {
 }
 
 /* ---------- 正文 ---------- */
+const HIDE_KINDS = new Set(['cover', 'copyright', 'blank', 'toc']);
 function renderPages() {
   const meta = BOOK.metadata || {};
   const h1 = document.createElement('h1');
@@ -189,6 +215,8 @@ function renderPages() {
   reader.appendChild(mdiv);
 
   for (const pg of BOOK.pages) {
+    if (HIDE_KINDS.has(pg.page_kind)) continue;  // 封面/版权/空白/目录页不渲染
+    if (!pg.items || pg.items.length === 0) continue;  // 空页（含分册页夹页）不渲染
     const anchor = document.createElement('div');
     anchor.id = 'p' + pg.pdf_page;
     reader.appendChild(anchor);

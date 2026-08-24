@@ -310,6 +310,23 @@ def _gap_after(b: Optional[TextBlock], body: list[TextBlock]) -> float:
 # Markdown 输出
 # ---------------------------------------------------------------------------
 
+def _yaml_value(v) -> str:
+    """YAML 字符串值安全引号（避免冒号/引号等破坏 frontmatter）。"""
+    s = str(v)
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _emit_frontmatter(metadata: Optional[dict]) -> list[str]:
+    out = ["---"]
+    for k in ("title", "author", "publisher", "edition", "isbn"):
+        v = metadata.get(k) if metadata else None
+        if v:
+            out.append(f"{k}: {_yaml_value(v)}")
+    out.append("---")
+    out.append("")
+    return out
+
+
 def to_markdown(
     stream: list[Item],
     metadata: Optional[dict] = None,
@@ -328,13 +345,7 @@ def to_markdown(
     """
     out: list[str] = []
     if metadata:
-        out.append("---")
-        for k in ("title", "author", "publisher", "edition", "isbn"):
-            v = metadata.get(k)
-            if v:
-                out.append(f"{k}: {v}")
-        out.append("---")
-        out.append("")
+        out.extend(_emit_frontmatter(metadata))
 
     footnote_defs: list[str] = []
     pending_page: Optional[int] = None
@@ -403,15 +414,11 @@ def items_to_markdown(pages: list[dict], metadata: Optional[dict] = None) -> str
     # 2) 渲染
     out: list[str] = []
     if metadata:
-        out.append("---")
-        for k in ("title", "author", "publisher", "edition", "isbn"):
-            v = metadata.get(k)
-            if v:
-                out.append(f"{k}: {v}")
-        out.append("---")
-        out.append("")
+        out.extend(_emit_frontmatter(metadata))
 
     for pg in pages:
+        if pg.get("page_kind") in ("cover", "copyright", "blank", "toc"):
+            continue  # 封面/版权/空白/目录页不进正文
         n = pg["pdf_page"]
         out.append(f"\n<!-- ⏸ PDF 第 {n} 页 -->\n")
         for it in pg["items"]:

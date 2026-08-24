@@ -18,6 +18,7 @@ from .llm import DeepSeekClient
 from .ocr_engine import ocr_image
 from .page_model import PARA_BODY, PARA_FOOTNOTE, PARA_HEADING, Page, Paragraph, TextBlock
 from .pdf_utils import extract_text_layer, has_text_layer, open_pdf, render_page
+from .toc import build_book_toc
 from .vision import VisionStructure
 from .web_reader import build_reader_html
 
@@ -250,7 +251,12 @@ def _run_vision(args, src: Path, out_dir: Path, stem: str, pages, imgs, vs: Visi
     for p in pages:
         lines = sorted(p.blocks, key=lambda b: (b.cy, b.x0))
         ocr_texts.append("\n".join(b.clean() for b in lines if b.clean()))
-    structured = vs.structure_book(imgs, ocr_texts)
+    # 规则预筛：OCR 文字极少（<3 字）的页按空白页跳过，不调用视觉模型。
+    # 注意阈值不能太高：分册页/扉页常只有几个字（如「第一稿」），应送视觉模型分类。
+    blank_indices = {i for i, t in enumerate(ocr_texts) if len(t.strip()) < 3}
+    if blank_indices:
+        log.info("规则预筛 %d 页为空白/极简页（跳过视觉模型）", len(blank_indices))
+    structured = vs.structure_book(imgs, ocr_texts, blank_indices=blank_indices)
 
     if args.no_footnotes:
         for pg in structured:
@@ -268,6 +274,7 @@ def _run_vision(args, src: Path, out_dir: Path, stem: str, pages, imgs, vs: Visi
     book_json = {
         "pdf_source": src.name,
         "book": meta,
+        "toc": build_book_toc(structured),
         "pages": structured,
     }
     book_path = out_dir / f"{stem}.json"
@@ -305,10 +312,15 @@ def _run_vision(args, src: Path, out_dir: Path, stem: str, pages, imgs, vs: Visi
         tmp.unlink(missing_ok=True)
 
     # 6) 汇总
+    from collections import Counter
+    kind_count = Counter(pg.get("page_kind", "body") for pg in structured)
     n_body = sum(1 for pg in structured for it in pg["items"] if it["type"] == "body")
     n_head = sum(1 for pg in structured for it in pg["items"] if it["type"] == "heading")
     n_fn = sum(1 for pg in structured for it in pg["items"] if it["type"] == "footnote")
-    log.info("完成：正文段 %d，标题 %d，脚注 %d（共 %d 页）", n_body, n_head, n_fn, len(structured))
+    n_toc = sum(1 for e in book_json["toc"] if e.get("pdf_page"))
+    log.info("完成：正文段 %d，标题 %d，脚注 %d，目录条目 %d（可跳转 %d）（共 %d 页）",
+             n_body, n_head, n_fn, len(book_json["toc"]), n_toc, len(structured))
+    log.info("页面类型分布：%s", dict(kind_count))
     print(f"\n✅ 输出目录：{out_dir}")
     print(f"   - 网页阅读器: {html_path}")
     print(f"   - 整本书JSON: {book_path}"
