@@ -194,6 +194,77 @@ body.batch-mode #batch-bar { display: flex; }
 .bm-item .bm-x { color: var(--ink-3); opacity: .6; }
 .bm-item .bm-x:hover { color: var(--danger); opacity: 1; }
 
+/* ================= 首页（书库管理，Zotero 式） ================= */
+#home-view {
+  flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0;
+  font-family: var(--sans); overflow: auto;
+}
+.home-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 18px 26px 14px; border-bottom: 1px solid var(--line-soft);
+  background: var(--panel);
+}
+.home-title h2 { margin: 0; font-size: 19px; letter-spacing: 1px; color: var(--ink); }
+.home-count { font-size: 12px; color: var(--ink-3); }
+.home-actions { display: flex; align-items: center; gap: 6px; }
+.batch-bar { display: flex; gap: 6px; }
+.mini.danger { color: var(--danger); }
+.mini.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.mini.primary:hover { background: #7d6234; color: #fff; }
+
+#home-table-wrap { max-width: 1100px; width: 100%; margin: 20px auto; padding: 0 26px 60px; }
+.ht-head, .ht-row {
+  display: grid;
+  grid-template-columns: 24px 40px minmax(200px, 2.2fr) minmax(110px, 1fr) minmax(110px, 1fr) 64px 110px 96px;
+  gap: 10px; align-items: center;
+}
+.ht-head {
+  padding: 8px 12px; font-size: 11px; letter-spacing: 1px; color: var(--ink-3);
+  border-bottom: 1px solid var(--line); position: sticky; top: 0;
+  background: var(--bg);
+}
+.ht-row {
+  padding: 8px 12px; border-bottom: 1px solid var(--line-soft);
+  cursor: pointer; transition: background .12s; font-size: 13px;
+}
+.ht-row:hover { background: var(--panel-2); }
+.ht-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.ht-author, .ht-pub { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ht-pages { color: var(--ink-3); font-size: 12px; }
+.ht-folder { color: var(--ink-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ht-check { width: 14px; height: 14px; accent-color: var(--accent); display: none; }
+body.batch-mode .ht-check { display: inline-block; }
+.ht-actions { display: flex; gap: 2px; justify-content: flex-end; opacity: 0; transition: opacity .12s; }
+.ht-row:hover .ht-actions { opacity: 1; }
+.ht-act {
+  width: 26px; height: 26px; border-radius: var(--r-sm); font-size: 13px;
+  color: var(--ink-2); display: flex; align-items: center; justify-content: center;
+}
+.ht-act:hover { background: var(--surface); box-shadow: var(--shadow-card); color: var(--ink); }
+.ht-act[title="删除"]:hover { color: var(--danger); }
+#home-empty { text-align: center; color: var(--ink-3); padding: 60px 20px 30px; }
+#home-empty .big { font-size: 46px; margin-bottom: 12px; }
+
+/* 元数据编辑模态 */
+#meta-mask { position: fixed; inset: 0; z-index: 945; background: rgba(30, 22, 8, .35);
+  backdrop-filter: blur(2px); animation: fadeIn .15s ease; }
+#meta-dialog {
+  position: fixed; z-index: 955; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 360px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-modal);
+  font-family: var(--sans); font-size: 13px; animation: popIn .18s ease;
+}
+#meta-form { padding: 14px 18px 16px; }
+#meta-form label { display: block; margin: 8px 0; color: var(--ink-2); }
+#meta-form input, #meta-form select {
+  display: block; width: 100%; margin-top: 3px; padding: 6px 9px;
+  border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--paper); color: var(--ink); font-size: 13px;
+}
+#meta-form input:focus { outline: none; border-color: var(--accent); }
+.mf-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+#mf-save.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+
 /* ================= 工作区 ================= */
 #workspace { flex: 1 1 auto; display: flex; min-width: 0; background: var(--bg); }
 .book-view { flex: 1 1 auto; display: flex; min-width: 0; }

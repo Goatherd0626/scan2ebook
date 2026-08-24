@@ -68,6 +68,26 @@
   </div>
   <div id="sd-sections"></div>
 </div>
+
+<div id="meta-mask" hidden></div>
+<div id="meta-dialog" hidden>
+  <div class="sd-head">
+    <span class="sd-title">编辑书籍信息</span>
+    <button id="meta-close" class="mini" title="关闭">✕</button>
+  </div>
+  <div id="meta-form">
+    <label>书名 <input id="mf-title" type="text"></label>
+    <label>作者 <input id="mf-author" type="text"></label>
+    <label>出版社 <input id="mf-publisher" type="text"></label>
+    <label>版次 <input id="mf-edition" type="text"></label>
+    <label>ISBN <input id="mf-isbn" type="text"></label>
+    <label>文件夹 <select id="mf-folder"></select></label>
+    <div class="mf-actions">
+      <button id="mf-cancel" class="mini">取消</button>
+      <button id="mf-save" class="mini primary">保存</button>
+    </div>
+  </div>
+</div>
 <input type="file" id="import-input" accept=".s2e,.zip" multiple hidden>
 
 <script type="module" src="/src/main.js"></script>

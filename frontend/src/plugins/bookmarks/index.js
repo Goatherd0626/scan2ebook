@@ -35,7 +35,7 @@ registerExtension({
       const snippet = anchor ? (anchor.textContent || '').trim().slice(0, 40) : '';
       book.bookmarks = book.bookmarks || [];
       book.bookmarks.push({ id: crypto.randomUUID(), page, snippet, at: Date.now() });
-      await ctx.db.updateBook(ctx.db, book);
+      await ctx.db.updateBook(book);
       renderList();
       ctx.toast('已添加书签：PDF 第 ' + page + ' 页');
     }
@@ -62,7 +62,7 @@ registerExtension({
         x.addEventListener('click', async (e) => {
           e.stopPropagation();
           book.bookmarks = book.bookmarks.filter((b) => b.id !== bm.id);
-          await ctx.db.updateBook(ctx.db, book);
+          await ctx.db.updateBook(book);
           renderList();
         });
         row.append(txt, pg, x);

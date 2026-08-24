@@ -14,7 +14,7 @@ registerExtension({
         const book = ctx.state && ctx.state.books.find((b) => b.id === bookId);
         if (!book) return;
         book.progress = { page, at: Date.now() };
-        await ctx.db.updateBook(ctx.db, book);
+        await ctx.db.updateBook(book);
       }, 900);
     });
   },
