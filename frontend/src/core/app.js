@@ -575,7 +575,7 @@ function createHomeView() {
             <button class="mini" data-action="move">移动到…</button>
             <button class="mini danger" data-action="delete">删除</button>
           </div>
-          <button id="home-batch" class="mini">☑ 批量</button>
+          <button id="home-batch" class="mini" title="多选">☐☐ 多选</button>
           <button id="home-new-folder" class="mini">＋ 文件夹</button>
           <button id="home-import" class="mini primary">⬆ 导入电子书</button>
         </div>
