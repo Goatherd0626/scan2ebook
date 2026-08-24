@@ -109,36 +109,32 @@ const dp2 = document.getElementById('detail-panel');
 console.log('面板回显新作者:', dp2.textContent.includes('测试作者·王五') ? '是' : '否');
 console.log('=== 阶段错误 ===', errors.filter((e) => !/pdf|PDF|renderTasks|canvas/i.test(e)).join('\n') || '（无）');
 
-/* ==== 每本书视图配置：默认双栏、切换持久化 ==== */
-const vs = document.querySelector('.book-view .view-switch');
+/* ==== 每本书视图配置（顶栏工具条）：默认双栏、切换、摊开仅PDF、首页隐藏 ==== */
+document.querySelectorAll('#tabs .tab')[1].click();
+await new Promise((r) => setTimeout(r, 300));
+const vs = document.getElementById('view-switch');
+const bwv = document.querySelector('.book-view');
 console.log('=== 视图工具 ===');
-console.log('打开书后出现浮动视图工具:', !!vs);
-console.log('默认模式:', document.querySelector('.book-view').dataset.mode);
-const pdfBtn = vs.querySelector('button[data-mode="pdf"]');
-pdfBtn.click();
+console.log('开书时工具条显示:', vs.classList.contains('show'));
+console.log('默认模式:', bwv.dataset.mode);
+vs.querySelector('button[data-mode="pdf"]').click();
+await new Promise((r) => setTimeout(r, 150));
+console.log('切仅PDF后 模式:', bwv.dataset.mode, '| 文字面板隐藏:', bwv.querySelector('.text-panel').offsetParent === null ? '是' : '否');
+vs.querySelector('[data-act="spread"]').click();
+await new Promise((r) => setTimeout(r, 150));
+console.log('仅PDF+摊开:', bwv.querySelector('.pdf-panel').classList.contains('spread') ? '摊开中' : '未生效');
+vs.querySelector('button[data-mode="split"]').click();
+await new Promise((r) => setTimeout(r, 150));
+console.log('切双栏后:', bwv.querySelector('.pdf-panel').classList.contains('spread') ? '仍摊开（错误）' : '已回退单页');
+vs.querySelector('button[data-mode="pdf"]').click();
+await new Promise((r) => setTimeout(r, 150));
+console.log('再切仅PDF:', bwv.querySelector('.pdf-panel').classList.contains('spread') ? '恢复摊开（配置记忆）' : '未恢复（错误）');
+vs.querySelector('button[data-mode="text"]').click();
+await new Promise((r) => setTimeout(r, 150));
+console.log('仅文字模式:', bwv.dataset.mode, '| PDF面板隐藏:', bwv.querySelector('.pdf-panel').offsetParent === null ? '是' : '否');
+document.querySelectorAll('#tabs .tab')[0].click();
 await new Promise((r) => setTimeout(r, 200));
-console.log('books 数量:', state.books.length, state.books.map((x) => x.id));
-const b = state.books.find((x) => x.id === 'test-book') || state.books[0];
-const wv = document.querySelector('.book-view');
-console.log('切仅PDF后 视图模式:', wv.dataset.mode, '| 面板隐藏:', wv.querySelector('.text-panel').offsetParent === null ? '是' : '否');
-console.log('浮动工具按钮 active 同步:', !!vs.querySelector('button[data-mode="pdf"]').classList.contains('active'));
-console.log('====');
-
-/* ==== 摊开行为：仅PDF生效，双栏回退 ==== */
-const wv2 = document.querySelector('.book-view');
-const vsm = wv2.querySelector('.view-switch');
-vsm.querySelector('button[data-mode="pdf"]').click();
-await new Promise((r) => setTimeout(r, 120));
-wv2.querySelector('[data-act="spread"]').click();
-await new Promise((r) => setTimeout(r, 120));
-console.log('=== 摊开行为 ===');
-console.log('仅PDF+摊开:', wv2.querySelector('.pdf-panel').classList.contains('spread') ? '摊开中' : '未生效');
-vsm.querySelector('button[data-mode="split"]').click();
-await new Promise((r) => setTimeout(r, 120));
-console.log('切双栏后:', wv2.querySelector('.pdf-panel').classList.contains('spread') ? '仍摊开（错误）' : '已回退单页');
-vsm.querySelector('button[data-mode="pdf"]').click();
-await new Promise((r) => setTimeout(r, 120));
-console.log('再切仅PDF:', wv2.querySelector('.pdf-panel').classList.contains('spread') ? '恢复摊开' : '未恢复（错误）');
+console.log('首页时工具条隐藏:', !vs.classList.contains('show'));
 console.log('====');
 
 /* ==== 首页搜索：元数据过滤 ==== */

@@ -7,13 +7,6 @@ registerExtension({
   version: '1.0.0',
   description: '为当前页加书签，在目录面板「书签」tab 中查看与跳转',
   activate(ctx) {
-    const btn = document.createElement('button');
-    btn.className = 'icon-btn';
-    btn.title = '当前页加书签';
-    btn.textContent = '🔖';
-    btn.addEventListener('click', addBookmark);
-    ctx.ui.addToolbarWidget({ id: 'bookmarks', el: btn });
-
     // 「书签」tab 主体
     const body = document.createElement('div');
     body.id = 'tab-body-bookmarks';
@@ -42,7 +35,8 @@ registerExtension({
 
     function renderList() {
       const book = currentBook();
-      body.innerHTML = '';
+      body.innerHTML = '<button class="mini add-bm" title="为当前页加书签" style="margin:4px 6px 8px">＋ 添加当前页书签</button>';
+      body.querySelector('.add-bm').addEventListener('click', addBookmark);
       if (!book || !book.bookmarks || !book.bookmarks.length) {
         body.innerHTML = '<div style="color:var(--ink-3);padding:10px">暂无书签（🔖 为当前页加书签）</div>';
         return;

@@ -54,6 +54,7 @@ export async function init() {
   bus.emit('app:ready', state);
   renderToolbarWidgets();
 
+  createTopbarViewSwitch();     // 视图工具条（顶栏搜索框右侧，仅开书时显示）
   createHomeView();              // 首页（Zotero 式书库管理）
   enableCustomTooltips();        // title → 样式化悬浮提示
   const q = new URLSearchParams(location.search).get('book');
@@ -291,16 +292,7 @@ function createBookView(book) {
       <button class="jump" data-dir="text" title="PDF → 文字">←文字</button>
       <button class="jump" data-dir="pdf" title="文字 → PDF">PDF→</button>
     </div>
-    <div class="text-panel"><div class="text-content"></div></div>
-    <div class="view-switch" role="toolbar" aria-label="视图工具">
-      <div class="seg" data-role="view-modes">
-        <button data-mode="split" class="active" title="双栏视图" aria-label="双栏视图"><span class="sf vm-pdf"></span><span class="vm-bar"></span><span class="sf i-t"></span></button>
-        <button data-mode="pdf" title="仅 PDF 视图" aria-label="仅 PDF 视图"><span class="sf vm-pdf"></span></button>
-        <button data-mode="text" title="仅文字视图" aria-label="仅文字视图"><span class="sf i-t"></span></button>
-      </div>
-      <button class="jump vs-sync" data-act="sync" title="同步滚动（双栏视图）">⇅</button>
-      <button class="jump vs-spread" data-act="spread" title="PDF 双页摊开（仅 PDF 视图）">⿻</button>
-    </div>`;
+    <div class="text-panel"><div class="text-content"></div></div>`;
   $('workspace').appendChild(wv);
 
   const model = buildRenderModel(book.bookJson);
@@ -326,33 +318,21 @@ function createBookView(book) {
   // ---- 每本书自己的视图配置（记忆并持久化到 IndexedDB） ----
   book.prefs = book.prefs || { viewMode: 'split', spread: false, sync: false };
   const prefs = book.prefs;
+  view.prefs = prefs;   // 供顶栏视图工具条读取
   const persistPrefs = () => { book.prefs = prefs; db.updateBook(state.db, book).catch(() => {}); };
   const applyPrefs = () => {
     wv.dataset.mode = prefs.viewMode;
-    wv.querySelectorAll('[data-role="view-modes"] button').forEach((b) => b.classList.toggle('active', b.dataset.mode === prefs.viewMode));
-    wv.querySelectorAll('[data-act="spread"]').forEach((x) => x.classList.toggle('active', prefs.spread));
-    wv.querySelectorAll('[data-act="sync"]').forEach((x) => x.classList.toggle('active', prefs.sync));
     pdfView.setSpread(prefs.spread && prefs.viewMode === 'pdf');  // 摊开只在仅PDF视图生效
-    if (activeView() === view) document.body.dataset.mode = prefs.viewMode;
   };
   view.applyPrefs = applyPrefs;
-  wv.querySelector('[data-role="view-modes"]').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-mode]'); if (!b) return;
-    prefs.viewMode = b.dataset.mode;
+  // 顶栏视图工具条通过 setPrefs 修改当前书配置
+  view.setPrefs = (patch, msg) => {
+    Object.assign(prefs, patch);
     applyPrefs();
     persistPrefs();
-  });
-  wv.querySelectorAll('[data-act="spread"]').forEach((b) => b.addEventListener('click', () => {
-    prefs.spread = !prefs.spread;
-    applyPrefs();
-    persistPrefs();
-  }));
-  wv.querySelectorAll('[data-act="sync"]').forEach((b) => b.addEventListener('click', () => {
-    prefs.sync = !prefs.sync;
-    applyPrefs();
-    persistPrefs();
-    toast(prefs.sync ? '已开启同步滚动' : '已关闭同步滚动');
-  }));
+    syncViewSwitch();
+    if (msg) toast(msg);
+  };
   let lock = false;
   pdfView.onPageChange = (n) => {
     if (prefs.sync && !lock) { lock = true; textView.scrollToPage(n); setTimeout(() => { lock = false; }, 150); }
@@ -393,6 +373,7 @@ function switchTab(id) {
   if (cur && cur.applyPrefs) cur.applyPrefs();
   renderTabs();
   renderToc();
+  syncViewSwitch();
   bus.emit('book:switch', { bookId: id });
 }
 
@@ -403,6 +384,7 @@ function switchHome() {
   if (home) { home.style.display = ''; renderHome(); }
   renderTabs();
   renderToc();
+  syncViewSwitch();
   bus.emit('book:switch', { bookId: null });
 }
 
@@ -477,6 +459,53 @@ function hideContextBar() { document.getElementById('ctxbar')?.remove(); }
 document.addEventListener('mousedown', () => setTimeout(hideContextBar, 200));
 
 /* ============================ 设置 / 插件管理器 ============================ */
+/* ============================ 顶栏视图工具条 ============================ */
+let viewSwitchEl = null;
+function createTopbarViewSwitch() {
+  const sw = document.createElement('div');
+  sw.id = 'view-switch';
+  sw.innerHTML = `
+    <div class="seg" data-role="view-modes">
+      <button data-mode="split" class="active" title="双栏视图" aria-label="双栏视图"><span class="sf vm-pdf"></span><span class="vm-bar"></span><span class="sf i-t"></span></button>
+      <button data-mode="pdf" title="仅 PDF 视图" aria-label="仅 PDF 视图"><span class="sf vm-pdf"></span></button>
+      <button data-mode="text" title="仅文字视图" aria-label="仅文字视图"><span class="sf i-t"></span></button>
+    </div>
+    <button class="vs-ctl vs-sync" data-act="sync" title="同步滚动（双栏视图）" aria-label="同步滚动">⇅</button>
+    <button class="vs-ctl vs-spread" data-act="spread" title="PDF 双页摊开（仅 PDF 视图）" aria-label="PDF 双页摊开">⿻</button>`;
+  const tool = document.getElementById('plugin-toolbar');
+  const searchEl = tool.querySelector('#search-wrap');
+  tool.insertBefore(sw, searchEl ? searchEl.nextSibling : tool.firstChild);
+  viewSwitchEl = sw;
+
+  sw.querySelector('[data-role="view-modes"]').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-mode]'); if (!b) return;
+    const v = activeView();
+    if (v && v.setPrefs) v.setPrefs({ viewMode: b.dataset.mode });
+  });
+  sw.querySelector('[data-act="spread"]').addEventListener('click', () => {
+    const v = activeView();
+    if (v && v.setPrefs) v.setPrefs({ spread: !v.prefs.spread });
+  });
+  sw.querySelector('[data-act="sync"]').addEventListener('click', () => {
+    const v = activeView();
+    if (v && v.setPrefs) v.setPrefs({ sync: !v.prefs.sync }, v.prefs.sync ? '已开启同步滚动' : '已关闭同步滚动');
+  });
+  enableCustomTooltips(sw);
+  syncViewSwitch();
+}
+
+function syncViewSwitch() {
+  if (!viewSwitchEl) return;
+  const v = activeView();
+  const prefs = v && v.prefs;
+  viewSwitchEl.classList.toggle('show', !!prefs);
+  if (!prefs) return;
+  viewSwitchEl.dataset.mode = prefs.viewMode;
+  viewSwitchEl.querySelectorAll('[data-role="view-modes"] button').forEach((b) => b.classList.toggle('active', b.dataset.mode === prefs.viewMode));
+  viewSwitchEl.querySelector('[data-act="spread"]').classList.toggle('active', prefs.spread);
+  viewSwitchEl.querySelector('[data-act="sync"]').classList.toggle('active', prefs.sync);
+}
+
 function bindSettingsDialog() {
   const dlg = $('settings-dialog');
   const mask = $('settings-mask');

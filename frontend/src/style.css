@@ -171,7 +171,6 @@ body.dark #find-strip { background: rgba(32, 30, 25, .92); border-color: rgba(25
 .seg button.active { background: var(--accent); color: #fff; font-weight: 600; }
 /* 视图切换按钮：logo（均用 CSS mask，随主题变色） */
 .sf.vm-pdf { --sf: url("./assets/icons/pdf.svg"); width: 16px; height: 16px; }
-.view-switch .vm-bar { width: 2px; height: 14px; background: currentColor; border-radius: 1px; }
 .mini {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 4px 10px; border-radius: var(--r-sm); font-size: 12px;
@@ -258,7 +257,7 @@ body.batch-mode #batch-bar { display: flex; }
 .toc-item.l3 { padding-left: 38px; color: var(--ink-2); }
 .toc-item .toc-page, .bm-item .bm-page {
   margin-left: auto; color: var(--ink-3); font-size: 11px;
-  background: var(--surface); border-radius: 999px; padding: 0 7px; border: 1px solid var(--line-soft);
+  background: var(--surface); border-radius: 5px; padding: 0 7px; border: 1px solid var(--line-soft);
 }
 .toc-item.no-jump { opacity: .4; cursor: default; }
 .bm-item .bm-x { color: var(--ink-3); opacity: .6; }
@@ -399,25 +398,30 @@ body.batch-mode .ht-check { display: inline-block; }
 /* ================= 工作区 ================= */
 #workspace { flex: 1 1 auto; display: flex; min-width: 0; background: var(--bg); }
 .book-view { flex: 1 1 auto; display: flex; min-width: 0; position: relative; }
-.view-switch {
-  position: absolute; top: 12px; right: 14px; z-index: 40;
-  display: flex; align-items: center; gap: 6px;
-  padding: 4px; border-radius: 12px;
-  background: rgba(45, 40, 30, .78);
-  -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3);
-  box-shadow: var(--shadow-float);
+#view-switch {
+  display: none; align-items: center; gap: 5px; padding-left: 10px;
+  border-left: 1px solid var(--line-soft);
 }
-.view-switch .seg { border-color: rgba(255,255,255,.14); background: transparent; }
-.view-switch .seg button { color: #d9d2c1; }
-.view-switch .seg button:hover { background: rgba(255,255,255,.1); }
-.view-switch .seg button.active { background: var(--accent); color: #fff; }
-.view-switch .seg .vm-bar { background: currentColor; }
-.view-switch .jump {
-  border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: #d9d2c1;
+#view-switch.show { display: inline-flex; }
+#view-switch .vs-ctl {
+  width: 30px; height: 30px; border-radius: var(--r-sm);
+  background: transparent; color: var(--ink-2); font-size: 13px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .12s;
 }
-.view-switch .jump:hover { background: var(--accent); color: #fff; }
-.view-switch .jump.active { background: var(--accent-2); color: #fff; }
+#view-switch .vs-ctl:hover { background: var(--panel-2); color: var(--ink); }
+#view-switch .vs-ctl.active { background: var(--accent-2); color: #fff; }
 /* 同步只在双栏；摊开只在仅PDF */
+#view-switch .vs-sync { display: none; }
+#view-switch[data-mode="split"] .vs-sync { display: inline-flex; }
+#view-switch .vs-spread { display: none; }
+#view-switch[data-mode="pdf"] .vs-spread { display: inline-flex; }
+/* 双栏按钮 PDF|T 之间的双竖线 */
+#view-switch .vm-bar {
+  width: 7px; height: 15px;
+  border-left: 2px solid currentColor; border-right: 2px solid currentColor;
+  border-radius: 1px;
+}
 .view-switch .vs-sync { display: none; }
 .book-view[data-mode="split"] .vs-sync { display: flex; }
 .view-switch .vs-spread { display: none; }
