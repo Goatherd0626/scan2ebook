@@ -32,14 +32,39 @@ registerExtension({
         p.replaceChild(document.createTextNode(m.textContent), m);
         p.normalize();
       });
+      document.querySelectorAll('#home-table .ht-row').forEach((row) => { row.style.display = ''; });
       matches = [];
       idx = -1;
       info.textContent = '';
     };
 
+    const searchHome = (q) => {
+      // 首页模式：过滤书库（元数据匹配：书名/作者/出版社/版次/ISBN/文件名/文件夹名）
+      const ql = q.toLowerCase();
+      let n = 0;
+      document.querySelectorAll('#home-table .ht-row').forEach((row) => {
+        const book = ctx.state && ctx.state.books.find((b) => b.id === row.dataset.id);
+        let hit = false;
+        if (book && ql) {
+          const folder = (ctx.state.folders || []).find((f) => f.id === book.folderId);
+          const hay = [book.meta.title, book.meta.author, book.meta.publisher,
+            book.meta.edition, book.meta.isbn, book.s2eName, folder && folder.name]
+            .filter(Boolean).join(' ').toLowerCase();
+          hit = hay.includes(ql);
+        }
+        row.style.display = hit ? '' : 'none';
+        if (hit) n++;
+      });
+      info.textContent = ql ? n + ' 本' : '';
+      if (!ql) document.getElementById('home-empty') && (document.getElementById('home-empty').hidden = ctx.state.books.length === 0);
+    };
+
+    const isHome = () => ctx.state && ctx.state.activeBookId === null;
+
     const doSearch = (q) => {
       clear();
-      if (!q) return;
+      if (!q) { if (isHome()) ctx.bus.emit('search:home', ''); return; }
+      if (isHome()) { searchHome(q); return; }
       const view = ctx.getView && ctx.getView();
       const holder = view && view.textView.holder;
       if (!holder) return;

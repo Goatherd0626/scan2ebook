@@ -140,3 +140,25 @@ vsm.querySelector('button[data-mode="pdf"]').click();
 await new Promise((r) => setTimeout(r, 120));
 console.log('再切仅PDF:', wv2.querySelector('.pdf-panel').classList.contains('spread') ? '恢复摊开' : '未恢复（错误）');
 console.log('====');
+
+/* ==== 首页搜索：元数据过滤 ==== */
+document.querySelectorAll('#tabs .tab')[0].click();
+await new Promise((r) => setTimeout(r, 300));
+const si = document.getElementById('search-input');
+const setSearch = (v) => { si.value = v; si.dispatchEvent(new window.Event('input', { bubbles: true })); };
+await new Promise((r) => setTimeout(r, 100));
+setSearch('中国城市出版社');
+await new Promise((r) => setTimeout(r, 100));
+const vis = [...document.querySelectorAll('#home-table .ht-row')].filter((r) => r.style.display !== 'none');
+console.log('=== 首页搜索 ===');
+console.log('搜「中国城市出版社」命中:', vis.length, '本 | 计数:', document.getElementById('search-info').textContent);
+setSearch('本雅明');
+await new Promise((r) => setTimeout(r, 100));
+console.log('搜「本雅明」命中:', [...document.querySelectorAll('#home-table .ht-row')].filter((r) => r.style.display !== 'none').length, '本');
+setSearch('不存在关键字xyz');
+await new Promise((r) => setTimeout(r, 100));
+console.log('搜不存在词命中:', [...document.querySelectorAll('#home-table .ht-row')].filter((r) => r.style.display !== 'none').length, '本');
+setSearch('');
+await new Promise((r) => setTimeout(r, 100));
+console.log('清空后显示:', [...document.querySelectorAll('#home-table .ht-row')].filter((r) => r.style.display !== 'none').length, '本');
+console.log('====');
