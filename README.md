@@ -95,6 +95,9 @@ cp .env.example .env   # 填入 DEEPSEEK_API_KEY
 
 ```
 scan2ebook/
+├── docs/
+│   ├── reader-plugin-dev.md    # 阅读器插件开发指南（API/事件/扩展点/示例）
+│   └── webgui-plugin-design.md # DSH Web GUI 插件设计稿（待做）
 ├── scan2ebook/           # Python：转换 + 阅读器服务
 │   ├── cli.py            # 转换（产出 .s2e / json）
 │   ├── reader.py         # 本地阅读器服务（python -m scan2ebook serve）
