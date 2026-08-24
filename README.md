@@ -105,11 +105,15 @@ scan2ebook/
 
 ## 已知限制与路线图
 
-- [ ] 双栏版面按列阅读（已检测，未按列重组）
-- [ ] DeepSeek 逐段 OCR 纠错（修形近字/缺字，如 己/已）
-- [ ] 竖排古籍（Vision 支持竖排，需版面参数调整）
+- [x] Skill 注册：`~/.dsh/skills/scan2ebook/SKILL.md`（新会话技能目录可见）
+- [ ] **Web GUI 插件（暂缓）**：`~/.dsh/plugins/dsh-client-ui-scan2ebook/`
+      侧边栏标签「📖 电子书转换」——用已装的 `dsh-better-sidebar` 的
+      `ctx.betterSidebar.registerTab` 注册；宿主半用 `connection.rpc.handle('/scan2ebook/*')`
+      桥接 Python 流水线（参考 `dsh-client-ui-file-mention` 的安装接线方式）。
+      等真实扫描书验证流水线稳定后再做。
+- [ ] 真实扫描书测试：本机暂无扫描件，待用户提供
+- [ ] 竖排古籍（Vision 支持竖排，提示词需按版式调整）
+- [ ] 双栏版面（ds-vision 可处理，需验证）
+- [ ] DeepSeek 逐段 OCR 纠错（vision 模式已部分内置）
 - [ ] 图表/插图识别与保留
-- [ ] EPUB 输出
-- [ ] 简单网页界面（拖入 PDF → 下载 docx）
 - [ ] 多本书批量处理
-- [ ] 原书页码（书页号）识别（如需要可恢复，代码预留了接口）
