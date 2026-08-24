@@ -1,4 +1,4 @@
-"""核心数据结构：文本块、页面、段落、书。"""
+"""核心数据结构：OCR 文本块与页面。"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -9,11 +9,6 @@ KIND_FOOTER = "footer"        # 页脚（页码等，一律丢弃）
 KIND_FOOTNOTE = "footnote"    # 脚注
 KIND_BODY = "body"            # 正文
 KIND_BLANK = "blank"          # 空块
-
-# 段落类型
-PARA_HEADING = "heading"
-PARA_BODY = "body"
-PARA_FOOTNOTE = "footnote"
 
 
 @dataclass
@@ -49,10 +44,6 @@ class TextBlock:
     def cy(self) -> float:
         return (self.bbox[1] + self.bbox[3]) / 2.0
 
-    @property
-    def height(self) -> float:
-        return self.bbox[3] - self.bbox[1]
-
     def clean(self) -> str:
         """去除多余空白，保留内部单空格。"""
         lines = [ln.strip() for ln in self.text.splitlines()]
@@ -67,32 +58,3 @@ class Page:
     width: int
     height: int
     blocks: list[TextBlock] = field(default_factory=list)
-
-    def body_blocks(self) -> list[TextBlock]:
-        return [b for b in self.blocks if b.kind == KIND_BODY]
-
-    def footnote_blocks(self) -> list[TextBlock]:
-        return [b for b in self.blocks if b.kind == KIND_FOOTNOTE]
-
-
-@dataclass
-class Paragraph:
-    """组装后的段落/标题/脚注。pdf_pages 记录其内容来源的 PDF 页（可能跨页）。"""
-
-    text: str
-    kind: str = PARA_BODY
-    level: int = 0            # 标题层级 1/2/3
-    pdf_pages: list[int] = field(default_factory=list)
-
-    def add_page(self, pdf_page: int) -> None:
-        if pdf_page not in self.pdf_pages:
-            self.pdf_pages.append(pdf_page)
-
-
-@dataclass
-class Book:
-    """整本书。"""
-
-    pages: list[Page] = field(default_factory=list)
-    metadata: dict = field(default_factory=dict)
-    source_path: str = ""

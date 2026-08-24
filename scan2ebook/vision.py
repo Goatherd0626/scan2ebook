@@ -218,7 +218,7 @@ class VisionStructure:
 
         def work(i: int):
             page = force.get(i + 1)
-            if page or (i in blank):
+            if page or (i in blank) or imgs[i] is None:
                 kind = page if page else "blank"
                 return i, {"pdf_page": i + 1, "page_kind": kind, "items": [], "toc": []}
             r = self.structure_page(imgs[i], ocr_texts[i])

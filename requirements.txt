@@ -3,5 +3,4 @@ pillow
 pymupdf
 python-dotenv
 openai
-python-docx
 tqdm
