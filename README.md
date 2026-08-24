@@ -1,26 +1,41 @@
 # scan2ebook —— 扫描版书籍 → 带页码锚定的电子书
 
-把扫描版 PDF 书籍逐页 OCR 成电子书（Markdown / Word），**每个段落都锚定其来源的
-PDF 页码**，方便论文写作时核对引文原始出处。
+把扫描版 PDF 书籍逐页 OCR 成电子书（网页阅读器 / Markdown / Word / EPUB），
+**每个段落都锚定其来源的 PDF 页码**，方便论文写作时核对引文原始出处。
 
-## 核心思路
+## 核心思路（AI 驱动结构化，推荐 --vision 模式）
+
+代码只负责「渲染 + OCR + 存储/渲染」，**版面结构（标题/正文/脚注/引用位置）完全交给 AI 判断**——
+纯代码规则难以覆盖不同书籍的复杂版式（古籍竖排、双栏、西文书、特殊排印），视觉模型可以通吃：
 
 ```
-PDF ──▶ 逐页高清渲染 ──▶ Apple Vision OCR(本地免费) ──▶ 版面分析
-(300dpi)                   (中英混排/竖排)                (页眉/页脚/脚注)
-                                                              │
-                                                              ▼
-                                    段落组装(跨页续段/标题层级/脚注)
-                                    (可选 DeepSeek 精修标题与元数据)
-                                                              │
-                                                              ▼
-                                     Markdown(每段带 PDF 页码) ──▶ pandoc ──▶ Word(.docx)
+PDF ──▶ 逐页渲染(300dpi) ──▶ Apple Vision OCR(本地免费) ──▶ ds-vision 逐页结构化
+                                                              (图像 + OCR 文本 → JSON)
+                                                                     │
+                                            逐页 JSON（用户约定结构，见下）│
+                                              │                        ▼
+                                   网页阅读器(.html)          重建 Markdown/Word/EPUB
+                                   目录/脚注悬浮/搜索/复制引文   （脚注落在正文引用位置）
 ```
 
-- **OCR 引擎**：macOS 自带 Vision 框架（免费、离线、M3 神经引擎加速），
-  支持简体/繁体中文、英文混排。
+每页 JSON（键为英文，items 为有序数组，数量与顺序由识别内容决定，脚注恒在最后；
+正文按自然段拆分，一段一个 body；正文中脚注引用位置保留为 `[序号]`）：
+
+```json
+{ "pdf_page": 3,
+  "items": [
+    {"type": "heading", "level": 1, "number": "第一章", "text": "第一章 导论"},
+    {"type": "body",    "text": "……市场格局[1]？……"},
+    {"type": "footnote","index": 1, "text": "参见吴承明……第12页。"}
+  ]}
+```
+
+- **OCR 引擎**：macOS 自带 Vision 框架（免费、离线、M3 神经引擎加速），中英混排。
+- **结构判断**：DeepSeek V4 Flash Vision Exp 同时看「页面图像 + OCR 文本」，判定
+  每块的性质（标题/正文/脚注）、标题层级与编号、正文中脚注引用标记的位置，
+  并顺手修正 OCR 错字。成本约 0.001 元/页。
 - **页码锚定**：一律以 **PDF 页**为准（原书单双页错位不影响引用核对）。
-- **结构识别**：规则识别一级/二级标题（第X章 / 一、 / 1.1），可选 DeepSeek 精修。
+- 另有纯本地规则模式（`--with-llm` 可加 DeepSeek 精修），适合没有 API key 时兜底。
 
 ## 安装
 
@@ -33,11 +48,11 @@ python3 -m venv .venv
 ## 使用
 
 ```bash
-# 基本用法（OCR 全本地，不调用任何 API）
-.venv/bin/python -m scan2ebook 书.pdf -o output
+# 推荐：AI 驱动结构化（先 cp .env.example .env 并填入 API key）
+.venv/bin/python -m scan2ebook 书.pdf -o output --vision
 
-# 启用 DeepSeek 精修（先 cp .env.example .env 并填入 API key）
-.venv/bin/python -m scan2ebook 书.pdf -o output --with-llm
+# 纯本地规则模式（不调用任何 API）
+.venv/bin/python -m scan2ebook 书.pdf -o output
 
 # 常用选项
 #   --force-ocr     PDF 自带文字层时也强制走 OCR（默认检测到文字层直接抽取）
@@ -52,34 +67,32 @@ python3 -m venv .venv
 
 ## 输出
 
+**`--vision` 模式**（推荐）额外产出：
+
 | 文件 | 说明 |
 |---|---|
-| `输出目录/书名.md` | 带 PDF 页码注释的 Markdown（正文+标题+脚注） |
-| `输出目录/书名.docx` | Word 版（标题样式、目录；**每个 PDF 页前有黄色高亮横幅「PDF 第 N 页」**） |
-| `输出目录/书名.epub` | EPUB 版（阅读器/手机/iPad 阅读；页码以高亮 `<mark>` 标记保留） |
-| `输出目录/paragraphs.jsonl` | 每个段落的来源 PDF 页码索引（程序化检索用） |
-| `输出目录/meta.json` | 元数据与统计 |
+| `输出目录/书名.html` | **网页阅读器**（自包含单文件）：侧边目录、页码横幅、脚注悬浮、全文搜索、选中引文一键复制「原文——PDF 第 N 页」、字号/深色模式 |
+| `输出目录/pages/page_NNN.json` | **逐页结构化 JSON**（用户约定格式，每页一个文件） |
+| `输出目录/书名_pages.json` | 全部页合并为一个 JSON |
+| `输出目录/书名.md / .docx / .epub` | 由结构化 JSON 重建，**脚注落在正文引用位置**（Word 里是真正的页脚注） |
 
-**PDF 页码的呈现（默认高亮横幅，很显眼）**：每个 PDF 页的内容之前都有一条
-黄色高亮的「PDF 第 N 页」横幅（Word 黄底高亮；EPUB 为 `<mark>` 标记），
-阅读时随时知道当前在第几页。其他方式：`--page-marks inline`（每段后
-〔PDF 第N页〕）、`--page-marks footnote`（页脚注）、`--page-marks none`（不显示）。
-
-Markdown 源文件中的页码注释（Word 里默认隐藏）：
-`<!-- ⏸ PDF 第 12 页 -->`
+规则模式产出：`书名.md / .docx / .epub / paragraphs.jsonl / meta.json`（页码以
+黄色高亮横幅呈现，`--page-marks` 可切换 inline/footnote/none）。
 
 ## 项目结构
 
 ```
 scan2ebook/
 ├── scan2ebook/          # 主包
-│   ├── cli.py           # 命令行入口
+│   ├── cli.py           # 命令行入口（--vision 模式 / 规则模式）
 │   ├── pdf_utils.py     # PDF 渲染 / 文字层探测
 │   ├── ocr_engine.py    # Apple Vision OCR 封装
-│   ├── layout.py        # 版面分类（页眉/页脚/页码/脚注/正文）
-│   ├── builder.py       # 段落组装、跨页续段、标题识别、Markdown 输出
-│   ├── llm.py           # DeepSeek 精修（可选）
-│   ├── docx_out.py      # pandoc / python-docx 转 Word
+│   ├── vision.py        # ds-vision 逐页结构化（图像+OCR→JSON，含重试）
+│   ├── web_reader.py    # 网页阅读器生成
+│   ├── layout.py        # 规则模式版面分类（页眉/页脚/脚注/正文）
+│   ├── builder.py       # 规则模式段落组装 + items→Markdown
+│   ├── llm.py           # DeepSeek 元数据/标题精修
+│   ├── docx_out.py      # pandoc / python-docx 转 Word/EPUB
 │   └── config.py        # 环境配置
 ├── scripts/make_sample_book.py  # 生成合成扫描书用于测试
 └── vendor/pandoc-*/     # pandoc 二进制

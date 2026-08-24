@@ -159,7 +159,7 @@ def build_pages() -> list[Image.Image]:
     s = Sheet(header="第一章 导论")
     s.heading("第一章 导论", level=1)
     s.para("近代中国的商业变迁，是理解国家转型的关键线索。学者们普遍认为，晚清以降的市场整合程度远超以往任何时期，这一判断已逐渐成为学界的共识。")
-    s.para("本书的核心问题是：制度变迁如何塑造了近代中国金融市场的格局？为回答这一问题，我们有必要从长时段的视角考察商业组织的演变，并比较不同区域之间的差异。")
+    s.para("本书的核心问题是：制度变迁如何塑造了近代中国金融市场的格局①？为回答这一问题，我们有必要从长时段的视角考察商业组织的演变，并比较不同区域之间的差异。")
     s.para("与此同时，西方史学界对大分流（Great Divergence）的讨论，为理解中国经济的独特路径提供了重要的参照。As Kenneth Pomeranz has argued, the Great Divergence was not inevitable but the product of contingent developments in")
     s.footnote("①参见吴承明：《中国资本主义与国内市场》，中国社会科学出版社，1985年，第12—15页。")
     pages.append(s.img)
@@ -167,7 +167,7 @@ def build_pages() -> list[Image.Image]:
     # ---- 第 3 页（PDF 3）----
     s = Sheet(header="第一章 导论")
     # 跨页续段：真实排版中，续行不缩进
-    s.para("energy, trade, and colonial expansion, rather than the expression of any timeless civilizational hierarchy. 本章将首先回顾相关文献，然后提出本书的分析框架，最后说明各章的安排。", indent=False)
+    s.para("energy, trade, and colonial expansion, rather than the expression of any timeless civilizational hierarchy. 本章将首先回顾相关文献，然后提出本书的分析框架，最后说明各章的安排。②", indent=False)
     s.para("需要说明的是，本书所依据的史料主要包括各地商会档案、银行年鉴以及当事人的回忆录，这些材料各有优劣，使用时应相互参证。")
     s.footnote("②See Kenneth Pomeranz, The Great Divergence: China, Europe, and the Making of the Modern World Economy, Princeton University Press, 2000, p. 45.")
     pages.append(s.img)

@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from statistics import median
@@ -374,5 +375,63 @@ def to_markdown(
 
     body = "\n".join(out)
     # 清理多余空行
+    body = re.sub(r"\n{3,}", "\n\n", body)
+    return body.strip() + "\n"
+
+
+def items_to_markdown(pages: list[dict], metadata: Optional[dict] = None) -> str:
+    """把 ds-vision 结构化结果（逐页 items）转成 Markdown。
+
+    脚注全局重编号：正文中的 [N] 标记 → pandoc 脚注 [^g]，定义在文末，
+    pandoc 转 Word 时会在正文引用位置生成真正的 Word 脚注。
+    """
+    pages = json.loads(json.dumps(pages))  # 深拷贝
+
+    # 1) 全局脚注重编号（(pdf_page, 局部序号) -> 全局序号）
+    local2global: dict[tuple[int, int], int] = {}
+    g = 0
+    for pg in pages:
+        for it in pg["items"]:
+            if it["type"] == "footnote":
+                g += 1
+                local2global[(pg["pdf_page"], it.get("index", 1))] = g
+
+    def body_repl(m: re.Match, cur_page: int) -> str:
+        key = (cur_page, int(m.group(1)))
+        return f"[^{local2global.get(key, m.group(1))}]"
+
+    # 2) 渲染
+    out: list[str] = []
+    if metadata:
+        out.append("---")
+        for k in ("title", "author", "publisher", "edition", "isbn"):
+            v = metadata.get(k)
+            if v:
+                out.append(f"{k}: {v}")
+        out.append("---")
+        out.append("")
+
+    for pg in pages:
+        n = pg["pdf_page"]
+        out.append(f"\n<!-- ⏸ PDF 第 {n} 页 -->\n")
+        for it in pg["items"]:
+            t = it["type"]
+            if t == "heading":
+                num = it.get("number", "")
+                txt = f"{num} {it['text']}".strip() if num else it["text"]
+                out.append(f"\n{'#' * it.get('level', 2)} {txt}\n")
+            elif t == "body":
+                text = re.sub(r"\[(\d+)\]", lambda m: body_repl(m, n), it["text"])
+                out.append(f"\n{text}\n")
+
+    if local2global:
+        out.append("\n")
+        for pg in pages:
+            for it in pg["items"]:
+                if it["type"] == "footnote":
+                    g = local2global[(pg["pdf_page"], it.get("index", 1))]
+                    out.append(f"[^{g}]: {it['text']}\n")
+
+    body = "\n".join(out)
     body = re.sub(r"\n{3,}", "\n\n", body)
     return body.strip() + "\n"

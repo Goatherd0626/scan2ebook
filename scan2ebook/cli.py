@@ -10,7 +10,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from . import __version__
-from .builder import PageMarker, build_stream, to_markdown
+from .builder import PageMarker, build_stream, items_to_markdown, to_markdown
 from .config import OCR_DPI, OCR_LANGUAGES
 from .docx_out import convert as convert_to_docx, md_to_epub
 from .layout import classify_page
@@ -18,6 +18,8 @@ from .llm import DeepSeekClient
 from .ocr_engine import ocr_image
 from .page_model import PARA_BODY, PARA_FOOTNOTE, PARA_HEADING, Page, Paragraph, TextBlock
 from .pdf_utils import extract_text_layer, has_text_layer, open_pdf, render_page
+from .vision import VisionStructure
+from .web_reader import build_reader_html
 
 log = logging.getLogger("scan2ebook")
 
@@ -25,7 +27,7 @@ log = logging.getLogger("scan2ebook")
 def parse_args(argv=None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         prog="scan2ebook",
-        description="扫描版书籍 → 带页码锚定的 Markdown / Word 电子书",
+        description="扫描版书籍 → 带页码锚定的电子书（Markdown / Word / EPUB / 网页阅读器）",
     )
     ap.add_argument("book", help="扫描版 PDF 路径")
     ap.add_argument("-o", "--out", default="output", help="输出目录（默认 ./output）")
@@ -34,6 +36,10 @@ def parse_args(argv=None) -> argparse.Namespace:
                     help="OCR 语言偏好，逗号分隔（默认 zh-Hans,zh-Hant,en-US）")
     ap.add_argument("--force-ocr", action="store_true",
                     help="即使 PDF 自带文字层也强制走 OCR")
+    ap.add_argument("--vision", action="store_true",
+                    help="ds-vision 结构化模式（推荐）：OCR 后逐页调用 DeepSeek 视觉模型"
+                         "分析版面（标题/正文/脚注/引用位置），输出逐页 JSON + 网页阅读器"
+                         "（需 DEEPSEEK_API_KEY）")
     ap.add_argument("--with-llm", action="store_true",
                     help="使用 DeepSeek API 精修标题与提取元数据（需 DEEPSEEK_API_KEY）")
     ap.add_argument("--page-marks", choices=["banner", "inline", "footnote", "none"],
@@ -50,15 +56,18 @@ def parse_args(argv=None) -> argparse.Namespace:
     return ap.parse_args(argv)
 
 
-def _ocr_pages(doc, args) -> list[Page]:
+def _ocr_pages(doc, args) -> tuple[list[Page], list]:
+    """逐页 OCR。返回 (pages, images)。"""
     langs = [x.strip() for x in args.lang.split(",") if x.strip()] or OCR_LANGUAGES
     pages: list[Page] = []
+    imgs: list = []
     for i in tqdm(range(len(doc)), desc="OCR 识别", unit="页"):
         try:
             img = render_page(doc, i, dpi=args.dpi)
         except Exception as e:  # noqa: BLE001
             log.warning("第 %d 页渲染失败：%s", i + 1, e)
             continue
+        imgs.append(img)
         page = Page(pdf_page=i + 1, width=img.width, height=img.height)
         try:
             page.blocks = ocr_image(img, languages=langs)
@@ -66,7 +75,7 @@ def _ocr_pages(doc, args) -> list[Page]:
             log.warning("第 %d 页 OCR 失败：%s", i + 1, e)
         classify_page(page)
         pages.append(page)
-    return pages
+    return pages, imgs
 
 
 def _textlayer_pages(doc) -> list[Page]:
@@ -135,10 +144,17 @@ def main(argv=None) -> int:
     use_text_layer = has_text_layer(doc) and not args.force_ocr
     if use_text_layer:
         log.info("检测到 PDF 自带文字层，直接抽取文字（--force-ocr 可强制走 OCR）")
-        pages = _textlayer_pages(doc)
+        pages, imgs = _textlayer_pages(doc), []
     else:
         log.info("逐页 OCR（Apple Vision，语言：%s）", args.lang)
-        pages = _ocr_pages(doc, args)
+        pages, imgs = _ocr_pages(doc, args)
+
+    if args.vision:
+        vs = VisionStructure()
+        if not vs.enabled:
+            log.warning("--vision 需要 DEEPSEEK_API_KEY（.env），已回退到规则模式")
+        else:
+            return _run_vision(args, src, out_dir, stem, pages, imgs, vs)
 
     # 组装段落流
     stream = build_stream(pages)
@@ -214,6 +230,80 @@ def main(argv=None) -> int:
     print(f"\n✅ 输出目录：{out_dir}")
     for k, p in side.items():
         print(f"   - {k}: {p}")
+    print(f"   - markdown: {md_path}")
+    if not args.no_docx:
+        print(f"   - word: {out_dir / (stem + '.docx')}")
+    if not args.no_epub:
+        print(f"   - epub: {out_dir / (stem + '.epub')}")
+    return 0
+
+
+def _run_vision(args, src: Path, out_dir: Path, stem: str, pages, imgs, vs: VisionStructure) -> int:
+    """ds-vision 结构化模式：
+    OCR → ds-vision 逐页版面结构化 → 逐页 JSON（用户约定格式）+ 网页阅读器
+    + 重建 Markdown/Word/EPUB（脚注落在正文引用位置）。
+    """
+    # 1) ds-vision 逐页结构化（图像 + OCR 文本）
+    ocr_texts = []
+    for p in pages:
+        lines = sorted(p.blocks, key=lambda b: (b.cy, b.x0))
+        ocr_texts.append("\n".join(b.clean() for b in lines if b.clean()))
+    structured = vs.structure_book(imgs, ocr_texts)
+
+    if args.no_footnotes:
+        for pg in structured:
+            pg["items"] = [it for it in pg["items"] if it["type"] != "footnote"]
+
+    # 2) 元数据（DeepSeek 文本模型，从书名页 OCR 提取）
+    client = DeepSeekClient()
+    metadata: dict = {}
+    if client.enabled:
+        metadata = client.extract_metadata("\n".join(ocr_texts[:3]))
+    meta = dict(metadata)
+    meta.setdefault("title", stem)
+
+    # 3) 逐页 JSON 存储（用户约定的结构：{"pdf_page", "items":[...]}）
+    pages_dir = out_dir / "pages"
+    pages_dir.mkdir(exist_ok=True)
+    for pg in structured:
+        (pages_dir / f"page_{pg['pdf_page']:03d}.json").write_text(
+            json.dumps(pg, ensure_ascii=False, indent=2), encoding="utf-8")
+    all_path = out_dir / f"{stem}_pages.json"
+    all_path.write_text(json.dumps(structured, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # 4) 网页阅读器（自包含单文件）
+    html_path = out_dir / f"{stem}.html"
+    html_path.write_text(build_reader_html(structured, meta, stem), encoding="utf-8")
+    log.info("网页阅读器已生成：%s", html_path)
+
+    # 5) Markdown / Word / EPUB（脚注全局编号，落在正文引用位置）
+    md_text = items_to_markdown(structured, metadata=meta)
+    md_path = out_dir / f"{stem}.md"
+    md_path.write_text(md_text, encoding="utf-8")
+    log.info("Markdown 已生成：%s", md_path)
+    if not args.no_docx or not args.no_epub:
+        tmp = out_dir / "_vision_source.md"
+        tmp.write_text(md_text, encoding="utf-8")
+        if not args.no_docx:
+            docx_path = out_dir / f"{stem}.docx"
+            engine = convert_to_docx(str(tmp), str(docx_path))
+            log.info("Word 已生成（%s，脚注在正文引用位置）：%s", engine, docx_path)
+        if not args.no_epub:
+            epub_path = out_dir / f"{stem}.epub"
+            if md_to_epub(str(tmp), str(epub_path)):
+                log.info("EPUB 已生成：%s", epub_path)
+            else:
+                log.warning("EPUB 生成失败或缺少 pandoc，已跳过")
+        tmp.unlink(missing_ok=True)
+
+    # 6) 汇总
+    n_body = sum(1 for pg in structured for it in pg["items"] if it["type"] == "body")
+    n_head = sum(1 for pg in structured for it in pg["items"] if it["type"] == "heading")
+    n_fn = sum(1 for pg in structured for it in pg["items"] if it["type"] == "footnote")
+    log.info("完成：正文段 %d，标题 %d，脚注 %d（共 %d 页）", n_body, n_head, n_fn, len(structured))
+    print(f"\n✅ 输出目录：{out_dir}")
+    print(f"   - 网页阅读器: {html_path}")
+    print(f"   - 逐页JSON: {pages_dir}/ 与 {all_path}")
     print(f"   - markdown: {md_path}")
     if not args.no_docx:
         print(f"   - word: {out_dir / (stem + '.docx')}")
