@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import fitz  # noqa: E402
+import pymupdf as fitz  # noqa: E402
 
 # ---------- 画布（A4 @ 300dpi，真实书籍字号 ≈ 10.5-12pt = 44-50px） ----------
 W, H = 2480, 3508

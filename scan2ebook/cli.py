@@ -32,7 +32,8 @@ BLANK_TEXT_THRESHOLD = 3
 def parse_args(argv=None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         prog="scan2ebook",
-        description="扫描版书籍 → 带页码锚定的网页阅读器 + 整本结构化 JSON",
+        description="扫描版书籍 → 带页码锚定的网页阅读器 + 整本结构化 JSON。\n"
+                    "子命令：scan2ebook serve —— 启动本地阅读器（自动打开浏览器）",
     )
     ap.add_argument("book", help="扫描版 PDF 路径")
     ap.add_argument("-o", "--out", default="output", help="输出目录（默认 ./output）")
@@ -44,6 +45,8 @@ def parse_args(argv=None) -> argparse.Namespace:
     ap.add_argument("--no-footnotes", action="store_true", help="丢弃脚注内容")
     ap.add_argument("--no-bundle", action="store_true",
                     help="不打包 .s2e（默认自动打包：pdf + json 的 zip 压缩包）")
+    ap.add_argument("--serve", action="store_true",
+                    help="转换完成后自动启动阅读器并打开浏览器")
     ap.add_argument("--split-pages", action="store_true",
                     help="除整本 JSON 外，额外输出 pages/page_NNN.json（抽查单页用）")
     ap.add_argument("--verbose", action="store_true")
@@ -86,6 +89,12 @@ def _render_and_ocr(doc, args) -> tuple[list, list[str]]:
 
 
 def main(argv=None) -> int:
+    argv = list(argv) if argv is not None else sys.argv[1:]
+    # 子命令：scan2ebook serve —— 启动本地阅读器
+    if argv and argv[0] == "serve":
+        from .reader import main as reader_main
+        return reader_main(argv[1:])
+
     args = parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
@@ -174,8 +183,36 @@ def main(argv=None) -> int:
           + (f"\n   - 逐页JSON: {out_dir / 'pages'}/" if args.split_pages else ""))
     if not args.no_bundle:
         print(f"   - 电子书包: {out_dir / (stem + '.s2e')}（拖入阅读器打开）")
-        print(f"   - 启动阅读器: python -m scan2ebook.reader")
+    if args.serve:
+        _launch_reader()
+    else:
+        print(f"   - 启动阅读器: python -m scan2ebook serve")
     return 0
+
+
+def _launch_reader(port: int = 8765, host: str = "127.0.0.1") -> None:
+    """转换完成后后台启动阅读器服务并打开浏览器。"""
+    import subprocess
+    import time
+    import urllib.request
+    import webbrowser
+
+    log.info("启动阅读器：python -m scan2ebook serve …")
+    py = sys.executable
+    subprocess.Popen(
+        [py, "-m", "scan2ebook.reader", "--port", str(port), "--host", host],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    url = f"http://{host}:{port}"
+    for _ in range(30):
+        try:
+            urllib.request.urlopen(url, timeout=0.5)
+            break
+        except Exception:  # noqa: BLE001
+            time.sleep(0.2)
+    webbrowser.open(url)
 
 
 def _bundle_s2e(s2e_path: Path, src: Path, book_json: dict) -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 import io
 from typing import Optional
 
-import fitz  # PyMuPDF
+import pymupdf as fitz  # PyMuPDF
 from PIL import Image
 
 

@@ -43,16 +43,30 @@ cp .env.example .env   # 填入 DEEPSEEK_API_KEY
 # 1) 转换扫描书 → 自动打包成 .s2e（pdf + json）
 .venv/bin/python -m scan2ebook 书.pdf -o output
 
-# 2) 启动本地阅读器
-.venv/bin/python -m scan2ebook.reader
-#    浏览器打开 http://127.0.0.1:8765 ，把 .s2e 拖进窗口即导入书库
+# 2) 启动本地阅读器（自动打开浏览器）
+.venv/bin/python -m scan2ebook serve
+
+# 一键：转换完直接拉起阅读器
+.venv/bin/python -m scan2ebook 书.pdf -o output --serve
 
 # 常用选项
 #   --force-ocr     PDF 自带文字层时也强制走 OCR（默认检测到文字层直接抽取）
 #   --no-footnotes  丢弃脚注
 #   --no-bundle     不打包 .s2e
+#   --serve         转换完成后自动启动阅读器并打开浏览器
 #   --split-pages   额外输出 pages/page_NNN.json（抽查单页用）
 ```
+
+### 阅读器启动方式（三种，任选）
+
+| 方式 | 适合 |
+|---|---|
+| `python -m scan2ebook serve` | 命令行，自动开浏览器；端口被占用时自动复用已有实例 |
+| `python -m scan2ebook 书.pdf --serve` | 转换完直接进阅读器 |
+| **双击 `启动阅读器.command`** | Finder 双击即开（零命令行），适合非技术用户 |
+
+阅读器打开后把 `.s2e` 拖进窗口即导入书库；书库存在浏览器 IndexedDB，
+导入后电脑上的原文件可删除。
 
 ## 阅读器功能
 
