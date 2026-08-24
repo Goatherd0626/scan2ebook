@@ -289,8 +289,8 @@ function createBookView(book) {
   wv.innerHTML = `
     <div class="pdf-panel"><div class="pdf-holder"></div></div>
     <div class="divider">
-      <button class="jump" data-dir="text" title="跳转到文字视图" aria-label="跳转到文字视图"><span class="sf i-right"></span></button>
-      <button class="jump" data-dir="pdf" title="跳转到 PDF 视图" aria-label="跳转到 PDF 视图"><span class="sf i-left"></span></button>
+      <button class="jump" data-dir="text" title="跳转到对应文字段" aria-label="跳转到文字视图"><span class="sf i-right"></span></button>
+      <button class="jump" data-dir="pdf" title="跳转到对应 PDF 页" aria-label="跳转到 PDF 视图"><span class="sf i-left"></span></button>
     </div>
     <div class="text-panel"><div class="text-content"></div></div>`;
   $('workspace').appendChild(wv);

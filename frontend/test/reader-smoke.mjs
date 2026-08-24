@@ -161,3 +161,9 @@ document.getElementById('search-input').dispatchEvent(new window.KeyboardEvent('
 await new Promise((r) => setTimeout(r, 150));
 console.log('Enter 后计数:', document.getElementById('find-count').textContent, '| 当前高亮:', document.querySelectorAll('mark.hit.current').length);
 console.log('====');
+/* ==== 视图工具条按钮悬浮提示 ==== */
+const swV = document.getElementById('view-switch');
+const tipOk = [...swV.querySelectorAll('button')].every((b) => b.dataset.tip);
+console.log('视图按钮均带悬浮提示:', tipOk ? '是' : '否', '| 示例:', swV.querySelector('button').dataset.tip);
+console.log('divider 跳转按钮提示:', [...document.querySelectorAll('.divider .jump')].map((b) => b.dataset.tip).join(' / '));
+console.log('====');
