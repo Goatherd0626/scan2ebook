@@ -28,10 +28,10 @@ registerExtension({
     bar.innerHTML = `
       <input id="find-input" type="text" placeholder="搜索…" autocomplete="off" spellcheck="false">
       <span id="find-count"></span>
-      <button class="fb-btn" data-act="prev" title="上一个 (Shift+Enter)">▲</button>
-      <button class="fb-btn" data-act="next" title="下一个 (Enter)">▼</button>
-      <button class="fb-btn" data-act="list" title="结果列表">≡</button>
-      <button class="fb-btn" data-act="close" title="关闭 (Esc)">×</button>`;
+      <button class="fb-btn" data-act="prev" title="上一个 (Shift+Enter)" aria-label="上一个"><span class="sf i-up"></span></button>
+      <button class="fb-btn" data-act="next" title="下一个 (Enter)" aria-label="下一个"><span class="sf i-down"></span></button>
+      <button class="fb-btn" data-act="list" title="结果列表" aria-label="结果列表">≡</button>
+      <button class="fb-btn" data-act="close" title="关闭 (Esc)" aria-label="关闭"><span class="sf i-x"></span></button>`;
     document.body.appendChild(bar);
 
     /* ---------- 结果列表弹窗（≡ 展开） ---------- */
