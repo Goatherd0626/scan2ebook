@@ -579,10 +579,10 @@ function createHomeView() {
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="2.2" cy="3.8" r=".9" fill="currentColor" stroke="none"/><path d="M5.5 3.8h8.3"/><circle cx="2.2" cy="8" r=".9" fill="currentColor" stroke="none"/><path d="M5.5 8h8.3"/><circle cx="2.2" cy="12.2" r=".9" fill="currentColor" stroke="none"/><path d="M5.5 12.2h8.3"/></svg>
           </button>
           <button id="home-new-folder" class="mini" title="新建文件夹" aria-label="新建文件夹">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"><path d="M1.7 4A1.2 1.2 0 0 1 2.9 2.8h2.7l1.5 1.9h5.9A1.2 1.2 0 0 1 14.2 5.9v5.9A1.2 1.2 0 0 1 13 13H2.9a1.2 1.2 0 0 1-1.2-1.2V4z"/><circle cx="12" cy="12.5" r="3.1"/><path d="M12 11.3v2.4M10.8 12.5h2.4"/></svg>
+            <span class="sf i-folder"></span>
           </button>
           <button id="home-import" class="mini primary" title="导入电子书" aria-label="导入电子书">
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 9.8V2"/><path d="M5.2 4.6 8 1.8l2.8 2.8"/><path d="M2.8 6.6v6a1.2 1.2 0 0 0 1.2 1.2h8a1.2 1.2 0 0 0 1.2-1.2v-6"/></svg>
+            <span class="sf i-upload"></span>
           </button>
         </div>
       </div>
