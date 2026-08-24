@@ -8,36 +8,42 @@
 <body data-mode="split">
 
 <header id="topbar">
-  <button id="btn-library" class="icon-btn" title="书库">📚</button>
-  <div id="tabs"></div>
+  <button id="btn-library" class="icon-btn" title="书库 (1)" aria-label="书库">📚</button>
+  <div id="tabs">
+    <span id="tabs-empty">未打开书籍</span>
+  </div>
   <div id="topbar-right">
-    <div id="view-modes" class="seg">
-      <button data-mode="split" class="active">双栏</button>
-      <button data-mode="pdf">仅PDF</button>
-      <button data-mode="text">仅文字</button>
+    <div class="tb-group" id="view-mode-group">
+      <div id="view-modes" class="seg" role="tablist">
+        <button data-mode="split" class="active" title="双栏视图">⬛ 双栏</button>
+        <button data-mode="pdf" title="仅 PDF">▤ PDF</button>
+        <button data-mode="text" title="仅文字">▥ 文字</button>
+      </div>
+      <button id="btn-spread" class="icon-btn" title="PDF 双页摊开">📖</button>
+      <button id="btn-sync" class="icon-btn" title="同步滚动">⇅</button>
     </div>
-    <button id="btn-spread" class="icon-btn" title="PDF 双页摊开">📖</button>
-    <button id="btn-sync" class="icon-btn" title="同步滚动">⇅</button>
-    <span id="plugin-toolbar"></span>   <!-- 插件工具栏插槽 -->
-    <button id="btn-settings" class="icon-btn" title="设置 / 插件">⚙</button>
-    <button id="btn-import" class="icon-btn" title="导入 .s2e 电子书包">⬆ 导入</button>
+    <div class="tb-group" id="plugin-toolbar"></div>
+    <div class="tb-group">
+      <button id="btn-settings" class="icon-btn" title="设置 / 插件">⚙</button>
+      <button id="btn-import" class="icon-btn text-btn" title="导入 .s2e 电子书包">⬆ 导入</button>
+    </div>
   </div>
 </header>
 
 <div id="layout">
   <aside id="sidebar">
-    <div id="library-panel">
+    <div id="library-panel" class="side-panel">
       <div class="panel-head">
         <span class="panel-title">书库</span>
         <span class="panel-actions">
-          <button id="btn-import-lib" class="mini">导入电子书</button>
-          <button id="btn-new-folder" class="mini">＋文件夹</button>
-          <button id="btn-batch" class="mini">批量</button>
+          <button id="btn-import-lib" class="mini" title="导入电子书">⬆</button>
+          <button id="btn-new-folder" class="mini" title="新建文件夹">＋</button>
+          <button id="btn-batch" class="mini" title="批量管理">☑</button>
         </span>
       </div>
       <div id="library-tree" class="panel-body"></div>
     </div>
-    <div id="toc-panel">
+    <div id="toc-panel" class="side-panel">
       <div class="panel-head">
         <span class="panel-title">目录</span>
         <span class="seg" id="toc-tabs">
@@ -53,10 +59,12 @@
 
 <div id="fn-tooltip"></div>
 <div id="toast"></div>
+
+<div id="settings-mask" hidden></div>
 <div id="settings-dialog" hidden>
   <div class="sd-head">
-    <span>设置 / 插件</span>
-    <button id="sd-close" class="mini">✕</button>
+    <span class="sd-title">设置 / 插件</span>
+    <button id="sd-close" class="mini" title="关闭">✕</button>
   </div>
   <div id="sd-sections"></div>
 </div>

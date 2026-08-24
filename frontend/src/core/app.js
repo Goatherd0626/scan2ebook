@@ -81,6 +81,10 @@ function bookRow(b) {
   const chk = document.createElement('input');
   chk.type = 'checkbox'; chk.className = 'batch-check';
   row.appendChild(chk);
+  const cover = document.createElement('span');
+  cover.className = 'b-cover c' + ((b.id.charCodeAt(0) + (b.id.charCodeAt(1) || 0)) % 5 + 1);
+  cover.textContent = (b.meta.title || b.s2eName || '书').slice(0, 1);
+  row.appendChild(cover);
   const t = document.createElement('span');
   t.className = 'b-title';
   t.textContent = b.meta.title || b.s2eName || '未命名';
@@ -89,7 +93,7 @@ function bookRow(b) {
   row.appendChild(t);
   const meta = document.createElement('span');
   meta.className = 'b-meta';
-  meta.textContent = (b.meta.author || '').slice(0, 10) + ' · ' + (b.bookJson.pages ? b.bookJson.pages.length : '?') + '页';
+  meta.textContent = (b.meta.author || '').slice(0, 8) + ' · ' + (b.bookJson.pages ? b.bookJson.pages.length : '?') + '页';
   row.appendChild(meta);
   row.addEventListener('click', (e) => {
     if (state.batchMode) { chk.checked = !chk.checked; return; }
@@ -208,7 +212,8 @@ export function activeView() {
 
 function renderTabs() {
   const tabs = $('tabs');
-  tabs.innerHTML = '';
+  const empty = $('tabs-empty');
+  tabs.querySelectorAll('.tab').forEach((x) => x.remove());
   for (const t of state.tabs) {
     const book = state.books.find((b) => b.id === t.bookId);
     if (!book) continue;
@@ -217,6 +222,7 @@ function renderTabs() {
     const title = document.createElement('span');
     title.textContent = book.meta.title || book.s2eName || '书';
     title.style.overflow = 'hidden'; title.style.textOverflow = 'ellipsis';
+    title.style.maxWidth = '130px';
     const x = document.createElement('span');
     x.className = 'tab-x'; x.textContent = '×';
     x.addEventListener('click', (e) => { e.stopPropagation(); closeTab(t.bookId); });
@@ -224,7 +230,7 @@ function renderTabs() {
     btn.addEventListener('click', () => switchTab(t.bookId));
     tabs.appendChild(btn);
   }
-  if (!state.tabs.length) tabs.innerHTML = '<span style="color:var(--ink-3);font-size:12px;padding:4px">书库中选择一本书打开</span>';
+  empty.hidden = state.tabs.length > 0;
 }
 
 function createBookView(book) {
@@ -384,12 +390,14 @@ document.addEventListener('mousedown', () => setTimeout(hideContextBar, 200));
 
 /* ============================ 设置 / 插件管理器 ============================ */
 function bindSettingsDialog() {
-  $('btn-settings').addEventListener('click', () => {
-    const d = $('settings-dialog');
-    d.hidden = !d.hidden;
-    if (!d.hidden) renderPluginList();
-  });
-  $('sd-close').addEventListener('click', () => { $('settings-dialog').hidden = true; });
+  const dlg = $('settings-dialog');
+  const mask = $('settings-mask');
+  const open = () => { mask.hidden = false; dlg.hidden = false; renderPluginList(); };
+  const close = () => { mask.hidden = true; dlg.hidden = true; };
+  $('btn-settings').addEventListener('click', () => (dlg.hidden ? open() : close()));
+  $('sd-close').addEventListener('click', close);
+  mask.addEventListener('click', close);
+  window.openSettings = open;
 }
 
 function renderPluginList() {
@@ -429,6 +437,10 @@ function renderPluginList() {
 
 /* ============================ 顶栏 ============================ */
 function bindTopbar() {
+  $('btn-library').addEventListener('click', () => {
+    document.body.classList.toggle('sidebar-hidden');
+    $('btn-library').classList.toggle('active', !document.body.classList.contains('sidebar-hidden'));
+  });
   $('view-modes').addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
     document.body.dataset.mode = b.dataset.mode;
@@ -467,7 +479,10 @@ function bindTopbar() {
     if (!state.batchMode) renderLibrary();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { $('settings-dialog').hidden = true; $('fn-tooltip').style.display = 'none'; hideContextBar(); }
+    if (e.key === 'Escape') {
+      $('settings-dialog').hidden = true; $('settings-mask').hidden = true;
+      $('fn-tooltip').style.display = 'none'; hideContextBar();
+    }
   });
   // 批量操作条
   const bar = document.createElement('div');
