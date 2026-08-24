@@ -69,7 +69,6 @@ input { font-family: var(--sans); }
 .i-upload { --sf: url("./assets/icons/square-and-arrow-up.png"); }
 .i-gear { --sf: url("./assets/icons/gearshape.png"); }
 .i-t { --sf: url("./assets/icons/t-square.png"); }
-.sf.i-search { --sf: url("./assets/icons/magnifyingglass.png"); width: 15px; height: 15px; }
 .sf.i-up { --sf: url("./assets/icons/arrow-up.png"); width: 12px; height: 12px; }
 .sf.i-down { --sf: url("./assets/icons/arrow-down.png"); width: 12px; height: 12px; }
 .sf.i-x { --sf: url("./assets/icons/multiply.png"); width: 12px; height: 12px; }
@@ -380,25 +379,6 @@ body.batch-mode .ht-check { display: inline-block; }
   font-family: var(--serif); font-weight: 700; color: var(--ink);
 }
 
-/* 元数据编辑模态 */
-#meta-mask { position: fixed; inset: 0; z-index: 945; background: rgba(30, 22, 8, .35);
-  backdrop-filter: blur(2px); animation: fadeIn .15s ease; }
-#meta-dialog {
-  position: fixed; z-index: 955; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: 360px; background: var(--surface); border: 1px solid var(--line);
-  border-radius: var(--r-lg); box-shadow: var(--shadow-modal);
-  font-family: var(--sans); font-size: 13px; animation: popIn .18s ease;
-}
-#meta-form { padding: 14px 18px 16px; }
-#meta-form label { display: block; margin: 8px 0; color: var(--ink-2); }
-#meta-form input, #meta-form select {
-  display: block; width: 100%; margin-top: 3px; padding: 6px 9px;
-  border: 1px solid var(--line); border-radius: var(--r-sm);
-  background: var(--paper); color: var(--ink); font-size: 13px;
-}
-#meta-form input:focus { outline: none; border-color: var(--accent); }
-.mf-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
-#mf-save.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 /* ================= 工作区 ================= */
 #workspace { flex: 1 1 auto; display: flex; min-width: 0; background: var(--bg); }
@@ -426,9 +406,9 @@ body.batch-mode .ht-check { display: inline-block; }
   width: 2px; height: 9px;
   background: currentColor; border-radius: 1px;
 }
-.view-switch .vs-sync { display: none; }
+#view-switch .vs-sync { display: none; }
 .book-view[data-mode="split"] .vs-sync { display: flex; }
-.view-switch .vs-spread { display: none; }
+#view-switch .vs-spread { display: none; }
 .book-view[data-mode="pdf"] .vs-spread { display: flex; }
 
 .pdf-panel {

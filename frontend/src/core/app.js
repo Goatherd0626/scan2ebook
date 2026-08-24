@@ -20,7 +20,6 @@ export const state = {
 };
 
 let appCtx = null;
-let lastSelection = null;
 
 /* ============================ 初始化 ============================ */
 export async function init() {
@@ -452,7 +451,6 @@ function showContextBar(sel) {
   const r = sel.rect;
   bar.style.left = Math.min(r.left, innerWidth - bar.offsetWidth - 10) + 'px';
   bar.style.top = (r.top - 40) + 'px';
-  lastSelection = sel;
 }
 
 function hideContextBar() { document.getElementById('ctxbar')?.remove(); }

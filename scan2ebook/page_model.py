@@ -3,12 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# 块类型
-KIND_HEADER = "header"        # 页眉（书眉/章节名）
-KIND_FOOTER = "footer"        # 页脚（页码等，一律丢弃）
-KIND_FOOTNOTE = "footnote"    # 脚注
-KIND_BODY = "body"            # 正文
-KIND_BLANK = "blank"          # 空块
+# 块类型（当前仅用 body；其余由 ds-vision 结构化层处理）
+KIND_BODY = "body"
 
 
 @dataclass
