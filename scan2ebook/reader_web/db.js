@@ -19,6 +19,8 @@ function openDB() {
   });
 }
 
+export { openDB };
+
 function tx(db, store, mode, fn) {
   return new Promise((resolve, reject) => {
     const t = db.transaction(store, mode);
