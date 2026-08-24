@@ -449,6 +449,7 @@ body.batch-mode .ht-check { display: inline-block; }
 }
 .divider button {
   position: relative; width: 26px; height: 26px; border-radius: 50%;
+  margin-left: -13px;   /* 居中后再左移半钮：圆心落在暗/亮面板交界的左侧 */
   color: var(--ink-2); background: var(--surface); border: 1px solid var(--line);
   display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
   transition: background .15s, color .15s;
