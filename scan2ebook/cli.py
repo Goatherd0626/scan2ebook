@@ -42,6 +42,8 @@ def parse_args(argv=None) -> argparse.Namespace:
     ap.add_argument("--force-ocr", action="store_true",
                     help="PDF 自带文字层时也强制走 OCR")
     ap.add_argument("--no-footnotes", action="store_true", help="丢弃脚注内容")
+    ap.add_argument("--no-bundle", action="store_true",
+                    help="不打包 .s2e（默认自动打包：pdf + json 的 zip 压缩包）")
     ap.add_argument("--split-pages", action="store_true",
                     help="除整本 JSON 外，额外输出 pages/page_NNN.json（抽查单页用）")
     ap.add_argument("--verbose", action="store_true")
@@ -146,10 +148,16 @@ def main(argv=None) -> int:
             (pages_dir / f"page_{pg['pdf_page']:03d}.json").write_text(
                 json.dumps(pg, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # 5) 网页阅读器（自包含单文件）
+    # 5) 网页阅读器（自包含单文件，快速预览用；完整阅读器见 python -m scan2ebook.reader）
     html_path = out_dir / f"{stem}.html"
     html_path.write_text(build_reader_html(structured, meta, stem), encoding="utf-8")
     log.info("网页阅读器已生成：%s", html_path)
+
+    # 6) .s2e 打包（pdf + json 的 zip，阅读器主格式）
+    if not args.no_bundle:
+        s2e_path = out_dir / f"{stem}.s2e"
+        _bundle_s2e(s2e_path, src, book_json)
+        log.info("电子书包已生成：%s", s2e_path)
 
     # 6) 汇总
     kind_count = Counter(pg.get("page_kind", "body") for pg in structured)
@@ -164,7 +172,18 @@ def main(argv=None) -> int:
     print(f"   - 网页阅读器: {html_path}")
     print(f"   - 整本书JSON: {book_path}"
           + (f"\n   - 逐页JSON: {out_dir / 'pages'}/" if args.split_pages else ""))
+    if not args.no_bundle:
+        print(f"   - 电子书包: {out_dir / (stem + '.s2e')}（拖入阅读器打开）")
+        print(f"   - 启动阅读器: python -m scan2ebook.reader")
     return 0
+
+
+def _bundle_s2e(s2e_path: Path, src: Path, book_json: dict) -> None:
+    """打包 .s2e：zip 内含 book.json（结构化数据）与 book.pdf（原始扫描件）。"""
+    import zipfile
+    with zipfile.ZipFile(s2e_path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("book.json", json.dumps(book_json, ensure_ascii=False, indent=2))
+        z.write(src, "book.pdf")
 
 
 if __name__ == "__main__":
