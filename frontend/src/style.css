@@ -437,20 +437,20 @@ body.batch-mode .ht-check { display: inline-block; }
 }
 .jump.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 .text-panel { flex: 1 1 50%; overflow: auto; background: var(--paper); }
-/* divider：正好贴在 PDF/文字面板交界处，宽度=圆钮直径，白圆钮+细线串珠 */
+/* divider：零宽度，圆钮骑在面板交界线上（各溢出一半），细线沿交界穿过 */
 .divider {
-  flex: 0 0 28px; position: relative; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 4px; background: transparent;
-  border: none;
+  flex: 0 0 0; position: relative; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 5px; background: transparent;
+  border: none; z-index: 2;
 }
 .divider::before {
-  content: ""; position: absolute; left: 50%; top: 0; bottom: 0;
-  width: 1px; background: var(--line);
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 1px; background: var(--line); transform: translateX(-.5px);
 }
 .divider button {
-  position: relative; z-index: 1; width: 26px; height: 26px; border-radius: 50%;
+  position: relative; width: 26px; height: 26px; border-radius: 50%;
   color: var(--ink-2); background: var(--surface); border: 1px solid var(--line);
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
   transition: background .15s, color .15s;
   box-shadow: var(--shadow-card);
 }
