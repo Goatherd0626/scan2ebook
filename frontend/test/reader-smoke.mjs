@@ -108,3 +108,18 @@ console.log('blur 后已保存:', book2.meta.author === '测试作者·王五' ?
 const dp2 = document.getElementById('detail-panel');
 console.log('面板回显新作者:', dp2.textContent.includes('测试作者·王五') ? '是' : '否');
 console.log('=== 阶段错误 ===', errors.filter((e) => !/pdf|PDF|renderTasks|canvas/i.test(e)).join('\n') || '（无）');
+
+/* ==== 每本书视图配置：默认双栏、切换持久化 ==== */
+const vs = document.querySelector('.book-view .view-switch');
+console.log('=== 视图工具 ===');
+console.log('打开书后出现浮动视图工具:', !!vs);
+console.log('默认模式:', document.querySelector('.book-view').dataset.mode);
+const pdfBtn = vs.querySelector('button[data-mode="pdf"]');
+pdfBtn.click();
+await new Promise((r) => setTimeout(r, 200));
+console.log('books 数量:', state.books.length, state.books.map((x) => x.id));
+const b = state.books.find((x) => x.id === 'test-book') || state.books[0];
+const wv = document.querySelector('.book-view');
+console.log('切仅PDF后 视图模式:', wv.dataset.mode, '| 面板隐藏:', wv.querySelector('.text-panel').offsetParent === null ? '是' : '否');
+console.log('浮动工具按钮 active 同步:', !!vs.querySelector('button[data-mode="pdf"]').classList.contains('active'));
+console.log('====');

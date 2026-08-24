@@ -16,7 +16,6 @@ export const state = {
   folders: [],
   tabs: [],                 // [{bookId, wv, pdfView, textView, model}]
   activeBookId: null,
-  syncScroll: false,
   batchMode: false,
 };
 
@@ -287,19 +286,21 @@ function createBookView(book) {
   wv.className = 'book-view';
   wv.dataset.book = book.id;
   wv.innerHTML = `
-    <div class="pdf-panel">
-      <div class="pdf-tools">
-        <button class="jump sync-btn" data-act="sync" title="同步滚动（双栏视图内也可用）">⇅</button>
-        <button class="jump spread-btn" data-act="spread" title="PDF 双页摊开（仅 PDF 视图）">⿻</button>
-      </div>
-      <div class="pdf-holder"></div>
-    </div>
+    <div class="pdf-panel"><div class="pdf-holder"></div></div>
     <div class="divider">
       <button class="jump" data-dir="text" title="PDF → 文字">←文字</button>
-      <button class="jump sync-btn" data-act="sync" title="同步滚动">⇅</button>
       <button class="jump" data-dir="pdf" title="文字 → PDF">PDF→</button>
     </div>
-    <div class="text-panel"><div class="text-content"></div></div>`;
+    <div class="text-panel"><div class="text-content"></div></div>
+    <div class="view-switch" role="toolbar" aria-label="视图工具">
+      <div class="seg" data-role="view-modes">
+        <button data-mode="split" class="active" title="双栏视图" aria-label="双栏视图"><span class="sf vm-pdf"></span><span class="vm-bar"></span><span class="sf i-t"></span></button>
+        <button data-mode="pdf" title="仅 PDF 视图" aria-label="仅 PDF 视图"><span class="sf vm-pdf"></span></button>
+        <button data-mode="text" title="仅文字视图" aria-label="仅文字视图"><span class="sf i-t"></span></button>
+      </div>
+      <button class="jump vs-sync" data-act="sync" title="同步滚动（双栏视图）">⇅</button>
+      <button class="jump vs-spread" data-act="spread" title="PDF 双页摊开（仅 PDF 视图）">⿻</button>
+    </div>`;
   $('workspace').appendChild(wv);
 
   const model = buildRenderModel(book.bookJson);
@@ -309,7 +310,7 @@ function createBookView(book) {
     onPageRender: (p) => bus.emit('page:render', Object.assign(p, { bookId: book.id })),
     onPageChange: (n) => {
       bus.emit('page:change', { bookId: book.id, page: n });
-      if (state.syncScroll && !lock) { lock = true; pdfView.gotoPage(n); setTimeout(() => { lock = false; }, 150); }
+      if (prefs.sync && !lock) { lock = true; pdfView.gotoPage(n); setTimeout(() => { lock = false; }, 150); }
     },
     onScroll: (n) => bus.emit('text:scroll', { bookId: book.id, page: n }),
     onSelection: (sel) => showContextBar(sel),
@@ -322,22 +323,39 @@ function createBookView(book) {
 
   const view = { bookId: book.id, wv, pdfView, textView, model, pdfPromise };
   enableCustomTooltips(wv);
-  wv.querySelectorAll('[data-act="spread"]').forEach((b) => b.addEventListener('click', () => {
-    const on = !b.classList.contains('active');
-    wv.querySelectorAll('[data-act="spread"]').forEach((x) => x.classList.toggle('active', on));
-    pdfView.setSpread(on);
-  }));
-  wv.querySelectorAll('[data-act="sync"]').forEach((b) => {
-    b.classList.toggle('active', state.syncScroll);
-    b.addEventListener('click', () => {
-      state.syncScroll = !state.syncScroll;
-      document.querySelectorAll('.sync-btn').forEach((x) => x.classList.toggle('active', state.syncScroll));
-      toast(state.syncScroll ? '已开启同步滚动' : '已关闭同步滚动');
-    });
+  // ---- 每本书自己的视图配置（记忆并持久化到 IndexedDB） ----
+  book.prefs = book.prefs || { viewMode: 'split', spread: false, sync: false };
+  const prefs = book.prefs;
+  const persistPrefs = () => { book.prefs = prefs; db.updateBook(state.db, book).catch(() => {}); };
+  const applyPrefs = () => {
+    wv.dataset.mode = prefs.viewMode;
+    wv.querySelectorAll('[data-role="view-modes"] button').forEach((b) => b.classList.toggle('active', b.dataset.mode === prefs.viewMode));
+    wv.querySelectorAll('[data-act="spread"]').forEach((x) => x.classList.toggle('active', prefs.spread));
+    wv.querySelectorAll('[data-act="sync"]').forEach((x) => x.classList.toggle('active', prefs.sync));
+    pdfView.setSpread(prefs.spread);
+    if (activeView() === view) document.body.dataset.mode = prefs.viewMode;
+  };
+  view.applyPrefs = applyPrefs;
+  wv.querySelector('[data-role="view-modes"]').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-mode]'); if (!b) return;
+    prefs.viewMode = b.dataset.mode;
+    applyPrefs();
+    persistPrefs();
   });
+  wv.querySelectorAll('[data-act="spread"]').forEach((b) => b.addEventListener('click', () => {
+    prefs.spread = !prefs.spread;
+    applyPrefs();
+    persistPrefs();
+  }));
+  wv.querySelectorAll('[data-act="sync"]').forEach((b) => b.addEventListener('click', () => {
+    prefs.sync = !prefs.sync;
+    applyPrefs();
+    persistPrefs();
+    toast(prefs.sync ? '已开启同步滚动' : '已关闭同步滚动');
+  }));
   let lock = false;
   pdfView.onPageChange = (n) => {
-    if (state.syncScroll && !lock) { lock = true; textView.scrollToPage(n); setTimeout(() => { lock = false; }, 150); }
+    if (prefs.sync && !lock) { lock = true; textView.scrollToPage(n); setTimeout(() => { lock = false; }, 150); }
   };
   wv.querySelector('.jump[data-dir="text"]').addEventListener('click', () => textView.scrollToPage(pdfView.currentPage || 1));
   wv.querySelector('.jump[data-dir="pdf"]').addEventListener('click', () => pdfView.gotoPage(textView.currentPage || 1));
@@ -371,6 +389,8 @@ function switchTab(id) {
   const home = document.getElementById('home-view');
   if (home) home.style.display = 'none';
   for (const t of state.tabs) t.wv.hidden = t.bookId !== id;
+  const cur = state.tabs.find((t) => t.bookId === id);
+  if (cur && cur.applyPrefs) cur.applyPrefs();
   renderTabs();
   renderToc();
   bus.emit('book:switch', { bookId: id });
@@ -510,12 +530,6 @@ function bindTopbar() {
   $('btn-library').addEventListener('click', () => {
     document.body.classList.toggle('sidebar-hidden');
     $('btn-library').classList.toggle('active', !document.body.classList.contains('sidebar-hidden'));
-  });
-  $('view-modes').addEventListener('click', (e) => {
-    const b = e.target.closest('button'); if (!b) return;
-    document.body.dataset.mode = b.dataset.mode;
-    $('view-modes').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
-    bus.emit('view:mode', b.dataset.mode);
   });
   $('btn-import').addEventListener('click', () => $('import-input').click());
   $('btn-import-lib').addEventListener('click', () => $('import-input').click());
