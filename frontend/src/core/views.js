@@ -1,12 +1,15 @@
-/* 双视图：PDF 视图 + 文字视图 + 同步/跳转/脚注/双页摊开 */
+/* 核心渲染引擎：PDF 视图 + 文字视图（含事件钩子，供插件挂接） */
+import * as pdfjsLib from 'pdfjs-dist';
+
 const HIDE_KINDS = new Set(['cover', 'copyright', 'blank', 'toc']);
 const SENT_END = /[。！？!?…."”’』」）\)]$/;
 
-/* 从整本 book.json 构建阅读模型：全局脚注重编号 + 过滤隐藏页 + 跨页续段标记 */
+/* 从整本 book.json 构建阅读模型：全局脚注重编号 + 过滤隐藏页 + 跨页续段标记。
+   正文中的脚注标记保留为 ⟦全局序号⟧，由插件（如 footnotes）渲染为交互上标。 */
 export function buildRenderModel(bookJson) {
   const pages = JSON.parse(JSON.stringify(bookJson.pages || []));
-  const fnMap = {};               // (page:index) -> 全局序号
-  const footnotes = [null];       // 1 起
+  const fnMap = {};
+  const footnotes = [null];
   let g = 0;
   for (const pg of pages) {
     for (const it of pg.items) {
@@ -124,16 +127,11 @@ export class PdfView {
     if (!this.pdf) return;
     n = Math.max(1, Math.min(n, this.pdf.numPages));
     const w = this.pageEls.get(n);
-    if (w) {
-      this._renderPage(n);
-      w.scrollIntoView({ block: 'start' });
-      this._setCurrent(n);
-    }
+    if (w) { this._renderPage(n); w.scrollIntoView({ block: 'start' }); this._setCurrent(n); }
   }
 
   setSpread(on) {
     this.panel.classList.toggle('spread', on);
-    // 重新渲染以适配宽度
     this.pageEls.forEach((w, n) => { delete w.dataset.rendered; w.innerHTML = ''; });
     this._io?.disconnect(); this._pageObs?.disconnect();
     this.pageEls.forEach((w) => { this._io.observe(w); this._pageObs.observe(w); });
@@ -143,20 +141,21 @@ export class PdfView {
 
 /* ============================ 文字视图 ============================ */
 export class TextView {
-  constructor(panel) {
+  constructor(panel, hooks = {}) {
     this.panel = panel;
     this.holder = panel.querySelector('.text-content');
     this.model = null;
     this.pageAnchors = new Map();
-    this.itemEls = new Map();       // page:itemIdx -> element
+    this.itemEls = new Map();
     this.currentPage = 0;
-    this.onPageChange = null;
-    this.onScroll = null;
+    this.hooks = hooks;            // { onItemRender, onPageRender, onPageChange, onScroll }
     this._scrollT = null;
     panel.addEventListener('scroll', () => {
       clearTimeout(this._scrollT);
       this._scrollT = setTimeout(() => this._updatePageFromScroll(), 60);
     });
+    // 选中文字：交给核心派发给插件注册的上下文操作
+    panel.addEventListener('mouseup', (e) => this._onSelection(e));
   }
 
   load(model, meta) {
@@ -170,7 +169,6 @@ export class TextView {
     const md = el('div', 'meta', [meta.author, meta.publisher, meta.edition, meta.isbn].filter(Boolean).join(' · '));
     this.holder.appendChild(md);
 
-    const referenced = new Set();
     for (const pg of model.pages) {
       const banner = el('div', 'page-banner');
       banner.appendChild(el('span', null, 'PDF 第 ' + pg.pdf_page + ' 页'));
@@ -180,71 +178,37 @@ export class TextView {
       this.holder.appendChild(anchor);
       this.pageAnchors.set(pg.pdf_page, anchor);
       pg.items.forEach((it, idx) => {
-        this.itemEls.set(pg.pdf_page + ':' + idx, null);
+        let node = null;
         if (it.type === 'heading') {
           const h = el('h' + Math.min(4, (it.level || 2) + 1), 'heading');
           if (it.number) h.appendChild(el('span', 'num', it.number));
           h.appendChild(document.createTextNode(it.text));
           anchor.appendChild(h);
-          this.itemEls.set(pg.pdf_page + ':' + idx, h);
+          node = h;
         } else if (it.type === 'body') {
           const p = el('p', 'body' + (it._continued ? ' _continued' : ''));
           p.dataset.page = pg.pdf_page;
-          this._renderBody(p, it.text, referenced);
+          p.appendChild(document.createTextNode(it.text));
           anchor.appendChild(p);
-          this.itemEls.set(pg.pdf_page + ':' + idx, p);
+          node = p;
         }
+        this.itemEls.set(pg.pdf_page + ':' + idx, node);
+        if (node) this.hooks.onItemRender?.({ el: node, item: it, page: pg.pdf_page, model });
       });
-      // 本页未被正文引用的脚注（孤儿脚注）页末小字展示
-      const orphans = model.footnotes.filter((f) => f && f.page === pg.pdf_page && !referenced.has(f.id));
-      if (orphans.length) {
-        const od = el('div', 'fn-orphan');
-        orphans.forEach((f) => od.appendChild(el('div', null, '[' + f.id + '] ' + f.text)));
-        anchor.appendChild(od);
-      }
-    }
-    this.holder.querySelectorAll('.page-anchor').forEach(() => { /* noop */ });
-  }
-
-  _renderBody(p, text, referenced) {
-    const parts = text.split(/⟦(\d+)⟧/);
-    for (let i = 0; i < parts.length; i++) {
-      if (i % 2 === 1) {
-        const g = +parts[i];
-        referenced.add(g);
-        const sup = el('sup', 'fnref');
-        sup.dataset.g = g;
-        sup.textContent = g;
-        this._bindFn(sup, g);
-        p.appendChild(sup);
-      } else if (parts[i]) {
-        p.appendChild(document.createTextNode(parts[i]));
-      }
+      this.hooks.onPageRender?.({ page: pg.pdf_page, anchor, model });
     }
   }
 
-  _bindFn(sup, g) {
-    const tip = document.getElementById('fn-tooltip');
-    sup.addEventListener('mouseenter', () => {
-      const fn = this.model.footnotes[g];
-      if (!fn) return;
-      tip.innerHTML = '';
-      tip.appendChild(el('div', 'fn-head', '脚注 ' + g + ' · PDF 第 ' + fn.page + ' 页'));
-      tip.appendChild(el('div', null, fn.text));
-      tip.style.display = 'block';
-      const r = sup.getBoundingClientRect();
-      tip.style.left = Math.min(r.left, innerWidth - 340) + 'px';
-      tip.style.top = (r.bottom + 8) + 'px';
-    });
-    sup.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
-    sup.addEventListener('click', () => {
-      const fn = this.model.footnotes[g];
-      if (!fn) return;
-      const next = sup.nextElementSibling;
-      if (next && next.classList.contains('fn-inline')) { next.remove(); sup.classList.remove('open'); return; }
-      sup.after(el('span', 'fn-inline', '（' + fn.text + '）'));
-      sup.classList.add('open');
-    });
+  _onSelection(e) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+    const anchorEl = sel.anchorNode?.parentElement;
+    const itemEl = anchorEl?.closest('[data-page]');
+    if (!itemEl) return;
+    const text = sel.toString().replace(/\s+/g, ' ').trim();
+    if (!text) return;
+    const rect = sel.getRangeAt(0).getBoundingClientRect();
+    this.hooks.onSelection?.({ text, page: +itemEl.dataset.page, rect, view: this });
   }
 
   _updatePageFromScroll() {
@@ -255,8 +219,8 @@ export class TextView {
       if (top <= st + 40) cur = page; else break;
     }
     if (!cur && this.model.pages.length) cur = this.model.pages[0].pdf_page;
-    if (cur !== this.currentPage) { this.currentPage = cur; this.onPageChange?.(cur); }
-    this.onScroll?.(cur);
+    if (cur !== this.currentPage) { this.currentPage = cur; this.hooks.onPageChange?.(cur); }
+    this.hooks.onScroll?.(cur);
   }
 
   scrollToPage(n) {
@@ -273,3 +237,5 @@ export class TextView {
     this.panel.scrollTo({ top: e.getBoundingClientRect().top + st - 70, behavior: 'smooth' });
   }
 }
+
+export { pdfjsLib };

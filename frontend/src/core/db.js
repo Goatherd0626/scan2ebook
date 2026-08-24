@@ -1,25 +1,19 @@
-/* IndexedDB 书库：电子书本体（含 PDF blob）+ 元数据 + 文件夹 + 书签 + 进度。 */
+/* IndexedDB 书库：电子书本体（含 PDF blob）+ 元数据 + 文件夹。 */
 const DB_NAME = 'scan2ebook-reader';
 const DB_VER = 1;
 
-function openDB() {
+export function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VER);
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains('books')) {
-        db.createObjectStore('books', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('folders')) {
-        db.createObjectStore('folders', { keyPath: 'id' });
-      }
+      if (!db.objectStoreNames.contains('books')) db.createObjectStore('books', { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('folders')) db.createObjectStore('folders', { keyPath: 'id' });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
-
-export { openDB };
 
 function tx(db, store, mode, fn) {
   return new Promise((resolve, reject) => {
@@ -40,31 +34,17 @@ function getAll(db, store) {
 
 export async function getBooks(db) { return getAll(db, 'books'); }
 export async function getFolders(db) { return getAll(db, 'folders'); }
+export function addBook(db, book) { return tx(db, 'books', 'readwrite', (s) => s.put(book)); }
+export function updateBook(db, book) { return tx(db, 'books', 'readwrite', (s) => s.put(book)); }
+export function deleteBooks(db, ids) { return tx(db, 'books', 'readwrite', (s) => ids.forEach((id) => s.delete(id))); }
+export function addFolder(db, folder) { return tx(db, 'folders', 'readwrite', (s) => s.put(folder)); }
+export function deleteFolder(db, id) { return tx(db, 'folders', 'readwrite', (s) => s.delete(id)); }
 
-export function addBook(db, book) {
-  return tx(db, 'books', 'readwrite', (s) => s.put(book));
-}
-export function deleteBooks(db, ids) {
-  return tx(db, 'books', 'readwrite', (s) => ids.forEach((id) => s.delete(id)));
-}
-export function updateBook(db, book) {
-  return tx(db, 'books', 'readwrite', (s) => s.put(book));
-}
-export function addFolder(db, folder) {
-  return tx(db, 'folders', 'readwrite', (s) => s.put(folder));
-}
-export function deleteFolder(db, id) {
-  return tx(db, 'folders', 'readwrite', (s) => s.delete(id));
-}
-
-/* 批量移动书籍到文件夹（folderId 可为 null 表示根） */
 export function moveBooks(db, ids, folderId) {
   return tx(db, 'books', 'readwrite', (s) => {
     ids.forEach((id) => {
       const r = s.get(id);
-      r.onsuccess = () => {
-        if (r.result) { r.result.folderId = folderId; s.put(r.result); }
-      };
+      r.onsuccess = () => { if (r.result) { r.result.folderId = folderId; s.put(r.result); } };
     });
   });
 }

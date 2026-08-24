@@ -4,11 +4,11 @@
     python -m scan2ebook serve [--port 8765] [--host 127.0.0.1]
     python -m scan2ebook.reader [--port 8765]        # 等价
 
+服务 frontend/dist/（已构建）；未构建时回退到 frontend/ 源码目录。
+前端是独立 Vite 项目（frontend/），开发用 `cd frontend && npm run dev`。
+
 启动后自动打开浏览器；若端口已被占用（阅读器可能已在运行），
 直接打开已有实例而不报错。--no-browser 可关闭自动开浏览器。
-
-阅读器功能：拖入 .s2e 电子书包导入书库；书库保存在浏览器 IndexedDB，
-导入后原文件可删除。
 """
 from __future__ import annotations
 
@@ -21,8 +21,18 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
-WEB_DIR = Path(__file__).resolve().parent / "reader_web"
+ROOT = Path(__file__).resolve().parent.parent
+FRONTEND = ROOT / "frontend"
 DEFAULT_PORT = 8765
+
+
+def _web_dir() -> Path:
+    dist = FRONTEND / "dist"
+    if dist.exists() and (dist / "index.html").exists():
+        return dist
+    if (FRONTEND / "index.html").exists():
+        return FRONTEND
+    raise FileNotFoundError(f"未找到前端（{dist} 或 {FRONTEND}），请先 cd frontend && npm run build")
 
 
 def _probe(host: str, port: int, timeout: float = 0.5) -> bool:
@@ -40,19 +50,20 @@ def main(argv=None) -> int:
     ap.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
     args = ap.parse_args(argv)
 
-    if not WEB_DIR.exists():
-        print(f"找不到阅读器前端目录：{WEB_DIR}", file=sys.stderr)
+    try:
+        web_dir = _web_dir()
+    except FileNotFoundError as e:
+        print(e, file=sys.stderr)
         return 1
 
     url = f"http://{args.host}:{args.port}"
     if _probe(args.host, args.port):
-        # 端口已被占用：大概率阅读器已在运行，直接打开浏览器
         print(f"检测到 {url} 已有服务（阅读器可能已在运行），直接打开浏览器…")
         if not args.no_browser:
             webbrowser.open(url)
         return 0
 
-    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(WEB_DIR))
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(web_dir))
     try:
         server = http.server.ThreadingHTTPServer((args.host, args.port), handler)
     except OSError as e:
@@ -61,7 +72,6 @@ def main(argv=None) -> int:
 
     print(f"📖 scan2ebook 阅读器：{url}  （Ctrl+C 退出）")
     if not args.no_browser:
-        # 等服务就绪后再开浏览器，避免空白页
         for _ in range(20):
             if _probe(args.host, args.port, 0.3):
                 break

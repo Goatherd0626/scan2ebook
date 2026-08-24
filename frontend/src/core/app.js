@@ -1,11 +1,16 @@
-/* scan2ebook 阅读器主应用：书库/标签页/双视图/护眼/搜索/书签/进度 */
+/* 核心应用壳：书库 / 标签页 / 双视图 / 导入 / 插件管理器。
+   功能（搜索/书签/护眼/脚注/进度）由 src/plugins/ 下的插件提供。 */
+import JSZip from 'jszip';
 import * as db from './db.js';
-import { buildRenderModel, PdfView, TextView } from './views.js';
+import { buildRenderModel, PdfView, TextView, pdfjsLib } from './views.js';
+import {
+  bus, ui, listExtensions, isEnabled, setEnabled,
+  activateExtension, deactivateExtension, makeAppCtx, injectCore, renderToolbarWidgets,
+} from './extensions.js';
 
 const $ = (id) => document.getElementById(id);
-const pdfjs = window.pdfjsLib;
 
-const state = {
+export const state = {
   db: null,
   books: [],
   folders: [],
@@ -13,48 +18,47 @@ const state = {
   activeBookId: null,
   syncScroll: false,
   batchMode: false,
-  searchMatches: [],
-  searchIdx: -1,
-  settings: (() => {
-    try {
-      return Object.assign({ eye: false, dark: false, brightness: 100, warmth: 0,
-        fontSize: 17, lineH: 1.9, width: 42 }, JSON.parse(localStorage.getItem('s2e-settings') || '{}'));
-    } catch (e) {
-      return { eye: false, dark: false, brightness: 100, warmth: 0, fontSize: 17, lineH: 1.9, width: 42 };
-    }
-  })(),
 };
 
+let appCtx = null;
+let lastSelection = null;
+
 /* ============================ 初始化 ============================ */
-async function init() {
+export async function init() {
   state.db = await db.openDB();
   await loadLibrary();
   renderLibrary();
+
+  appCtx = makeAppCtx();
+  injectCore(appCtx, { db, state, getView: () => activeView(), toast, openBook: (id) => openBook(id) });
+
   bindTopbar();
-  bindEyeCare();
   bindDragDrop();
+  bindSettingsDialog();
+
+  // 激活插件（按启停状态）
+  for (const ext of listExtensions()) activateExtension(ext.id, appCtx);
+
+  bus.emit('app:ready', state);
+  renderToolbarWidgets();
+
   const q = new URLSearchParams(location.search).get('book');
   if (q) openBook(q);
   else showEmptyHint();
 }
 
+/* ============================ 书库 ============================ */
 async function loadLibrary() {
   state.books = await db.getBooks(state.db);
   state.folders = await db.getFolders(state.db);
 }
 
-/* ============================ 书库 ============================ */
 function renderLibrary() {
   const tree = $('library-tree');
   tree.innerHTML = '';
-  if (state.folders.length === 0 && state.books.length === 0) {
-    tree.appendChild(emptyLib());
-    return;
-  }
-  const rootBooks = state.books.filter((b) => !b.folderId);
-  appendBookGroup(tree, rootBooks);
-  const folderRoots = state.folders.filter((f) => !f.parentId);
-  for (const f of folderRoots) appendFolder(tree, f);
+  if (!state.folders.length && !state.books.length) { tree.appendChild(emptyLib()); return; }
+  appendBookGroup(tree, state.books.filter((b) => !b.folderId));
+  for (const f of state.folders.filter((x) => !x.parentId)) appendFolder(tree, f);
 }
 
 function emptyLib() {
@@ -66,15 +70,8 @@ function emptyLib() {
   btn.textContent = '选择 .s2e 文件导入';
   btn.addEventListener('click', () => $('import-input').click());
   d.appendChild(btn);
-  const hint = document.createElement('div');
-  hint.className = 'drop-hint';
-  hint.textContent = '也可以把 .s2e 文件直接拖到窗口任意位置';
-  d.appendChild(hint);
+  d.appendChild(Object.assign(document.createElement('div'), { className: 'drop-hint', textContent: '也可以把 .s2e 文件直接拖到窗口任意位置' }));
   return d;
-}
-
-function appendBookGroup(parent, books) {
-  for (const b of books) parent.appendChild(bookRow(b));
 }
 
 function bookRow(b) {
@@ -102,13 +99,16 @@ function bookRow(b) {
   return row;
 }
 
-function startMetaEdit(row, book, titleEl) {
+function appendBookGroup(parent, books) {
+  for (const b of books) parent.appendChild(bookRow(b));
+}
+
+async function startMetaEdit(row, book, titleEl) {
   const input = document.createElement('input');
   input.className = 'b-title-input';
   input.value = book.meta.title || '';
   titleEl.replaceWith(input);
-  input.focus();
-  input.select();
+  input.focus(); input.select();
   const done = async () => {
     book.meta.title = input.value.trim() || book.s2eName || '未命名';
     await db.updateBook(state.db, book);
@@ -117,7 +117,7 @@ function startMetaEdit(row, book, titleEl) {
     toast('书名已更新');
   };
   input.addEventListener('blur', done);
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') input.blur(); });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') input.blur(); });
 }
 
 function appendFolder(parent, folder) {
@@ -132,7 +132,7 @@ function appendFolder(parent, folder) {
   name.addEventListener('dblclick', () => startFolderRename(row, folder, name));
   const x = document.createElement('span');
   x.className = 'bm-x'; x.textContent = '✕';
-  x.title = '删除文件夹（其中的书移到书库根目录）';
+  x.title = '删除文件夹（书移到根目录）';
   x.addEventListener('click', async (e) => {
     e.stopPropagation();
     if (!confirm('删除文件夹「' + folder.name + '」？其中的书将移到书库根目录。')) return;
@@ -148,14 +148,12 @@ function appendFolder(parent, folder) {
   parent.appendChild(row);
   const children = document.createElement('div');
   children.className = 'folder-children';
-  const subFolders = state.folders.filter((f) => f.parentId === folder.id);
-  const subBooks = state.books.filter((b) => b.folderId === folder.id);
-  for (const f of subFolders) appendFolder(children, f);
-  appendBookGroup(children, subBooks);
-  if (subFolders.length || subBooks.length) parent.appendChild(children);
+  for (const f of state.folders.filter((x) => x.parentId === folder.id)) appendFolder(children, f);
+  appendBookGroup(children, state.books.filter((b) => b.folderId === folder.id));
+  if (children.childElementCount) parent.appendChild(children);
 }
 
-function startFolderRename(row, folder, nameEl) {
+async function startFolderRename(row, folder, nameEl) {
   const input = document.createElement('input');
   input.className = 'b-title-input';
   input.value = folder.name;
@@ -170,20 +168,18 @@ function startFolderRename(row, folder, nameEl) {
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') input.blur(); });
 }
 
-/* ============================ 导入 .s2e ============================ */
+/* ============================ 导入 ============================ */
 async function importFile(file) {
   const zip = await JSZip.loadAsync(file);
   const j = zip.file('book.json');
   if (!j) throw new Error('压缩包内缺少 book.json');
   const bookJson = JSON.parse(await j.async('string'));
-  let pdfEntry = zip.file('book.pdf');
-  if (!pdfEntry) pdfEntry = zip.file(/\.pdf$/i)[0];
+  let pdfEntry = zip.file('book.pdf') || zip.file(/\.pdf$/i)[0];
   if (!pdfEntry) throw new Error('压缩包内缺少 book.pdf');
   const pdfBlob = await pdfEntry.async('blob');
   const id = crypto.randomUUID();
   const book = {
-    id, s2eName: file.name.replace(/\.s2e$/i, ''), importedAt: Date.now(),
-    folderId: null,
+    id, s2eName: file.name.replace(/\.s2e$/i, ''), importedAt: Date.now(), folderId: null,
     meta: Object.assign({ title: file.name.replace(/\.s2e$/i, '') }, bookJson.book || {}),
     bookJson, pdfBlob, bookmarks: [], progress: null,
   };
@@ -192,11 +188,10 @@ async function importFile(file) {
   renderLibrary();
   openBook(id);
   toast('已导入「' + (book.meta.title || book.s2eName) + '」');
-  return id;
 }
 
 function bindDragDrop() {
-  const ov = (e) => { e.preventDefault(); };
+  const ov = (e) => e.preventDefault();
   document.addEventListener('dragover', ov);
   document.addEventListener('drop', (e) => {
     e.preventDefault();
@@ -207,6 +202,10 @@ function bindDragDrop() {
 }
 
 /* ============================ 标签页 ============================ */
+export function activeView() {
+  return state.tabs.find((t) => t.bookId === state.activeBookId) || null;
+}
+
 function renderTabs() {
   const tabs = $('tabs');
   tabs.innerHTML = '';
@@ -240,25 +239,32 @@ function createBookView(book) {
     </div>
     <div class="text-panel"><div class="text-content"></div></div>`;
   $('workspace').appendChild(wv);
+
   const model = buildRenderModel(book.bookJson);
   const pdfView = new PdfView(wv.querySelector('.pdf-panel'));
-  const textView = new TextView(wv.querySelector('.text-panel'));
+  const textView = new TextView(wv.querySelector('.text-panel'), {
+    onItemRender: (p) => bus.emit('item:render', Object.assign(p, { bookId: book.id })),
+    onPageRender: (p) => bus.emit('page:render', Object.assign(p, { bookId: book.id })),
+    onPageChange: (n) => {
+      bus.emit('page:change', { bookId: book.id, page: n });
+      if (state.syncScroll && !lock) { lock = true; pdfView.gotoPage(n); setTimeout(() => { lock = false; }, 150); }
+    },
+    onScroll: (n) => bus.emit('text:scroll', { bookId: book.id, page: n }),
+    onSelection: (sel) => showContextBar(sel),
+  });
   textView.load(model, book.meta);
-  const pdfPromise = pdfjs.getDocument({ data: book.pdfBlob }).promise;
+
+  // pdf.js 的 data 只接受 TypedArray/ArrayBuffer，Blob 需先转
+  const pdfPromise = book.pdfBlob.arrayBuffer().then((data) => pdfjsLib.getDocument({ data }).promise);
   pdfPromise.then((doc) => pdfView.load(doc));
-  // 同步滚动与跳转
+
   const view = { bookId: book.id, wv, pdfView, textView, model, pdfPromise };
   let lock = false;
-  textView.onPageChange = (n) => {
-    if (state.syncScroll && !lock) { lock = true; pdfView.gotoPage(n); setTimeout(() => { lock = false; }, 150); }
-  };
   pdfView.onPageChange = (n) => {
     if (state.syncScroll && !lock) { lock = true; textView.scrollToPage(n); setTimeout(() => { lock = false; }, 150); }
   };
   wv.querySelector('.jump[data-dir="text"]').addEventListener('click', () => textView.scrollToPage(pdfView.currentPage || 1));
   wv.querySelector('.jump[data-dir="pdf"]').addEventListener('click', () => pdfView.gotoPage(textView.currentPage || 1));
-  // 进度记忆
-  textView.onScroll = debounce((n) => { saveProgress(book.id, n); }, 900);
   return view;
 }
 
@@ -266,7 +272,7 @@ function debounce(fn, ms) {
   let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
-async function openBook(id) {
+export async function openBook(id) {
   const exist = state.tabs.find((t) => t.bookId === id);
   if (exist) { switchTab(id); return; }
   const book = state.books.find((b) => b.id === id);
@@ -275,7 +281,7 @@ async function openBook(id) {
   state.tabs.push(view);
   renderTabs();
   switchTab(id);
-  // 恢复进度
+  bus.emit('book:open', { view, book, bookId: id, model: view.model });
   if (book.progress && book.progress.page) {
     view.pdfPromise.then(() => {
       view.pdfView.gotoPage(book.progress.page);
@@ -288,9 +294,8 @@ function switchTab(id) {
   state.activeBookId = id;
   for (const t of state.tabs) t.wv.hidden = t.bookId !== id;
   renderTabs();
-  const view = state.tabs.find((t) => t.bookId === id);
-  renderToc(view);
-  if (view) setTimeout(() => view.textView._updatePageFromScroll(), 100);
+  renderToc();
+  bus.emit('book:switch', { bookId: id });
 }
 
 function closeTab(id) {
@@ -298,6 +303,7 @@ function closeTab(id) {
   if (i < 0) return;
   const [t] = state.tabs.splice(i, 1);
   t.wv.remove();
+  bus.emit('book:close', { bookId: id });
   if (state.activeBookId === id) {
     const next = state.tabs[Math.min(i, state.tabs.length - 1)];
     if (next) switchTab(next.bookId); else { state.activeBookId = null; showEmptyHint(); }
@@ -321,10 +327,11 @@ function showEmptyHint() {
 
 function refreshTabTitles() { renderTabs(); }
 
-/* ============================ 目录 / 书签 ============================ */
-function renderToc(view) {
-  const tocList = $('toc-list');
-  tocList.innerHTML = '';
+/* ============================ 目录（核心） ============================ */
+function renderToc() {
+  const list = $('toc-list');
+  list.innerHTML = '';
+  const view = activeView();
   if (!view) return;
   const toc = view.model.toc && view.model.toc.length ? view.model.toc : null;
   const items = toc || collectHeadings(view.model.pages);
@@ -340,7 +347,7 @@ function renderToc(view) {
     } else {
       a.title = '未匹配到正文标题';
     }
-    tocList.appendChild(a);
+    list.appendChild(a);
   }
 }
 
@@ -352,152 +359,72 @@ function collectHeadings(pages) {
   return out;
 }
 
-function renderBmList() {
-  const list = $('bm-list');
-  list.innerHTML = '';
-  const view = state.tabs.find((t) => t.bookId === state.activeBookId);
-  const book = state.books.find((b) => b.id === state.activeBookId);
-  if (!view || !book || !book.bookmarks || !book.bookmarks.length) {
-    list.innerHTML = '<div style="color:var(--ink-3);padding:10px">暂无书签（🔖 为当前页加书签）</div>';
-    return;
+/* ============================ 选中文字上下文操作 ============================ */
+function showContextBar(sel) {
+  hideContextBar();
+  const actions = ui.registry.contextActions;
+  if (!actions.length) return;
+  const bar = document.createElement('div');
+  bar.id = 'ctxbar';
+  for (const a of actions) {
+    const b = document.createElement('button');
+    b.textContent = a.label;
+    b.addEventListener('click', () => { a.apply(sel.text, activeView()); hideContextBar(); });
+    bar.appendChild(b);
   }
-  for (const bm of book.bookmarks) {
+  document.body.appendChild(bar);
+  const r = sel.rect;
+  bar.style.left = Math.min(r.left, innerWidth - bar.offsetWidth - 10) + 'px';
+  bar.style.top = (r.top - 40) + 'px';
+  lastSelection = sel;
+}
+
+function hideContextBar() { document.getElementById('ctxbar')?.remove(); }
+document.addEventListener('mousedown', () => setTimeout(hideContextBar, 200));
+
+/* ============================ 设置 / 插件管理器 ============================ */
+function bindSettingsDialog() {
+  $('btn-settings').addEventListener('click', () => {
+    const d = $('settings-dialog');
+    d.hidden = !d.hidden;
+    if (!d.hidden) renderPluginList();
+  });
+  $('sd-close').addEventListener('click', () => { $('settings-dialog').hidden = true; });
+}
+
+function renderPluginList() {
+  const host = $('sd-sections');
+  // 插件管理分区（核心提供）
+  let sec = host.querySelector('.sd-section[data-plugins]');
+  if (!sec) {
+    sec = document.createElement('div');
+    sec.className = 'sd-section';
+    sec.dataset.plugins = '1';
+    sec.innerHTML = '<div class="sd-sec-title">插件</div>';
+    host.prepend(sec);
+  }
+  sec.querySelectorAll('.plugin-row').forEach((x) => x.remove());
+  for (const ext of listExtensions()) {
     const row = document.createElement('div');
-    row.className = 'bm-item';
-    const txt = document.createElement('span');
-    txt.textContent = bm.snippet || ('PDF 第 ' + bm.page + ' 页');
-    txt.style.overflow = 'hidden'; txt.style.textOverflow = 'ellipsis';
-    const pg = document.createElement('span');
-    pg.className = 'bm-page'; pg.textContent = 'P' + bm.page;
-    const x = document.createElement('span');
-    x.className = 'bm-x'; x.textContent = '✕';
-    x.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      book.bookmarks = book.bookmarks.filter((b) => b.id !== bm.id);
-      await db.updateBook(state.db, book);
-      renderBmList();
+    row.className = 'plugin-row';
+    const info = document.createElement('span');
+    info.className = 'p-info';
+    info.innerHTML = '<b>' + ext.name + '</b> <small>' + (ext.version || '') + '</small><br><span class="p-desc">' + (ext.description || '') + '</span>';
+    const tog = document.createElement('button');
+    tog.className = 'toggle';
+    const on = isEnabled(ext.id);
+    tog.textContent = on ? '开' : '关';
+    tog.classList.toggle('on', on);
+    tog.addEventListener('click', () => {
+      const now = !isEnabled(ext.id);
+      setEnabled(ext.id, now);
+      if (now) activateExtension(ext.id, appCtx); else deactivateExtension(ext.id);
+      renderPluginList();
+      toast('插件「' + ext.name + '」' + (now ? '已启用' : '已停用') + '（部分功能需刷新生效）');
     });
-    row.append(txt, pg, x);
-    row.addEventListener('click', () => { view.pdfView.gotoPage(bm.page); view.textView.scrollToPage(bm.page); });
-    list.appendChild(row);
+    row.append(info, tog);
+    sec.appendChild(row);
   }
-}
-
-async function addBookmark() {
-  const book = state.books.find((b) => b.id === state.activeBookId);
-  const view = state.tabs.find((t) => t.bookId === state.activeBookId);
-  if (!book || !view) return;
-  const page = view.textView.currentPage || view.pdfView.currentPage || 1;
-  const anchor = view.textView.pageAnchors.get(page);
-  const snippet = anchor ? (anchor.textContent || '').trim().slice(0, 40) : '';
-  book.bookmarks = book.bookmarks || [];
-  book.bookmarks.push({ id: crypto.randomUUID(), page, snippet, at: Date.now() });
-  await db.updateBook(state.db, book);
-  renderBmList();
-  toast('已添加书签：PDF 第 ' + page + ' 页');
-}
-
-/* ============================ 进度 ============================ */
-async function saveProgress(bookId, page) {
-  const book = state.books.find((b) => b.id === bookId);
-  if (!book) return;
-  book.progress = { page, at: Date.now() };
-  await db.updateBook(state.db, book);
-}
-
-/* ============================ 搜索 ============================ */
-function doSearch(query) {
-  const view = state.tabs.find((t) => t.bookId === state.activeBookId);
-  if (!view) { $('search-info').textContent = ''; return; }
-  clearSearchMarks();
-  state.searchMatches = [];
-  state.searchIdx = -1;
-  const q = query.trim();
-  if (!q) { $('search-info').textContent = ''; return; }
-  const holder = view.textView.holder;
-  const ql = q.toLowerCase();
-  const walker = document.createTreeWalker(holder, NodeFilter.SHOW_TEXT);
-  const nodes = [];
-  while (walker.nextNode()) nodes.push(walker.currentNode);
-  for (const node of nodes) {
-    const idx = node.textContent.toLowerCase().indexOf(ql);
-    if (idx < 0) continue;
-    const mark = document.createElement('mark');
-    mark.className = 'hit';
-    const after = node.splitText(idx);
-    after.data = after.data.substring(q.length);
-    mark.textContent = q;
-    node.parentNode.insertBefore(mark, after);
-    state.searchMatches.push(mark);
-  }
-  $('search-info').textContent = state.searchMatches.length + ' 处';
-  jumpSearch(0);
-}
-
-function clearSearchMarks() {
-  document.querySelectorAll('#text-content mark.hit').forEach((m) => {
-    const p = m.parentNode;
-    p.replaceChild(document.createTextNode(m.textContent), m);
-    p.normalize();
-  });
-}
-
-function jumpSearch(rel) {
-  if (!state.searchMatches.length) return;
-  state.searchIdx = (state.searchIdx + rel + state.searchMatches.length) % state.searchMatches.length;
-  const m = state.searchMatches[state.searchIdx];
-  document.querySelectorAll('mark.hit.current').forEach((x) => x.classList.remove('current'));
-  m.classList.add('current');
-  m.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
-/* ============================ 护眼 / 阅读环境 ============================ */
-function mixColor(hex1, hex2, t) {
-  const p = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-  const a = p(hex1), b = p(hex2);
-  const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
-  return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
-}
-
-function applySettings() {
-  const s = state.settings;
-  document.body.classList.toggle('dark', s.dark);
-  const warm = s.eye ? Math.max(45, s.warmth) : s.warmth;
-  const paper = s.dark ? '#1f1e1a' : mixColor('#f7f1e4', '#ecd4a6', warm / 100);
-  const ink = s.dark ? '#d8d0bf' : mixColor('#3a3126', '#57452a', warm / 100);
-  const root = document.documentElement.style;
-  root.setProperty('--paper', paper);
-  root.setProperty('--ink', ink);
-  root.setProperty('--font-size', s.fontSize + 'px');
-  root.setProperty('--line-h', s.lineH);
-  root.setProperty('--max-width', s.width + 'rem');
-  document.body.style.filter = 'brightness(' + (s.brightness / 100) + ')';
-  localStorage.setItem('s2e-settings', JSON.stringify(s));
-  // 同步面板控件
-  $('ec-eye').textContent = s.eye ? '开' : '关';
-  $('ec-eye').classList.toggle('on', s.eye);
-  $('ec-dark').textContent = s.dark ? '开' : '关';
-  $('ec-dark').classList.toggle('on', s.dark);
-  $('ec-brightness').value = s.brightness;
-  $('ec-warmth').value = s.warmth;
-  $('ec-font').value = s.fontSize;
-  $('ec-lineh').value = s.lineH;
-  $('ec-width').value = s.width;
-}
-
-function bindEyeCare() {
-  $('btn-eyecare').addEventListener('click', () => { $('eyecare-panel').hidden = !$('eyecare-panel').hidden; });
-  $('ec-eye').addEventListener('click', () => { state.settings.eye = !state.settings.eye; applySettings(); });
-  $('ec-dark').addEventListener('click', () => { state.settings.dark = !state.settings.dark; applySettings(); });
-  $('ec-brightness').addEventListener('input', (e) => { state.settings.brightness = +e.target.value; applySettings(); });
-  $('ec-warmth').addEventListener('input', (e) => { state.settings.warmth = +e.target.value; applySettings(); });
-  $('ec-font').addEventListener('input', (e) => { state.settings.fontSize = +e.target.value; applySettings(); });
-  $('ec-lineh').addEventListener('input', (e) => { state.settings.lineH = +e.target.value; applySettings(); });
-  $('ec-width').addEventListener('input', (e) => { state.settings.width = +e.target.value; applySettings(); });
-  $('ec-reset').addEventListener('click', () => {
-    state.settings = { eye: false, dark: false, brightness: 100, warmth: 0, fontSize: 17, lineH: 1.9, width: 42 };
-    applySettings();
-  });
 }
 
 /* ============================ 顶栏 ============================ */
@@ -506,6 +433,7 @@ function bindTopbar() {
     const b = e.target.closest('button'); if (!b) return;
     document.body.dataset.mode = b.dataset.mode;
     $('view-modes').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
+    bus.emit('view:mode', b.dataset.mode);
   });
   $('btn-sync').addEventListener('click', () => {
     state.syncScroll = !state.syncScroll;
@@ -513,12 +441,11 @@ function bindTopbar() {
     toast(state.syncScroll ? '已开启同步滚动' : '已关闭同步滚动');
   });
   $('btn-spread').addEventListener('click', () => {
-    const view = state.tabs.find((t) => t.bookId === state.activeBookId);
+    const view = activeView();
     if (!view) return;
     $('btn-spread').classList.toggle('active');
     view.pdfView.setSpread($('btn-spread').classList.contains('active'));
   });
-  $('btn-bookmark').addEventListener('click', addBookmark);
   $('btn-import').addEventListener('click', () => $('import-input').click());
   $('btn-import-lib').addEventListener('click', () => $('import-input').click());
   $('import-input').addEventListener('change', async (e) => {
@@ -540,9 +467,13 @@ function bindTopbar() {
     if (!state.batchMode) renderLibrary();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { $('eyecare-panel').hidden = true; $('fn-tooltip').style.display = 'none'; }
+    if (e.key === 'Escape') { $('settings-dialog').hidden = true; $('fn-tooltip').style.display = 'none'; hideContextBar(); }
   });
-  // 批量操作：移动/删除
+  // 批量操作条
+  const bar = document.createElement('div');
+  bar.id = 'batch-bar';
+  bar.innerHTML = '<button class="mini" data-action="move">移动到…</button><button class="mini" data-action="delete">删除</button>';
+  $('library-panel').insertBefore(bar, $('library-panel').firstChild);
   document.addEventListener('click', async (e) => {
     if (!e.target.closest('#batch-bar')) return;
     const btn = e.target.closest('button'); if (!btn) return;
@@ -551,7 +482,7 @@ function bindTopbar() {
     if (btn.dataset.action === 'delete') {
       if (!confirm('删除选中的 ' + ids.length + ' 本电子书（阅读器存储中的副本）？')) return;
       await db.deleteBooks(state.db, ids);
-      ids.forEach((id) => { const i = state.tabs.findIndex((t) => t.bookId === id); if (i >= 0) closeTab(id); });
+      ids.forEach((id) => { if (state.tabs.some((t) => t.bookId === id)) closeTab(id); });
       toast('已删除 ' + ids.length + ' 本');
     } else if (btn.dataset.action === 'move') {
       const f = await selectFolder();
@@ -559,29 +490,10 @@ function bindTopbar() {
     }
     await loadLibrary(); renderLibrary();
   });
-  // 批量操作条（插入到侧边栏顶部）
-  const bar = document.createElement('div');
-  bar.id = 'batch-bar';
-  bar.innerHTML = '<button class="mini" data-action="move">移动到…</button><button class="mini" data-action="delete">删除</button>';
-  $('library-panel').insertBefore(bar, $('library-panel').firstChild);
-  // 搜索
-  $('search-input').addEventListener('input', (e) => doSearch(e.target.value));
-  $('search-next').addEventListener('click', () => jumpSearch(1));
-  $('search-prev').addEventListener('click', () => jumpSearch(-1));
-  // 目录/书签切换
-  $('toc-tabs').addEventListener('click', (e) => {
-    const b = e.target.closest('button'); if (!b) return;
-    const t = b.dataset.tt;
-    $('toc-tabs').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
-    $('toc-list').hidden = t !== 'toc';
-    $('bm-list').hidden = t !== 'bm';
-    if (t === 'bm') renderBmList();
-  });
 }
 
 async function selectFolder() {
-  const opts = [{ id: null, name: '（书库根目录）' }, ...state.folders];
-  const names = opts.map((f) => f.name).join('\n');
+  const names = [{ id: null, name: '（书库根目录）' }, ...state.folders].map((f) => f.name).join('\n');
   const pick = prompt('输入目标文件夹名称（回车移动到书库根目录）：\n现有文件夹：\n' + names);
   if (pick === null) return undefined;
   const f = state.folders.find((x) => x.name === pick.trim());
@@ -589,12 +501,10 @@ async function selectFolder() {
 }
 
 /* ============================ 工具 ============================ */
-function toast(msg) {
+export function toast(msg) {
   const t = $('toast');
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.classList.remove('show'), 2200);
 }
-
-init();
