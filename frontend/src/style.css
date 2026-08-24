@@ -196,8 +196,14 @@ body.batch-mode #batch-bar { display: flex; }
 
 /* ================= 首页（书库管理，Zotero 式） ================= */
 #home-view {
-  flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0;
-  font-family: var(--sans); overflow: auto;
+  flex: 1 1 auto; display: flex; min-width: 0; font-family: var(--sans);
+}
+#home-view .home-main {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; overflow: auto;
+}
+.folder-row.drag-over {
+  background: var(--accent-2); color: #fff;
+  outline: 2px dashed var(--accent); outline-offset: -2px;
 }
 .home-head {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -228,6 +234,15 @@ body.batch-mode #batch-bar { display: flex; }
   cursor: pointer; transition: background .12s; font-size: 13px;
 }
 .ht-row:hover { background: var(--panel-2); }
+/* 选中行：深色背景提示（Zotero 风） */
+.ht-row.selected { background: var(--accent); }
+.ht-row.selected .ht-title,
+.ht-row.selected .ht-author,
+.ht-row.selected .ht-pub,
+.ht-row.selected .ht-pages,
+.ht-row.selected .ht-folder { color: #fff; }
+.ht-row.selected .ht-folder { opacity: .85; }
+.ht-row.selected .ht-check { accent-color: #fff; }
 .ht-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .ht-author, .ht-pub { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ht-pages { color: var(--ink-3); font-size: 12px; }
@@ -244,6 +259,46 @@ body.batch-mode .ht-check { display: inline-block; }
 .ht-act[title="删除"]:hover { color: var(--danger); }
 #home-empty { text-align: center; color: var(--ink-3); padding: 60px 20px 30px; }
 #home-empty .big { font-size: 46px; margin-bottom: 12px; }
+
+/* ---------- 右侧详情面板（Zotero Info 风格） ---------- */
+#detail-panel {
+  flex: 0 0 300px; width: 300px; overflow-y: auto;
+  border-left: 1px solid var(--line); background: var(--panel);
+  display: flex; flex-direction: column;
+  font-family: var(--sans); font-size: 13px;
+}
+.dp-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--line-soft);
+}
+.dp-title { font-weight: 700; color: var(--ink-2); letter-spacing: 1px; font-size: 12px; }
+.dp-body { padding: 18px 16px; flex: 1 1 auto; }
+.dp-cover {
+  width: 56px; height: 76px; border-radius: 8px; margin: 0 auto 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; font-weight: 700; color: #fff;
+  box-shadow: var(--shadow-card);
+}
+.dp-cover.c1 { background: #8a6d3b; } .dp-cover.c2 { background: #4a6741; }
+.dp-cover.c3 { background: #7a5230; } .dp-cover.c4 { background: #5d6b5a; }
+.dp-cover.c5 { background: #94784c; }
+.dp-book {
+  margin: 0 0 14px; text-align: center; font-size: 15px; line-height: 1.5;
+  font-family: var(--serif); font-weight: 700; color: var(--ink);
+}
+.dp-row { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line-soft); }
+.dp-label { flex: 0 0 60px; color: var(--ink-3); font-size: 12px; padding-top: 2px; }
+.dp-value { flex: 1 1 auto; color: var(--ink); word-break: break-all; }
+.dp-input {
+  width: 100%; padding: 5px 8px; border: 1px solid var(--line);
+  border-radius: var(--r-sm); background: var(--surface); color: var(--ink); font-size: 13px;
+}
+.dp-input:focus { outline: none; border-color: var(--accent); }
+.dp-actions {
+  display: flex; gap: 8px; padding: 12px 16px;
+  border-top: 1px solid var(--line-soft);
+}
+.dp-actions .mini { flex: 1 1 auto; padding: 7px 0; }
 
 /* 元数据编辑模态 */
 #meta-mask { position: fixed; inset: 0; z-index: 945; background: rgba(30, 22, 8, .35);

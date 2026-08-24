@@ -56,7 +56,6 @@ export async function init() {
   renderToolbarWidgets();
 
   createHomeView();              // 首页（Zotero 式书库管理）
-  bindMetaDialog();
   const q = new URLSearchParams(location.search).get('book');
   if (q) openBook(q);
   else switchHome();
@@ -115,6 +114,12 @@ function bookRow(b) {
     if (e.target !== chk) openBook(b.id);
   });
   chk.addEventListener('click', (e) => e.stopPropagation());
+  // 拖拽：把书拖到侧边栏文件夹（或首页行）
+  row.draggable = true;
+  row.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/s2e-book', b.id);
+    e.dataTransfer.effectAllowed = 'move';
+  });
   return row;
 }
 
@@ -160,6 +165,27 @@ function appendFolder(parent, folder) {
     await loadLibrary(); renderLibrary();
   });
   row.append(caret, name, x);
+  // 拖拽入文件夹：把书（首页行/侧边栏书行）拖到文件夹上松手即移动
+  row.addEventListener('dragover', (e) => {
+    if (e.dataTransfer.types.includes('text/s2e-book')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      row.classList.add('drag-over');
+    }
+  });
+  row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
+  row.addEventListener('drop', async (e) => {
+    row.classList.remove('drag-over');
+    const id = e.dataTransfer.getData('text/s2e-book');
+    if (!id) return;
+    e.preventDefault();
+    const book = state.books.find((b) => b.id === id);
+    if (!book) return;
+    book.folderId = folder.id;
+    await db.updateBook(state.db, book);
+    await loadLibrary(); renderLibrary(); renderHome();
+    toast('「' + (book.meta.title || book.s2eName) + '」已移入「' + folder.name + '」');
+  });
   row.addEventListener('click', () => {
     const ch = parent.querySelector(':scope > .folder-children');
     if (ch) { ch.hidden = !ch.hidden; caret.textContent = ch.hidden ? '▸' : '▾'; }
@@ -535,36 +561,39 @@ function createHomeView() {
   home.id = 'home-view';
   home.style.display = 'none';
   home.innerHTML = `
-    <div class="home-head">
-      <div class="home-title">
-        <h2>书库</h2>
-        <span class="home-count"></span>
-      </div>
-      <div class="home-actions">
-        <div id="home-batch-bar" class="batch-bar" hidden>
-          <button class="mini" data-action="move">移动到…</button>
-          <button class="mini danger" data-action="delete">删除</button>
+    <div class="home-main">
+      <div class="home-head">
+        <div class="home-title">
+          <h2>书库</h2>
+          <span class="home-count"></span>
         </div>
-        <button id="home-batch" class="mini">☑ 批量</button>
-        <button id="home-new-folder" class="mini">＋ 文件夹</button>
-        <button id="home-import" class="mini primary">⬆ 导入电子书</button>
+        <div class="home-actions">
+          <div id="home-batch-bar" class="batch-bar" hidden>
+            <button class="mini" data-action="move">移动到…</button>
+            <button class="mini danger" data-action="delete">删除</button>
+          </div>
+          <button id="home-batch" class="mini">☑ 批量</button>
+          <button id="home-new-folder" class="mini">＋ 文件夹</button>
+          <button id="home-import" class="mini primary">⬆ 导入电子书</button>
+        </div>
+      </div>
+      <div id="home-table-wrap">
+        <div class="ht-head">
+          <span class="htc-check"></span><span class="htc-cover"></span>
+          <span class="htc-title">书名</span><span class="htc-author">作者</span>
+          <span class="htc-pub">出版社</span><span class="htc-pages">页数</span>
+          <span class="htc-folder">文件夹</span><span class="htc-actions"></span>
+        </div>
+        <div id="home-table"></div>
+        <div id="home-empty" hidden>
+          <div class="big">📖</div>
+          <p>书库还是空的</p>
+          <button id="home-empty-import" class="import-big">选择 .s2e 文件导入</button>
+          <div class="drop-hint">也可以把 .s2e 文件拖到窗口任意位置</div>
+        </div>
       </div>
     </div>
-    <div id="home-table-wrap">
-      <div class="ht-head">
-        <span class="htc-check"></span><span class="htc-cover"></span>
-        <span class="htc-title">书名</span><span class="htc-author">作者</span>
-        <span class="htc-pub">出版社</span><span class="htc-pages">页数</span>
-        <span class="htc-folder">文件夹</span><span class="htc-actions"></span>
-      </div>
-      <div id="home-table"></div>
-      <div id="home-empty" hidden>
-        <div class="big">📖</div>
-        <p>书库还是空的</p>
-        <button id="home-empty-import" class="import-big">选择 .s2e 文件导入</button>
-        <div class="drop-hint">也可以把 .s2e 文件拖到窗口任意位置</div>
-      </div>
-    </div>`;
+    <aside id="detail-panel" hidden></aside>`;
   $('workspace').appendChild(home);
 
   $('home-import').addEventListener('click', () => $('import-input').click());
@@ -615,60 +644,41 @@ function renderHome() {
 
   for (const b of state.books) {
     const row = document.createElement('div');
-    row.className = 'ht-row';
+    row.className = 'ht-row' + (b.id === selectedBookId ? ' selected' : '');
     row.dataset.id = b.id;
+    row.draggable = true;
+    row.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/s2e-book', b.id);
+      e.dataTransfer.effectAllowed = 'move';
+    });
 
+    // 复选框外包占位 span：display:none 的 checkbox 会塌掉 grid 列，导致整行错位
+    const chkWrap = document.createElement('span');
+    chkWrap.className = 'htc-check';
     const chk = document.createElement('input');
     chk.type = 'checkbox'; chk.className = 'ht-check batch-check';
-    rowext(row, chk);
+    chkWrap.appendChild(chk);
+    row.appendChild(chkWrap);
+    chk.addEventListener('click', (e) => e.stopPropagation());
+
     const cover = document.createElement('span');
     cover.className = 'b-cover c' + ((b.id.charCodeAt(0) + (b.id.charCodeAt(1) || 0)) % 5 + 1);
     cover.textContent = (b.meta.title || b.s2eName || '书').slice(0, 1);
-    rowext(row, cover);
-    rowext(row, cell('ht-title', b.meta.title || b.s2eName || '未命名'));
-    rowext(row, cell('ht-author', b.meta.author || ''));
-    rowext(row, cell('ht-pub', b.meta.publisher || ''));
-    rowext(row, cell('ht-pages', b.bookJson.pages ? b.bookJson.pages.length + ' 页' : ''));
-
+    row.appendChild(cover);
+    row.appendChild(cell('ht-title', b.meta.title || b.s2eName || '未命名'));
+    row.appendChild(cell('ht-author', b.meta.author || ''));
+    row.appendChild(cell('ht-pub', b.meta.publisher || ''));
+    row.appendChild(cell('ht-pages', b.bookJson.pages ? b.bookJson.pages.length + ' 页' : ''));
     const folder = state.folders.find((f) => f.id === b.folderId);
-    rowext(row, cell('ht-folder', folder ? folder.name : '—'));
+    row.appendChild(cell('ht-folder', folder ? folder.name : '—'));
+    row.appendChild(cell('ht-actions', ''));
 
-    const acts = document.createElement('span');
-    acts.className = 'ht-actions';
-    for (const [icon, label, fn] of [
-      ['📖', '打开', () => openBook(b.id)],
-      ['✎', '编辑', () => openMetaEditor(b)],
-      ['📁', '移动', async () => {
-        const f = await selectFolder();
-        if (f !== undefined) {
-          b.folderId = f;
-          await db.updateBook(state.db, b);
-          await loadLibrary(); renderLibrary(); renderHome();
-          toast('已移动');
-        }
-      }],
-      ['✕', '删除', async () => {
-        if (!confirm('删除「' + (b.meta.title || b.s2eName) + '」？阅读器存储中的副本将被移除。')) return;
-        await db.deleteBooks(state.db, [b.id]);
-        if (state.tabs.some((t) => t.bookId === b.id)) closeTab(b.id);
-        await loadLibrary(); renderLibrary(); renderHome();
-        toast('已删除');
-      }],
-    ]) {
-      const a = document.createElement('button');
-      a.className = 'ht-act';
-      a.title = label; a.textContent = icon;
-      a.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
-      acts.appendChild(a);
-    }
-    rowext(row, acts);
-
-    row.addEventListener('click', (e) => {
-      if (e.target.closest('.ht-act') || e.target.classList.contains('ht-check')) return;
-      openBook(b.id);
-    });
+    // 单击 = 选中（显示右侧详情）；双击 = 打开
+    row.addEventListener('click', () => selectBook(b.id));
+    row.addEventListener('dblclick', () => openBook(b.id));
     table.appendChild(row);
   }
+  if (selectedBookId) renderDetail();
 }
 
 function cell(cls, text) {
@@ -678,49 +688,109 @@ function cell(cls, text) {
   return s;
 }
 
-function rowext(row, el) {
-  row.appendChild(el);
-  el.dataset && (el.style.minWidth = '0');
+/* ---- 右侧详情面板（Zotero Info 风格：左标签右值，面板内编辑） ---- */
+let selectedBookId = null;
+
+function selectBook(id) {
+  selectedBookId = id;
+  renderHome();
+  renderDetail();
 }
 
-/* ---- 元数据编辑（模态） ---- */
-let editingBook = null;
-function bindMetaDialog() {
-  const close = () => { $('meta-mask').hidden = true; $('meta-dialog').hidden = true; };
-  $('meta-close').addEventListener('click', close);
-  $('mf-cancel').addEventListener('click', close);
-  $('meta-mask').addEventListener('click', close);
-  $('mf-save').addEventListener('click', async () => {
-    if (!editingBook) return;
-    editingBook.meta.title = $('mf-title').value.trim() || editingBook.s2eName || '未命名';
-    editingBook.meta.author = $('mf-author').value.trim();
-    editingBook.meta.publisher = $('mf-publisher').value.trim();
-    editingBook.meta.edition = $('mf-edition').value.trim();
-    editingBook.meta.isbn = $('mf-isbn').value.trim();
-    editingBook.folderId = $('mf-folder').value || null;
-    await db.updateBook(state.db, editingBook);
+function renderDetail() {
+  const panel = $('detail-panel');
+  const book = state.books.find((b) => b.id === selectedBookId);
+  if (!panel) return;
+  if (!book) { panel.hidden = true; panel.innerHTML = ''; return; }
+  panel.hidden = false;
+  const folder = state.folders.find((f) => f.id === book.folderId);
+  const fmt = (ts) => (ts ? new Date(ts).toLocaleDateString('zh-CN') : '—');
+  const ci = (book.id.charCodeAt(0) + (book.id.charCodeAt(1) || 0)) % 5 + 1;
+  panel.innerHTML = `
+    <div class="dp-head">
+      <span class="dp-title">详细信息</span>
+      <button class="mini" id="dp-close" title="关闭">✕</button>
+    </div>
+    <div class="dp-body">
+      <div class="dp-cover c${ci}">${escapeHtml((book.meta.title || book.s2eName || '书').slice(0, 1))}</div>
+      <h3 class="dp-book">${escapeHtml(book.meta.title || book.s2eName || '未命名')}</h3>
+      ${dpRow('作者', book.meta.author)}
+      ${dpRow('出版社', book.meta.publisher)}
+      ${dpRow('版次', book.meta.edition)}
+      ${dpRow('ISBN', book.meta.isbn)}
+      ${dpRow('页数', book.bookJson.pages ? book.bookJson.pages.length + ' 页' : '—')}
+      ${dpRow('文件夹', folder ? folder.name : '（书库根目录）')}
+      ${dpRow('导入时间', fmt(book.importedAt))}
+      ${book.progress && book.progress.page ? dpRow('上次阅读', 'PDF 第 ' + book.progress.page + ' 页') : ''}
+    </div>
+    <div class="dp-actions">
+      <button class="mini primary" id="dp-edit">✎ 编辑</button>
+      <button class="mini danger" id="dp-delete">删除</button>
+    </div>`;
+  $('dp-close').addEventListener('click', () => { selectedBookId = null; renderHome(); renderDetail(); });
+  $('dp-edit').addEventListener('click', () => renderDetailEdit());
+  $('dp-delete').addEventListener('click', async () => {
+    if (!confirm('删除「' + (book.meta.title || book.s2eName) + '」？阅读器存储中的副本将被移除。')) return;
+    await db.deleteBooks(state.db, [book.id]);
+    if (state.tabs.some((t) => t.bookId === book.id)) closeTab(book.id);
+    selectedBookId = null;
+    await loadLibrary(); renderLibrary(); renderHome(); renderDetail();
+    toast('已删除');
+  });
+}
+
+function dpRow(label, value) {
+  return `<div class="dp-row"><span class="dp-label">${label}</span><span class="dp-value">${escapeHtml(value || '—')}</span></div>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderDetailEdit() {
+  const panel = $('detail-panel');
+  const book = state.books.find((b) => b.id === selectedBookId);
+  if (!panel || !book) return;
+  const folderOpts = '<option value="">（书库根目录）</option>'
+    + state.folders.map((f) => `<option value="${f.id}" ${f.id === book.folderId ? 'selected' : ''}>${escapeHtml(f.name)}</option>`).join('');
+  panel.innerHTML = `
+    <div class="dp-head">
+      <span class="dp-title">编辑信息</span>
+      <button class="mini" id="dp-cancel" title="取消">✕</button>
+    </div>
+    <div class="dp-body">
+      ${dpEdit('书名', 'mf-title', book.meta.title || '')}
+      ${dpEdit('作者', 'mf-author', book.meta.author || '')}
+      ${dpEdit('出版社', 'mf-publisher', book.meta.publisher || '')}
+      ${dpEdit('版次', 'mf-edition', book.meta.edition || '')}
+      ${dpEdit('ISBN', 'mf-isbn', book.meta.isbn || '')}
+      <div class="dp-row"><span class="dp-label">文件夹</span><span class="dp-value"><select id="mf-folder" class="dp-input">${folderOpts}</select></span></div>
+    </div>
+    <div class="dp-actions">
+      <button class="mini" id="dp-cancel2">取消</button>
+      <button class="mini primary" id="dp-save">保存</button>
+    </div>`;
+  const close = () => renderDetail();
+  $('dp-cancel').addEventListener('click', close);
+  $('dp-cancel2').addEventListener('click', close);
+  $('dp-save').addEventListener('click', async () => {
+    book.meta.title = $('mf-title').value.trim() || book.s2eName || '未命名';
+    book.meta.author = $('mf-author').value.trim();
+    book.meta.publisher = $('mf-publisher').value.trim();
+    book.meta.edition = $('mf-edition').value.trim();
+    book.meta.isbn = $('mf-isbn').value.trim();
+    book.folderId = $('mf-folder').value || null;
+    await db.updateBook(state.db, book);
     await loadLibrary(); renderLibrary(); renderHome();
     refreshTabTitles();
-    close();
+    renderDetail();
     toast('已保存书籍信息');
   });
 }
 
-function openMetaEditor(book) {
-  editingBook = book;
-  $('mf-title').value = book.meta.title || '';
-  $('mf-author').value = book.meta.author || '';
-  $('mf-publisher').value = book.meta.publisher || '';
-  $('mf-edition').value = book.meta.edition || '';
-  $('mf-isbn').value = book.meta.isbn || '';
-  const sel = $('mf-folder');
-  sel.innerHTML = '<option value="">（书库根目录）</option>'
-    + state.folders.map((f) => `<option value="${f.id}">${f.name}</option>`).join('');
-  sel.value = book.folderId || '';
-  $('meta-mask').hidden = false;
-  $('meta-dialog').hidden = false;
+function dpEdit(label, id, value) {
+  return `<div class="dp-row"><span class="dp-label">${label}</span><span class="dp-value"><input id="${id}" class="dp-input" value="${escapeHtml(value || '')}"></span></div>`;
 }
-
 /* ============================ 工具 ============================ */
 export function toast(msg) {
   const t = $('toast');

@@ -73,3 +73,20 @@ console.log('书签 tab 体:', !!document.getElementById('tab-body-bookmarks') ?
 console.log('=== 错误（忽略 PDF 解析噪音） ===');
 const real = errors.filter((e) => !/pdf|PDF|renderTasks|canvas/i.test(e));
 console.log(real.length ? real.join('\n') : '（无）');
+
+/* ==== 首页交互：切到首页 → 单击行选中 → 详情面板 ==== */
+const homeTab = document.querySelectorAll('#tabs .tab')[0];
+homeTab.click();
+await new Promise((r) => setTimeout(r, 200));
+const firstRow = document.querySelector('#home-table .ht-row');
+console.log('=== 首页 ===');
+console.log('首页可见:', document.getElementById('home-view').style.display !== 'none');
+console.log('表格行数:', document.querySelectorAll('#home-table .ht-row').length, '| 列内容:',
+  [...(firstRow ? firstRow.querySelectorAll('.ht-title,.ht-author,.ht-pub,.ht-pages,.ht-folder') : [])].map((s) => s.textContent).join(' | '));
+firstRow?.click();
+await new Promise((r) => setTimeout(r, 150));
+const dp = document.getElementById('detail-panel');
+console.log('详情面板显示:', dp && !dp.hidden);
+console.log('详情含作者/出版社:', dp?.textContent.includes('出版社') ? '有' : '无', '| 页数:', dp?.textContent.includes('45 页') ? '有' : '无');
+console.log('选中行高亮:', document.querySelector('#home-table .ht-row.selected') ? '有' : '无');
+console.log('=== 阶段错误 ===', errors.filter((e) => !/pdf|PDF|renderTasks|canvas/i.test(e)).join('\n') || '（无）');
