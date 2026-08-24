@@ -143,12 +143,12 @@ console.log('====');
 
 /* ==== 首页搜索：元数据过滤 ==== */
 /* ==== 搜索：VS Code 查找条 ==== */
-const setFind = (v) => { const i = document.getElementById('find-input'); i.value = v; i.dispatchEvent(new window.Event('input', { bubbles: true })); };
+const setFind = (v) => { const i = document.getElementById('search-input'); i.value = v; i.dispatchEvent(new window.Event('input', { bubbles: true })); };
 const countRowsFn = () => [...document.querySelectorAll('#home-table .ht-row')].filter((r) => r.style.display !== 'none').length;
 setFind('中国城市出版社');
 await new Promise((r) => setTimeout(r, 150));
 console.log('=== 查找条 ===');
-console.log('查找条可见:', !document.getElementById('findbar').hidden, '| 计数:', document.getElementById('find-count').textContent);
+console.log('浮动条出现:', !document.getElementById('find-strip').hidden, '| 计数:', document.getElementById('find-count').textContent);
 console.log('首页命中表格行:', countRowsFn(), '本');
 setFind('不存在关键字xyz');
 await new Promise((r) => setTimeout(r, 150));
@@ -161,7 +161,7 @@ await new Promise((r) => setTimeout(r, 300));
 setFind('马克思');
 await new Promise((r) => setTimeout(r, 200));
 console.log('开书搜索「马克思」: 计数', document.getElementById('find-count').textContent, '| 高亮数', document.querySelectorAll('mark.hit').length);
-document.getElementById('find-input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+document.getElementById('search-input').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 await new Promise((r) => setTimeout(r, 150));
 console.log('Enter 后计数:', document.getElementById('find-count').textContent, '| 当前高亮:', document.querySelectorAll('mark.hit.current').length);
 console.log('====');

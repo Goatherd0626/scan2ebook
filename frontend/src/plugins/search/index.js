@@ -10,29 +10,32 @@ import { registerExtension, ui } from '../../core/extensions.js';
 registerExtension({
   id: 'search',
   name: '搜索',
-  version: '1.2.0',
-  description: 'VS Code 式查找条：正文搜索（高亮+Enter跳动）与书库搜索（元数据过滤）',
+  version: '1.3.0',
+  description: '顶栏搜索框 + VS Code 式浮动控件条：正文搜索/书库元数据搜索',
   activate(ctx) {
-    /* ---------- 入口按钮（顶栏） ---------- */
-    const btn = document.createElement('button');
-    btn.className = 'icon-btn';
-    btn.title = '搜索（⌘F）';
-    btn.setAttribute('aria-label', '搜索');
-    btn.innerHTML = '<span class="sf i-search"></span>';
-    ui.addToolbarWidget({ id: 'search', el: btn });
+    /* ---------- 顶栏输入框（点击即可输入） ---------- */
+    const wrap = document.createElement('div');
+    wrap.id = 'search-wrap';
+    const input = document.createElement('input');
+    input.id = 'search-input';
+    input.type = 'search';
+    input.placeholder = '搜索书库…';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    wrap.appendChild(input);
+    ui.addToolbarWidget({ id: 'search', el: wrap });
 
-    /* ---------- 查找条 ---------- */
-    const bar = document.createElement('div');
-    bar.id = 'findbar';
-    bar.hidden = true;
-    bar.innerHTML = `
-      <input id="find-input" type="text" placeholder="搜索…" autocomplete="off" spellcheck="false">
+    /* ---------- 浮动控件条（VS Code 布局，输入框下方右上角） ---------- */
+    const strip = document.createElement('div');
+    strip.id = 'find-strip';
+    strip.hidden = true;
+    strip.innerHTML = `
       <span id="find-count"></span>
       <button class="fb-btn" data-act="prev" title="上一个 (Shift+Enter)" aria-label="上一个"><span class="sf i-up"></span></button>
       <button class="fb-btn" data-act="next" title="下一个 (Enter)" aria-label="下一个"><span class="sf i-down"></span></button>
       <button class="fb-btn" data-act="list" title="结果列表" aria-label="结果列表">≡</button>
-      <button class="fb-btn" data-act="close" title="关闭 (Esc)" aria-label="关闭"><span class="sf i-x"></span></button>`;
-    document.body.appendChild(bar);
+      <button class="fb-btn" data-act="close" title="清除并关闭 (Esc)" aria-label="清除并关闭"><span class="sf i-x"></span></button>`;
+    document.body.appendChild(strip);
 
     /* ---------- 结果列表弹窗（≡ 展开） ---------- */
     const drop = document.createElement('div');
@@ -40,8 +43,7 @@ registerExtension({
     drop.hidden = true;
     document.body.appendChild(drop);
 
-    const input = bar.querySelector('#find-input');
-    const countEl = bar.querySelector('#find-count');
+    const countEl = strip.querySelector('#find-count');
     let results = [];
     let idx = -1;
     let query = '';
@@ -133,6 +135,7 @@ registerExtension({
       resetTable();
       results = isHome() ? homeResults(query) : textResults(query);
       idx = -1;
+      strip.hidden = !query;
       updateCount();
       renderList();
     }
@@ -146,7 +149,6 @@ registerExtension({
       countEl.textContent = (idx >= 0 ? idx + 1 : 1) + ' / ' + n;
     }
 
-    /* ---------- 跳转 ---------- */
     function jump(i) {
       if (!results.length) return;
       idx = (i + results.length) % results.length;
@@ -195,45 +197,40 @@ registerExtension({
     }
     function toggleList() { listOpen = !listOpen; if (listOpen) renderList(); else drop.hidden = true; }
 
-    /* ---------- 开合查找条 ---------- */
-    function openBar() {
-      bar.hidden = false;
-      input.focus();
-      input.select();
-      if (query) run(); else updatePlaceholder();
-    }
-    function closeBar() {
-      bar.hidden = true;
-      drop.hidden = true;
-      listOpen = false;
-      clearTextMarks();
-      resetTable();
+    function clearAll() {
       input.value = ''; query = '';
+      clearTextMarks(); resetTable();
+      results = []; idx = -1; listOpen = false;
+      strip.hidden = true; drop.hidden = true;
       countEl.textContent = '';
-      results = []; idx = -1;
+      countEl.classList.remove('none');
     }
-    btn.addEventListener('click', () => (bar.hidden ? openBar() : closeBar()));
 
     /* ---------- 交互 ---------- */
     input.addEventListener('input', run);
+    input.addEventListener('focus', () => { strip.hidden = !query; updatePlaceholder(); });
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); if (results.length) jump(idx + 1); }
-      else if (e.key === 'Escape') { e.preventDefault(); closeBar(); }
+      else if (e.key === 'Escape') { e.preventDefault(); clearAll(); input.blur(); }
     });
-    bar.querySelector('[data-act="prev"]').addEventListener('click', prev);
-    bar.querySelector('[data-act="next"]').addEventListener('click', next);
-    bar.querySelector('[data-act="list"]').addEventListener('click', toggleList);
-    bar.querySelector('[data-act="close"]').addEventListener('click', closeBar);
+    strip.querySelector('[data-act="prev"]').addEventListener('click', prev);
+    strip.querySelector('[data-act="next"]').addEventListener('click', next);
+    strip.querySelector('[data-act="list"]').addEventListener('click', toggleList);
+    strip.querySelector('[data-act="close"]').addEventListener('click', clearAll);
     document.addEventListener('mousedown', (e) => {
-      if (listOpen && !e.target.closest('#search-drop') && !e.target.closest('#findbar')) { listOpen = false; drop.hidden = true; }
+      if (listOpen && !e.target.closest('#search-drop') && !e.target.closest('#search-wrap') && !e.target.closest('#find-strip')) {
+        listOpen = false; drop.hidden = true;
+      }
     });
     document.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault();
-        openBar();
-      } else if (e.key === 'F3' && !bar.hidden) {
+        input.focus(); input.select();
+      } else if (e.key === 'F3' && query && !strip.hidden) {
         e.preventDefault();
         if (e.shiftKey) prev(); else next();
+      } else if (e.key === 'Escape' && query) {
+        clearAll();
       }
     });
     ctx.bus.on('book:switch', () => { updatePlaceholder(); if (query) run(); });
