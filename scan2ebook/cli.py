@@ -50,6 +50,8 @@ def parse_args(argv=None) -> argparse.Namespace:
     ap.add_argument("--no-page-notes", action="store_true",
                     help="等价于 --page-marks none（Word/EPUB 中不显示页码）")
     ap.add_argument("--no-footnotes", action="store_true", help="丢弃脚注内容")
+    ap.add_argument("--split-pages", action="store_true",
+                    help="除整本 JSON 外，额外按页输出 pages/page_NNN.json（抽查单页用）")
     ap.add_argument("--no-docx", action="store_true", help="只生成 Markdown，不转 Word")
     ap.add_argument("--no-epub", action="store_true", help="不生成 EPUB")
     ap.add_argument("--verbose", action="store_true")
@@ -262,14 +264,20 @@ def _run_vision(args, src: Path, out_dir: Path, stem: str, pages, imgs, vs: Visi
     meta = dict(metadata)
     meta.setdefault("title", stem)
 
-    # 3) 逐页 JSON 存储（用户约定的结构：{"pdf_page", "items":[...]}）
-    pages_dir = out_dir / "pages"
-    pages_dir.mkdir(exist_ok=True)
-    for pg in structured:
-        (pages_dir / f"page_{pg['pdf_page']:03d}.json").write_text(
-            json.dumps(pg, ensure_ascii=False, indent=2), encoding="utf-8")
-    all_path = out_dir / f"{stem}_pages.json"
-    all_path.write_text(json.dumps(structured, ensure_ascii=False, indent=2), encoding="utf-8")
+    # 3) 整本书 JSON（页粒度保留在 pages 数组内，页码锚定不丢）
+    book_json = {
+        "pdf_source": src.name,
+        "book": meta,
+        "pages": structured,
+    }
+    book_path = out_dir / f"{stem}.json"
+    book_path.write_text(json.dumps(book_json, ensure_ascii=False, indent=2), encoding="utf-8")
+    if args.split_pages:  # 可选：逐页小文件，方便抽查单页
+        pages_dir = out_dir / "pages"
+        pages_dir.mkdir(exist_ok=True)
+        for pg in structured:
+            (pages_dir / f"page_{pg['pdf_page']:03d}.json").write_text(
+                json.dumps(pg, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # 4) 网页阅读器（自包含单文件）
     html_path = out_dir / f"{stem}.html"
@@ -303,7 +311,8 @@ def _run_vision(args, src: Path, out_dir: Path, stem: str, pages, imgs, vs: Visi
     log.info("完成：正文段 %d，标题 %d，脚注 %d（共 %d 页）", n_body, n_head, n_fn, len(structured))
     print(f"\n✅ 输出目录：{out_dir}")
     print(f"   - 网页阅读器: {html_path}")
-    print(f"   - 逐页JSON: {pages_dir}/ 与 {all_path}")
+    print(f"   - 整本书JSON: {book_path}"
+          + (f"\n   - 逐页JSON: {out_dir / 'pages'}/" if args.split_pages else ""))
     print(f"   - markdown: {md_path}")
     if not args.no_docx:
         print(f"   - word: {out_dir / (stem + '.docx')}")

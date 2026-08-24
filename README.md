@@ -19,14 +19,19 @@ PDF ──▶ 逐页渲染(300dpi) ──▶ Apple Vision OCR(本地免费) ─�
 ```
 
 每页 JSON（键为英文，items 为有序数组，数量与顺序由识别内容决定，脚注恒在最后；
-正文按自然段拆分，一段一个 body；正文中脚注引用位置保留为 `[序号]`）：
+正文按自然段拆分，一段一个 body；正文中脚注引用位置保留为 `[序号]`）。
+**整本书保存为一个 JSON**，页粒度保留在 `pages` 数组内：
 
 ```json
-{ "pdf_page": 3,
-  "items": [
-    {"type": "heading", "level": 1, "number": "第一章", "text": "第一章 导论"},
-    {"type": "body",    "text": "……市场格局[1]？……"},
-    {"type": "footnote","index": 1, "text": "参见吴承明……第12页。"}
+{ "pdf_source": "书.pdf",
+  "book": {"title": "…", "author": "…", "publisher": "…"},
+  "pages": [
+    {"pdf_page": 3, "items": [
+      {"type": "heading", "level": 1, "number": "第一章", "text": "第一章 导论"},
+      {"type": "body",    "text": "……市场格局[1]？……"},
+      {"type": "footnote","index": 1, "text": "参见吴承明……第12页。"}
+    ]},
+    {"pdf_page": 4, "items": [ … ]}
   ]}
 ```
 
@@ -72,8 +77,8 @@ python3 -m venv .venv
 | 文件 | 说明 |
 |---|---|
 | `输出目录/书名.html` | **网页阅读器**（自包含单文件）：侧边目录、页码横幅、脚注悬浮、全文搜索、选中引文一键复制「原文——PDF 第 N 页」、字号/深色模式 |
-| `输出目录/pages/page_NNN.json` | **逐页结构化 JSON**（用户约定格式，每页一个文件） |
-| `输出目录/书名_pages.json` | 全部页合并为一个 JSON |
+| `输出目录/书名.json` | **整本书结构化 JSON**（含元数据 + pages 数组，页粒度保留） |
+| `输出目录/pages/page_NNN.json` | 逐页 JSON（`--split-pages` 可选输出，抽查单页用） |
 | `输出目录/书名.md / .docx / .epub` | 由结构化 JSON 重建，**脚注落在正文引用位置**（Word 里是真正的页脚注） |
 
 规则模式产出：`书名.md / .docx / .epub / paragraphs.jsonl / meta.json`（页码以
