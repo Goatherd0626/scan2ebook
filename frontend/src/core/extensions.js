@@ -99,7 +99,6 @@ export function renderTocTabs() {
     b.dataset.plugintab = t.id;
     b.dataset.tt = 'plug:' + t.id;
     b.textContent = t.title;
-    if (i === 0) b.classList.add('active');
     b.addEventListener('click', () => {
       tabs.querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
       document.getElementById('toc-list').hidden = true;
