@@ -12,14 +12,14 @@ registerExtension({
     try { s = Object.assign({}, defaults, JSON.parse(ctx.storage.get('s2e-settings') || '{}')); }
     catch (e) { s = Object.assign({}, defaults); }
 
-    /* ---- 浮层面板 ---- */
+    /* ---- 浮层面板（Apple/SwiftUI 风格） ---- */
     const panel = document.createElement('div');
     panel.id = 'eyecare-panel';
     panel.hidden = true;
     panel.innerHTML = `
       <div class="ec-title">阅读环境</div>
-      <div class="ec-row"><label>护眼模式</label><button class="toggle" data-k="eye">关</button></div>
-      <div class="ec-row"><label>深色模式</label><button class="toggle" data-k="dark">关</button></div>
+      <div class="ec-row"><label>护眼模式</label><button class="sw" data-k="eye" role="switch" aria-label="护眼模式"></button></div>
+      <div class="ec-row"><label>深色模式</label><button class="sw" data-k="dark" role="switch" aria-label="深色模式"></button></div>
       <div class="ec-row"><label>亮度</label><input type="range" data-k="brightness" min="70" max="110"></div>
       <div class="ec-row"><label>色温（暖）</label><input type="range" data-k="warmth" min="0" max="100"></div>
       <div class="ec-row"><label>字号</label><input type="range" data-k="fontSize" min="13" max="26"></div>
@@ -38,11 +38,11 @@ registerExtension({
     panel.addEventListener('input', (e) => {
       const k = e.target.dataset.k;
       if (!k) return;
-      s[k] = k === 'eye' || k === 'dark' ? !s[k] : parseFloat(e.target.value);
+      s[k] = parseFloat(e.target.value);
       apply();
     });
     panel.addEventListener('click', (e) => {
-      const b = e.target.closest('.toggle');
+      const b = e.target.closest('.sw');
       if (b) { const k = b.dataset.k; s[k] = !s[k]; apply(); }
       if (e.target.id === 'ec-reset') { s = Object.assign({}, defaults); apply(); }
     });
@@ -87,12 +87,15 @@ registerExtension({
       syncControls();
     }
     function syncControls() {
-      panel.querySelectorAll('.toggle').forEach((b) => {
-        const on = !!s[b.dataset.k];
-        b.textContent = on ? '开' : '关';
-        b.classList.toggle('on', on);
+      panel.querySelectorAll('.sw').forEach((b) => {
+        b.classList.toggle('on', !!s[b.dataset.k]);
+        b.setAttribute('aria-checked', s[b.dataset.k] ? 'true' : 'false');
       });
-      panel.querySelectorAll('input[type=range]').forEach((r) => { r.value = s[r.dataset.k]; });
+      panel.querySelectorAll('input[type=range]').forEach((r) => {
+        r.value = s[r.dataset.k];
+        const min = +r.min, max = +r.max;
+        r.style.setProperty('--per', ((s[r.dataset.k] - min) / (max - min) * 100) + '%');
+      });
     }
     apply();
   },

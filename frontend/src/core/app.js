@@ -464,10 +464,13 @@ function renderPluginList() {
     info.className = 'p-info';
     info.innerHTML = '<b>' + ext.name + '</b> <small>' + (ext.version || '') + '</small><br><span class="p-desc">' + (ext.description || '') + '</span>';
     const tog = document.createElement('button');
-    tog.className = 'toggle';
+    tog.className = 'sw';
+    tog.type = 'button';
+    tog.setAttribute('role', 'switch');
+    tog.setAttribute('aria-label', ext.name);
     const on = isEnabled(ext.id);
-    tog.textContent = on ? '开' : '关';
     tog.classList.toggle('on', on);
+    tog.setAttribute('aria-checked', on ? 'true' : 'false');
     tog.addEventListener('click', () => {
       const now = !isEnabled(ext.id);
       setEnabled(ext.id, now);
