@@ -403,6 +403,7 @@ function switchHome() {
   if (home) { home.style.display = ''; renderHome(); }
   renderTabs();
   renderToc();
+  bus.emit('book:switch', { bookId: null });
 }
 
 function closeTab(id) {
