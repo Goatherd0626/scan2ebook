@@ -127,6 +127,7 @@ input { font-family: var(--sans); }
   padding: 5px 11px;
 }
 #view-modes .vm-pdf { width: 16px !important; height: 16px !important; display: block; }
+#view-modes button.active .vm-pdf { filter: brightness(0) invert(1); }
 #view-modes .vm-bar { width: 2px; height: 14px; background: currentColor; border-radius: 1px; }
 #view-modes .sf { width: 16px; height: 16px; }
 .mini {
