@@ -136,6 +136,7 @@ registerExtension({
       results = isHome() ? homeResults(query) : textResults(query);
       idx = -1;
       strip.hidden = !query;
+      placeStrip();
       updateCount();
       renderList();
     }
@@ -183,7 +184,7 @@ registerExtension({
         </div>`;
       }).join('');
       drop.hidden = false;
-      const r = input.getBoundingClientRect();
+      const r = strip.getBoundingClientRect();
       const maxX = (typeof innerWidth === 'number' ? innerWidth : 1200) - 360;
       drop.style.left = Math.max(8, Math.min(r.left, maxX)) + 'px';
       drop.style.top = (r.bottom + 8) + 'px';
@@ -205,6 +206,15 @@ registerExtension({
       countEl.textContent = '';
       countEl.classList.remove('none');
     }
+
+    /* ---------- 定位：控件条在输入框正下方，结果列表再往下 ---------- */
+    function placeStrip() {
+      if (strip.hidden) return;
+      const r = input.getBoundingClientRect();
+      strip.style.left = Math.max(8, r.left) + 'px';
+      strip.style.top = (r.bottom + 6) + 'px';
+    }
+    window.addEventListener('resize', placeStrip);
 
     /* ---------- 交互 ---------- */
     input.addEventListener('input', run);
