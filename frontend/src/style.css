@@ -73,6 +73,9 @@ input { font-family: var(--sans); }
 .sf.i-up { --sf: url("./assets/icons/arrow-up.png"); width: 12px; height: 12px; }
 .sf.i-down { --sf: url("./assets/icons/arrow-down.png"); width: 12px; height: 12px; }
 .sf.i-x { --sf: url("./assets/icons/multiply.png"); width: 12px; height: 12px; }
+.sf.i-left { --sf: url("./assets/icons/arrow-left.png"); width: 13px; height: 11px; }
+.sf.i-right { --sf: url("./assets/icons/arrow-right.png"); width: 13px; height: 11px; }
+.divider .sf { width: 13px; height: 11px; }
 
 /* ================= 查找条（VS Code 风格） ================= */
 #find-strip {
