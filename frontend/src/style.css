@@ -104,6 +104,7 @@ input { font-family: var(--sans); }
 .seg button:hover { background: var(--panel-2); }
 .seg button.active { background: var(--accent); color: #fff; font-weight: 600; }
 .mini {
+  display: inline-flex; align-items: center; justify-content: center;
   padding: 4px 10px; border-radius: var(--r-sm); font-size: 12px;
   color: var(--ink-2); background: var(--surface); border: 1px solid var(--line);
   transition: background .15s;
