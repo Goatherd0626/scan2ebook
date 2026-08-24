@@ -332,7 +332,7 @@ function createBookView(book) {
     wv.querySelectorAll('[data-role="view-modes"] button').forEach((b) => b.classList.toggle('active', b.dataset.mode === prefs.viewMode));
     wv.querySelectorAll('[data-act="spread"]').forEach((x) => x.classList.toggle('active', prefs.spread));
     wv.querySelectorAll('[data-act="sync"]').forEach((x) => x.classList.toggle('active', prefs.sync));
-    pdfView.setSpread(prefs.spread);
+    pdfView.setSpread(prefs.spread && prefs.viewMode === 'pdf');  // 摊开只在仅PDF视图生效
     if (activeView() === view) document.body.dataset.mode = prefs.viewMode;
   };
   view.applyPrefs = applyPrefs;

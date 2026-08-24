@@ -123,3 +123,20 @@ const wv = document.querySelector('.book-view');
 console.log('切仅PDF后 视图模式:', wv.dataset.mode, '| 面板隐藏:', wv.querySelector('.text-panel').offsetParent === null ? '是' : '否');
 console.log('浮动工具按钮 active 同步:', !!vs.querySelector('button[data-mode="pdf"]').classList.contains('active'));
 console.log('====');
+
+/* ==== 摊开行为：仅PDF生效，双栏回退 ==== */
+const wv2 = document.querySelector('.book-view');
+const vsm = wv2.querySelector('.view-switch');
+vsm.querySelector('button[data-mode="pdf"]').click();
+await new Promise((r) => setTimeout(r, 120));
+wv2.querySelector('[data-act="spread"]').click();
+await new Promise((r) => setTimeout(r, 120));
+console.log('=== 摊开行为 ===');
+console.log('仅PDF+摊开:', wv2.querySelector('.pdf-panel').classList.contains('spread') ? '摊开中' : '未生效');
+vsm.querySelector('button[data-mode="split"]').click();
+await new Promise((r) => setTimeout(r, 120));
+console.log('切双栏后:', wv2.querySelector('.pdf-panel').classList.contains('spread') ? '仍摊开（错误）' : '已回退单页');
+vsm.querySelector('button[data-mode="pdf"]').click();
+await new Promise((r) => setTimeout(r, 120));
+console.log('再切仅PDF:', wv2.querySelector('.pdf-panel').classList.contains('spread') ? '恢复摊开' : '未恢复（错误）');
+console.log('====');

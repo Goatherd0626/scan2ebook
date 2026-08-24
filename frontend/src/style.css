@@ -431,8 +431,12 @@ body.batch-mode .ht-check { display: inline-block; }
   text-align: center; color: #b5b8bb; font-size: 11px; font-family: var(--sans);
   margin-top: 6px; letter-spacing: 1px;
 }
-.pdf-panel.spread .pdf-page { display: inline-block; width: calc(50% - 12px); vertical-align: top; margin: 0 4px 18px; }
-.pdf-panel.spread { white-space: nowrap; }
+/* 双页摊开：两列自动换行（上下滚动），不再单行横向排 */
+.pdf-panel.spread { white-space: normal; text-align: center; }
+.pdf-panel.spread .pdf-page {
+  display: inline-block; width: calc(50% - 10px); vertical-align: top;
+  margin: 0 5px 18px; text-align: left;
+}
 
 /* 文字视图 */
 #text-content {
