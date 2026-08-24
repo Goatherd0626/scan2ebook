@@ -3,17 +3,20 @@
 import AppKit
 
 guard CommandLine.arguments.count >= 3 else {
-    print("用法: swift export_sf_symbol.swift <symbolName> <输出.png>")
+    print("用法: swift export_sf_symbol.swift <symbolName> <输出.png> [regular|bold]")
     exit(1)
 }
 let name = CommandLine.arguments[1]
 let out = CommandLine.arguments[2]
+let weightName = CommandLine.arguments.count >= 4 ? CommandLine.arguments[3] : "regular"
+let weight: NSFont.Weight = weightName == "bold" ? .bold
+    : weightName == "semibold" ? .semibold : .regular
 
 guard let base = NSImage(systemSymbolName: name, accessibilityDescription: nil) else {
     FileHandle.standardError.write("找不到 SF Symbol: \(name)\n".data(using: .utf8)!)
     exit(2)
 }
-let config = NSImage.SymbolConfiguration(pointSize: 512, weight: .regular)
+let config = NSImage.SymbolConfiguration(pointSize: 512, weight: weight)
 guard let img = base.withSymbolConfiguration(config),
       let tiff = img.tiffRepresentation,
       let rep = NSBitmapImageRep(data: tiff),
