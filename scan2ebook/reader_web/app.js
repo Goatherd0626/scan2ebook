@@ -15,8 +15,14 @@ const state = {
   batchMode: false,
   searchMatches: [],
   searchIdx: -1,
-  settings: Object.assign({ eye: false, dark: false, brightness: 100, warmth: 0,
-    fontSize: 17, lineH: 1.9, width: 42 }, JSON.parse(localStorage.getItem('s2e-settings') || '{}')),
+  settings: (() => {
+    try {
+      return Object.assign({ eye: false, dark: false, brightness: 100, warmth: 0,
+        fontSize: 17, lineH: 1.9, width: 42 }, JSON.parse(localStorage.getItem('s2e-settings') || '{}'));
+    } catch (e) {
+      return { eye: false, dark: false, brightness: 100, warmth: 0, fontSize: 17, lineH: 1.9, width: 42 };
+    }
+  })(),
 };
 
 /* ============================ 初始化 ============================ */
@@ -54,7 +60,16 @@ function renderLibrary() {
 function emptyLib() {
   const d = document.createElement('div');
   d.id = 'empty-hint';
-  d.innerHTML = '<div class="big">📖</div><div>书库为空<br>把 .s2e 文件拖到窗口任意位置导入<br>或点右上角 ⬆ 选择文件</div>';
+  d.innerHTML = '<div class="big">📖</div><div>书库为空</div>';
+  const btn = document.createElement('button');
+  btn.className = 'import-big';
+  btn.textContent = '选择 .s2e 文件导入';
+  btn.addEventListener('click', () => $('import-input').click());
+  d.appendChild(btn);
+  const hint = document.createElement('div');
+  hint.className = 'drop-hint';
+  hint.textContent = '也可以把 .s2e 文件直接拖到窗口任意位置';
+  d.appendChild(hint);
   return d;
 }
 
@@ -292,7 +307,16 @@ function closeTab(id) {
 
 function showEmptyHint() {
   const ws = $('workspace');
-  ws.innerHTML = '<div id="empty-hint"><div class="big">📖</div><div>把 .s2e 电子书包拖进来开始阅读<br>或在书库中打开已有电子书</div></div>';
+  const d = document.createElement('div');
+  d.id = 'empty-hint';
+  d.innerHTML = '<div class="big">📖</div><div>把 .s2e 电子书包拖进来开始阅读<br>或在书库中打开已有电子书</div>';
+  const btn = document.createElement('button');
+  btn.className = 'import-big';
+  btn.textContent = '选择 .s2e 文件导入';
+  btn.addEventListener('click', () => $('import-input').click());
+  d.appendChild(btn);
+  ws.innerHTML = '';
+  ws.appendChild(d);
 }
 
 function refreshTabTitles() { renderTabs(); }
@@ -496,6 +520,7 @@ function bindTopbar() {
   });
   $('btn-bookmark').addEventListener('click', addBookmark);
   $('btn-import').addEventListener('click', () => $('import-input').click());
+  $('btn-import-lib').addEventListener('click', () => $('import-input').click());
   $('import-input').addEventListener('change', async (e) => {
     for (const f of e.target.files) {
       if (/\.(s2e|zip)$/i.test(f.name)) importFile(f).catch((err) => toast('导入失败：' + err.message));
