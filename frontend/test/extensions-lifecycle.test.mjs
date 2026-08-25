@@ -124,7 +124,13 @@ test('现有插件停用后清理 DOM、事件和待执行进度保存，并可�
   const holder = document.createElement('div');
   holder.appendChild(body);
   document.body.appendChild(holder);
-  const footnoteModel = { footnotes: [null, { id: 1, page: 1, text: '脚注' }] };
+  const footnoteModel = {
+    footnotes: [
+      null,
+      { id: 1, page: 1, text: '脚注' },
+      { id: 2, page: 2, text: '孤立脚注' },
+    ],
+  };
   ctx.state.tabs.push({ textView: { holder }, model: footnoteModel });
   bus.emit('item:render', {
     el: body,
@@ -132,6 +138,17 @@ test('现有插件停用后清理 DOM、事件和待执行进度保存，并可�
     model: footnoteModel,
   });
   assert.equal(body.querySelectorAll('sup.fnref').length, 1);
+
+  const pageAnchor = document.createElement('div');
+  pageAnchor.className = 'page-anchor';
+  pageAnchor.dataset.page = '2';
+  holder.appendChild(pageAnchor);
+  bus.emit('page:render', { page: 2, anchor: pageAnchor, model: footnoteModel });
+  const orphan = pageAnchor.querySelector('.fn-orphan');
+  assert.ok(orphan);
+  assert.equal(orphan.classList.contains('text-item'), true);
+  assert.equal(orphan.dataset.page, '2');
+  assert.equal(orphan.dataset.item, '2:footnotes');
 
   bus.emit('text:scroll', { bookId: 'book-1', page: 8 });
   for (const id of pluginIds) setPluginOn(id, false, ctx);

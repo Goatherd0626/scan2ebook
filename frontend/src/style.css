@@ -536,7 +536,7 @@ body.batch-mode .ht-check { display: inline-block; }
 .heading .num { color: var(--ink-3); font-weight: 400; margin-right: 8px; }
 .body { margin: 0 0 .95em; scroll-margin-top: 70px; }
 .body._continues, .body._continued { display: inline; margin: 0; }
-.paragraph-break { display: block; height: .95em; }
+.paragraph-break { display: block; height: 0; margin-bottom: .95em; }
 .source-object {
   display: flex; align-items: center; justify-content: center; width: 100%;
   margin: 1.1em 0; padding: 12px 16px;

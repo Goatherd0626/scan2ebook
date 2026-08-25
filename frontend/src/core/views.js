@@ -154,14 +154,17 @@ export class TextView {
     this._hoveredItem = null;
     this._pageHover = null;
     this._pageLabel = null;
+    this._eventController = new window.AbortController();
+    const eventOptions = { signal: this._eventController.signal };
     panel.addEventListener('scroll', () => {
       clearTimeout(this._scrollT);
       this._scrollT = setTimeout(() => this._updatePageFromScroll(), 60);
-    });
-    panel.addEventListener('pointermove', (e) => this._onSourceHover(e));
-    panel.addEventListener('pointerleave', () => this._hideSourceHover());
+    }, eventOptions);
+    panel.addEventListener('pointermove', (e) => this._onSourceHover(e), eventOptions);
+    panel.addEventListener('pointerleave', () => this._hideSourceHover(), eventOptions);
     // 选中文字：交给核心派发给插件注册的上下文操作
-    panel.addEventListener('mouseup', (e) => this._onSelection(e));
+    panel.addEventListener('mouseup', (e) => this._onSelection(e), eventOptions);
+    document.addEventListener('selectionchange', () => this._onSelectionChange(), eventOptions);
   }
 
   load(model, meta) {
@@ -249,6 +252,14 @@ export class TextView {
     this.hooks.onSelection?.({ text, page: +itemEl.dataset.page, rect, view: this });
   }
 
+  _onSelectionChange() {
+    const selection = window.getSelection?.();
+    if (!selection || selection.isCollapsed) return;
+    const belongsToPanel = [selection.anchorNode, selection.focusNode]
+      .some((node) => node && this.panel.contains(node));
+    if (belongsToPanel) this._hideSourceHover();
+  }
+
   _updatePageFromScroll() {
     const st = this.panel.scrollTop;
     let cur = 0;
@@ -316,6 +327,12 @@ export class TextView {
     this._hoveredItem = null;
     if (this._pageHover) this._pageHover.hidden = true;
     if (this._pageLabel) this._pageLabel.hidden = true;
+  }
+
+  destroy() {
+    clearTimeout(this._scrollT);
+    this._eventController.abort();
+    this._hideSourceHover();
   }
 }
 

@@ -389,7 +389,10 @@ function createBookView(book) {
       pdfView.setSpread(prefs.spread && prefs.viewMode === 'pdf');
     },
   });
-  view.cleanup = () => splitResizer();
+  view.cleanup = () => {
+    splitResizer();
+    textView.destroy();
+  };
   let lock = false;
   pdfView.onPageChange = (n) => {
     if (prefs.sync && !lock && !view.suppressTextSync) { lock = true; textView.scrollToPage(n); setTimeout(() => { lock = false; }, 150); }

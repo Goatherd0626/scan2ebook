@@ -72,6 +72,8 @@ test('跨页启发式同时标记前后片段，文字视图不再渲染页码�
   const paragraphBreak = continuedEl.nextElementSibling;
   assert.equal(paragraphBreak?.classList.contains('paragraph-break'), true);
   assert.equal(window.getComputedStyle(paragraphBreak).display, 'block');
+  assert.equal(window.getComputedStyle(paragraphBreak).height, '0px');
+  assert.equal(window.getComputedStyle(paragraphBreak).marginBottom, '0.95em');
 });
 
 test('悬浮 item 时显示页级浅色范围、页码标签和更深 item 范围，选中文字时隐藏', () => {
@@ -87,6 +89,7 @@ test('悬浮 item 时显示页级浅色范围、页码标签和更深 item 范�
   pageOneLast.getBoundingClientRect = () => ({ top: 120, bottom: 160, left: 130, right: 670, width: 540, height: 40 });
   pageTwoFirst.getBoundingClientRect = () => ({ top: 160, bottom: 210, left: 130, right: 670, width: 540, height: 50 });
   pageTwoSecond.getBoundingClientRect = () => ({ top: 220, bottom: 270, left: 130, right: 670, width: 540, height: 50 });
+  window.getSelection = () => ({ isCollapsed: true });
 
   pageTwoFirst.dispatchEvent(new window.MouseEvent('pointermove', {
     bubbles: true, clientX: 300, clientY: 180,
@@ -103,7 +106,15 @@ test('悬浮 item 时显示页级浅色范围、页码标签和更深 item 范�
   assert.equal(pageOneLast.classList.contains('source-item-hover'), false);
   assert.equal(pageTwoFirst.dataset.item, '2:0');
 
-  window.getSelection = () => ({ isCollapsed: false });
+  window.getSelection = () => ({ isCollapsed: false, anchorNode: pageTwoFirst.firstChild });
+  document.dispatchEvent(new window.Event('selectionchange'));
+  assert.equal(pageHover.hidden, true);
+  assert.equal(pageLabel.hidden, true);
+  assert.equal(holder.querySelectorAll('.source-item-hover').length, 0);
+
+  pageTwoFirst.dispatchEvent(new window.MouseEvent('pointermove', {
+    bubbles: true, clientX: 300, clientY: 180,
+  }));
   pageTwoSecond.dispatchEvent(new window.MouseEvent('pointermove', {
     bubbles: true, clientX: 300, clientY: 240,
   }));

@@ -28,7 +28,10 @@ registerExtension({
       const orphans = model.footnotes.filter((f) => f && f.page === page && !referenced.has(f.id));
       if (!orphans.length) return;
       const od = document.createElement('div');
-      od.className = 'fn-orphan';
+      // 孤立脚注也是该页可见内容，需参与页范围与 item 来源悬浮。
+      od.className = 'fn-orphan text-item';
+      od.dataset.page = page;
+      od.dataset.item = page + ':footnotes';
       orphans.forEach((f) => {
         od.appendChild(Object.assign(document.createElement('div'), { textContent: '[' + f.id + '] ' + f.text }));
       });
