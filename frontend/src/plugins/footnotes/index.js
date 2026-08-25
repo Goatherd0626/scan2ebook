@@ -11,13 +11,18 @@ registerExtension({
     if (!tip) return;
 
     // item 渲染后：把 body 文本里的 ⟦g⟧ 标记替换为可交互上标
-    ctx.bus.on('item:render', ({ el, item, model }) => {
+    const offItem = ctx.bus.on('item:render', ({ el, item, model }) => {
       if (item.type !== 'body') return;
       convertMarkers(el, model);
     });
 
     // 页渲染后：本页未被正文引用的脚注（孤儿）以页末小字展示
-    ctx.bus.on('page:render', ({ page, anchor, model }) => {
+    const offPage = ctx.bus.on('page:render', ({ page, anchor, model }) => {
+      renderOrphans(page, anchor, model);
+    });
+
+    function renderOrphans(page, anchor, model) {
+      anchor.querySelector(':scope > .fn-orphan')?.remove();
       const referenced = new Set();
       anchor.querySelectorAll('.body sup.fnref').forEach((s) => referenced.add(+s.dataset.g));
       const orphans = model.footnotes.filter((f) => f && f.page === page && !referenced.has(f.id));
@@ -28,7 +33,7 @@ registerExtension({
         od.appendChild(Object.assign(document.createElement('div'), { textContent: '[' + f.id + '] ' + f.text }));
       });
       anchor.appendChild(od);
-    });
+    }
 
     function convertMarkers(container, model) {
       const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
@@ -52,6 +57,25 @@ registerExtension({
           }
         }
         node.parentNode.replaceChild(frag, node);
+      }
+    }
+
+    function restoreMarkers(root = document) {
+      root.querySelectorAll('.fn-inline').forEach((node) => node.remove());
+      root.querySelectorAll('sup.fnref').forEach((sup) => {
+        sup.replaceWith(document.createTextNode('⟦' + sup.dataset.g + '⟧'));
+      });
+      root.querySelectorAll('.fn-orphan').forEach((node) => node.remove());
+    }
+
+    function processOpenViews() {
+      for (const view of ctx.state?.tabs || []) {
+        const holder = view.textView?.holder;
+        if (!holder || !view.model) continue;
+        holder.querySelectorAll('.body').forEach((node) => convertMarkers(node, view.model));
+        holder.querySelectorAll('.page-anchor').forEach((anchor) => {
+          renderOrphans(+anchor.dataset.page, anchor, view.model);
+        });
       }
     }
 
@@ -81,5 +105,13 @@ registerExtension({
         sup.classList.add('open');
       });
     }
+
+    processOpenViews();
+    return () => {
+      offItem();
+      offPage();
+      restoreMarkers();
+      tip.style.display = 'none';
+    };
   },
 });

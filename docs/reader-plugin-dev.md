@@ -18,13 +18,19 @@ registerExtension({
   activate(ctx) {
     // 插件激活时执行（应用启动时 / 在设置里手动启用时）
     ctx.toast('hello 插件已激活');
-    ctx.bus.on('book:open', ({ book, bookId }) => {
+    const offBookOpen = ctx.bus.on('book:open', ({ book, bookId }) => {
       console.log('打开的书：', bookId, book.meta.title);
     });
-  },
-  deactivate(ctx) {
-    // 停用时执行（便于清理事件监听等）
-    // 注意：bus.on 返回的取消订阅函数应在此调用
+
+    const button = document.createElement('button');
+    button.textContent = 'Hello';
+    const removeToolbar = ctx.ui.addToolbarWidget({ id: 'hello', el: button });
+
+    // 必须返回清理函数；停用插件时核心只调用一次。
+    return () => {
+      offBookOpen();
+      removeToolbar();
+    };
   },
 });
 ```
@@ -43,16 +49,48 @@ import './hello/index.js';
 
 | 字段 | 必填 | 说明 |
 |---|---|---|
-| `id` | ✅ | 唯一标识（小写字母/数字/连字符） |
+| `id` | ✅ | 唯一标识，只能包含小写字母、数字和连字符；非法或重复 ID 会注册失败 |
 | `name` | 建议 | 显示名（设置里可见） |
 | `version` | 可选 | 版本号 |
 | `description` | 可选 | 插件描述（设置里可见） |
 | `enabled` | 可选 | 默认是否启用（默认 true） |
-| `activate(ctx)` | 建议 | 激活回调，收到应用级 ctx |
-| `deactivate(ctx)` | 可选 | 停用回调 |
+| `activate(ctx)` | 建议 | 激活回调，收到应用级 ctx；应返回 `cleanup()` 清理函数 |
+| `deactivate(ctx)` | 可选 | 兼容性的额外停用回调；通常使用 `activate` 返回的清理函数即可 |
 
 插件在设置（⚙ → 插件）里可**启停**，状态持久化于 localStorage
-（`s2e-plugin:<id>`）。启停会调用 activate/deactivate（部分 DOM 场景需刷新生效）。
+（`s2e-plugin:<id>`）。同一插件不会被重复激活；停用时核心先执行 `activate`
+返回的清理函数，再调用可选的 `deactivate(ctx)`。内置插件支持即时启停，无需刷新。
+
+### 生命周期约定
+
+插件必须清理自己拥有的全部资源，包括：
+
+- `ctx.bus.on(...)` 返回的取消订阅函数
+- `ctx.ui.add*` 返回的注销函数
+- 插件创建并挂到全局页面上的 DOM
+- `window` / `document` 上的事件监听器
+- 未执行的 `setTimeout` / `setInterval`、观察器和其他异步资源
+
+DOM 事件较多时建议统一使用 `AbortController`：
+
+```js
+activate(ctx) {
+  const controller = new AbortController();
+  document.addEventListener('keydown', onKeydown, { signal: controller.signal });
+  window.addEventListener('resize', onResize, { signal: controller.signal });
+
+  const offSwitch = ctx.bus.on('book:switch', onBookSwitch);
+  return () => {
+    controller.abort();
+    offSwitch();
+  };
+}
+```
+
+插件在运行中重新启用时，之前已经打开的书不会重新触发 `book:open`、
+`item:render` 或 `page:render`。如果插件会装饰现有正文，需要在 `activate`
+中同时扫描 `ctx.state.tabs`，并保证重复处理不会生成重复节点；`footnotes`
+插件提供了完整参考。
 
 ## 三、上下文 ctx
 
@@ -75,7 +113,7 @@ import './hello/index.js';
 
 | 事件 | 载荷 | 时机 |
 |---|---|---|
-| `app:ready` | `state` | 应用初始化完成 |
+| `app:ready` | `state` | 应用初始化完成；运行中重新启用的插件不会收到历史事件 |
 | `book:open` | `{ view, book, bookId, model }` | 打开一本书 |
 | `book:switch` | `{ bookId }`（首页为 `null`） | 切换标签页 / 切回首页 |
 | `book:close` | `{ bookId }` | 关闭书 |
@@ -88,33 +126,48 @@ import './hello/index.js';
 
 | 方法 | 作用 |
 |---|---|
-| `ctx.ui.addToolbarWidget({ id, el })` | 往顶栏插件区加元素（搜索框、按钮等） |
-| `ctx.ui.addTocTab({ id, title, onShow })` | 在左侧目录面板加 tab（需自建 `#tab-body-<id>` 容器） |
-| `ctx.ui.addContextAction({ id, label, apply(text, view) })` | 选中正文文字后的浮动操作条项 |
-| `ctx.ui.addSettingsSection({ id, title, render(sec) })` | 往 ⚙ 设置对话框加分区 |
+| `ctx.ui.addToolbarWidget({ id, el })` | 往顶栏插件区加元素（搜索框、按钮等），返回注销函数 |
+| `ctx.ui.addTocTab({ id, title, onShow })` | 在左侧目录面板加 tab，返回注销函数；插件仍需自行创建和删除 `#tab-body-<id>` |
+| `ctx.ui.addContextAction({ id, label, apply(text, view) })` | 添加选中文字后的浮动操作项，返回注销函数 |
+| `ctx.ui.addSettingsSection({ id, title, render(sec) })` | 往 ⚙ 设置对话框加分区，返回注销函数 |
+
+同一扩展点内的 `id` 必须唯一。所有注销函数均可安全地重复调用，但插件通常只需
+在自己的 `cleanup()` 中调用一次。
 
 ## 六、现有插件参考
 
 | 插件 | 学习点 |
 |---|---|
-| `plugins/footnotes` | `item:render`/`page:render` 事件 + 悬浮/点击交互 |
-| `plugins/search` | 顶栏 widget + 键盘快捷键（⌘F/F3）+ 场景感知（首页/开书） |
-| `plugins/bookmarks` | `addTocTab` + 数据持久化（`ctx.db.updateBook`） |
-| `plugins/eyecare` | `addSettingsSection` + `ctx.storage` 持久化 + CSS 变量应用 |
-| `plugins/progress` | 事件订阅 `text:scroll` + 防抖保存 |
+| `plugins/footnotes` | 渲染事件、现有视图补处理，以及停用时恢复原始标记 |
+| `plugins/search` | 顶栏 widget、全局快捷键与 `AbortController` 集中清理 |
+| `plugins/bookmarks` | `addTocTab`、自有 DOM 清理与 `ctx.db.updateBook` 持久化 |
+| `plugins/eyecare` | 多个 UI 扩展点、CSS 状态回滚与 `ctx.storage` 持久化 |
+| `plugins/progress` | 事件退订，以及停用时取消尚未执行的防抖保存 |
 
 ## 七、新增插件清单
 
 1. `frontend/src/plugins/<id>/index.js` 写 `registerExtension({...})`
 2. `frontend/src/plugins/index.js` 加一行 import
-3. 需要新图标：`swift scripts/export_sf_symbol.swift "<SymbolName>" frontend/src/assets/icons/<name>.png [bold]`，
-   在 `style.css` 加 `.sf.i-<name> { --sf: url(...) }` 类
-4. `npm run build` → 浏览器 Cmd+Shift+R
-5. 补 `frontend/test/reader-smoke.mjs` 冒烟断言（核心+插件集成测试，能防回归）
+3. 需要新图标：优先从 macOS SF Symbols 应用导出 SVG 到 `frontend/src/assets/icons/`，
+   在 `style.css` 加 `.sf.i-<name> { --sf: url(...) }`；无法取得 SVG 时再用
+   `swift scripts/export_sf_symbol.swift "<SymbolName>" frontend/src/assets/icons/<name>.png [bold]` 导出 PNG 回退
+4. `activate(ctx)` 返回清理函数，覆盖事件、UI、DOM、定时器等全部自有资源
+5. 在 `frontend/test/*.test.mjs` 补可自动失败的行为测试，运行 `npm test`
+6. 可选运行 `npm run test:smoke` 做带本地样书的阅读器集成冒烟
+7. `npm run build` → 浏览器 Cmd+Shift+R
+
+推荐在生命周期测试中至少验证：
+
+- 激活后功能和 UI 存在
+- 停用后事件不再响应，DOM/UI 注册项和待执行定时器已清理
+- 再次启用后功能恢复，且同一节点或监听器只有一份
+- 测试使用 `node:assert` 等真实断言，失败时进程返回非零状态
 
 ## 八、约定
 
 - 插件之间不直接互相引用；通过 `bus` 事件与 `ctx` API 协作
 - 不要改 `src/core/` 来加功能——那是核心，改需求先考虑插件化
 - 事件监听器内抛出会被核心吞掉并打 console.error，不会影响阅读器（但也别依赖吞错）
+- `activate` 应可在“应用已经打开若干书”的状态下执行；不要只依赖启动阶段事件
+- 清理函数应可安全执行一次，并把页面恢复到未启用该插件时的状态
 - DOM 类名前缀建议：插件专属元素用自身 id 前缀（如 `#find-strip`、`.fb-btn`）

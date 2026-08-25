@@ -3,6 +3,7 @@
 import JSZip from 'jszip';
 import * as db from './db.js';
 import { buildRenderModel, PdfView, TextView, pdfjsLib } from './views.js';
+import { initSidebarResizer, initSplitResizer, layoutDefaults } from './layout_resize.js';
 import {
   bus, ui, listExtensions, isEnabled, setEnabled,
   activateExtension, deactivateExtension, makeAppCtx, injectCore, renderToolbarWidgets,
@@ -44,6 +45,13 @@ export async function init() {
   });
 
   bindTopbar();
+  initSidebarResizer({
+    handle: $('sidebar-resizer'),
+    onCommit: () => {
+      const view = activeView();
+      if (view) view.pdfView.setSpread(view.prefs.spread && view.prefs.viewMode === 'pdf');
+    },
+  });
   bindDragDrop();
   bindSettingsDialog();
 
@@ -287,7 +295,8 @@ function createBookView(book) {
   wv.dataset.book = book.id;
   wv.innerHTML = `
     <div class="pdf-panel"><div class="pdf-holder"></div></div>
-    <div class="divider">
+    <div class="divider" role="separator" aria-orientation="vertical"
+         aria-label="调整 PDF 与文字视图宽度" tabindex="0">
       <button class="jump" data-dir="text" title="跳转到对应文字段" aria-label="跳转到文字视图"><span class="sf i-right"></span></button>
       <button class="jump" data-dir="pdf" title="跳转到对应 PDF 页" aria-label="跳转到 PDF 视图"><span class="sf i-left"></span></button>
     </div>
@@ -315,12 +324,16 @@ function createBookView(book) {
   const view = { bookId: book.id, wv, pdfView, textView, model, pdfPromise };
   enableCustomTooltips(wv);
   // ---- 每本书自己的视图配置（记忆并持久化到 IndexedDB） ----
-  book.prefs = book.prefs || { viewMode: 'split', spread: false, sync: false };
+  book.prefs = Object.assign({
+    viewMode: 'split', spread: false, sync: false, splitRatio: layoutDefaults.splitRatio,
+  }, book.prefs || {});
   const prefs = book.prefs;
   view.prefs = prefs;   // 供顶栏视图工具条读取
   const persistPrefs = () => { book.prefs = prefs; db.updateBook(state.db, book).catch(() => {}); };
+  let splitResizer = null;
   const applyPrefs = () => {
     wv.dataset.mode = prefs.viewMode;
+    splitResizer?.setRatio(prefs.splitRatio);
     pdfView.setSpread(prefs.spread && prefs.viewMode === 'pdf');  // 摊开只在仅PDF视图生效
   };
   view.applyPrefs = applyPrefs;
@@ -332,6 +345,17 @@ function createBookView(book) {
     syncViewSwitch();
     if (msg) toast(msg);
   };
+  splitResizer = initSplitResizer({
+    view: wv,
+    divider: wv.querySelector('.divider'),
+    initialRatio: prefs.splitRatio,
+    onChange: (ratio) => { prefs.splitRatio = ratio; },
+    onCommit: () => {
+      persistPrefs();
+      pdfView.setSpread(prefs.spread && prefs.viewMode === 'pdf');
+    },
+  });
+  view.cleanup = () => splitResizer();
   let lock = false;
   pdfView.onPageChange = (n) => {
     if (prefs.sync && !lock) { lock = true; textView.scrollToPage(n); setTimeout(() => { lock = false; }, 150); }
@@ -391,6 +415,7 @@ function closeTab(id) {
   const i = state.tabs.findIndex((t) => t.bookId === id);
   if (i < 0) return;
   const [t] = state.tabs.splice(i, 1);
+  t.cleanup?.();
   t.wv.remove();
   bus.emit('book:close', { bookId: id });
   if (state.activeBookId === id) {

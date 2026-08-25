@@ -13,7 +13,7 @@ registerExtension({
     body.className = 'panel-body tab-body';
     body.hidden = true;
     document.getElementById('toc-panel').appendChild(body);
-    ctx.ui.addTocTab({ id: 'bookmarks', title: '书签', onShow: renderList });
+    const removeTab = ctx.ui.addTocTab({ id: 'bookmarks', title: '书签', onShow: renderList });
 
     function currentBook() {
       return (ctx.state && ctx.state.books.find((b) => b.id === ctx.state.activeBookId)) || null;
@@ -66,5 +66,10 @@ registerExtension({
         body.appendChild(row);
       }
     }
+
+    return () => {
+      removeTab();
+      body.remove();
+    };
   },
 });

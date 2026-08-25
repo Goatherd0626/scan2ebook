@@ -8,7 +8,7 @@ registerExtension({
   description: '自动记录每本书读到的页，重新打开时恢复到上次位置',
   activate(ctx) {
     let timer = null;
-    ctx.bus.on('text:scroll', ({ bookId, page }) => {
+    const offScroll = ctx.bus.on('text:scroll', ({ bookId, page }) => {
       clearTimeout(timer);
       timer = setTimeout(async () => {
         const book = ctx.state && ctx.state.books.find((b) => b.id === bookId);
@@ -17,5 +17,10 @@ registerExtension({
         await ctx.db.updateBook(book);
       }, 900);
     });
+    return () => {
+      offScroll();
+      clearTimeout(timer);
+      timer = null;
+    };
   },
 });

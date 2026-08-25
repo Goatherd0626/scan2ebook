@@ -5,7 +5,7 @@
    - ≡ 展开/收起结果列表弹窗（可选视图）
    - 入口：顶栏放大镜按钮 / Cmd+F / F3 */
 
-import { registerExtension, ui } from '../../core/extensions.js';
+import { registerExtension } from '../../core/extensions.js';
 
 registerExtension({
   id: 'search',
@@ -13,6 +13,9 @@ registerExtension({
   version: '1.3.0',
   description: '顶栏搜索框 + VS Code 式浮动控件条：正文搜索/书库元数据搜索',
   activate(ctx) {
+    const controller = new window.AbortController();
+    const listen = (target, type, handler) => target.addEventListener(type, handler, { signal: controller.signal });
+
     /* ---------- 顶栏输入框（点击即可输入） ---------- */
     const wrap = document.createElement('div');
     wrap.id = 'search-wrap';
@@ -23,7 +26,7 @@ registerExtension({
     input.autocomplete = 'off';
     input.spellcheck = false;
     wrap.appendChild(input);
-    ui.addToolbarWidget({ id: 'search', el: wrap });
+    const removeToolbar = ctx.ui.addToolbarWidget({ id: 'search', el: wrap });
 
     /* ---------- 浮动控件条（VS Code 布局，输入框下方右上角） ---------- */
     const strip = document.createElement('div');
@@ -214,25 +217,25 @@ registerExtension({
       strip.style.left = Math.max(8, r.left) + 'px';
       strip.style.top = (r.bottom + 6) + 'px';
     }
-    window.addEventListener('resize', placeStrip);
+    listen(window, 'resize', placeStrip);
 
     /* ---------- 交互 ---------- */
-    input.addEventListener('input', run);
-    input.addEventListener('focus', () => { strip.hidden = !query; updatePlaceholder(); });
-    input.addEventListener('keydown', (e) => {
+    listen(input, 'input', run);
+    listen(input, 'focus', () => { strip.hidden = !query; updatePlaceholder(); });
+    listen(input, 'keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); if (results.length) jump(idx + 1); }
       else if (e.key === 'Escape') { e.preventDefault(); clearAll(); input.blur(); }
     });
-    strip.querySelector('[data-act="prev"]').addEventListener('click', prev);
-    strip.querySelector('[data-act="next"]').addEventListener('click', next);
-    strip.querySelector('[data-act="list"]').addEventListener('click', toggleList);
-    strip.querySelector('[data-act="close"]').addEventListener('click', clearAll);
-    document.addEventListener('mousedown', (e) => {
+    listen(strip.querySelector('[data-act="prev"]'), 'click', prev);
+    listen(strip.querySelector('[data-act="next"]'), 'click', next);
+    listen(strip.querySelector('[data-act="list"]'), 'click', toggleList);
+    listen(strip.querySelector('[data-act="close"]'), 'click', clearAll);
+    listen(document, 'mousedown', (e) => {
       if (listOpen && !e.target.closest('#search-drop') && !e.target.closest('#search-wrap') && !e.target.closest('#find-strip')) {
         listOpen = false; drop.hidden = true;
       }
     });
-    document.addEventListener('keydown', (e) => {
+    listen(document, 'keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault();
         input.focus(); input.select();
@@ -243,7 +246,16 @@ registerExtension({
         clearAll();
       }
     });
-    ctx.bus.on('book:switch', () => { updatePlaceholder(); if (query) run(); });
+    const offSwitch = ctx.bus.on('book:switch', () => { updatePlaceholder(); if (query) run(); });
     updatePlaceholder();
+
+    return () => {
+      controller.abort();
+      offSwitch();
+      clearAll();
+      removeToolbar();
+      strip.remove();
+      drop.remove();
+    };
   },
 });

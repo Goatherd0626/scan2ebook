@@ -4,10 +4,13 @@
 
 const extensions = new Map();
 const enabledCache = new Map();
+const EXTENSION_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /* ---------- 插件注册 / 启停 ---------- */
 export function registerExtension(def) {
   if (!def || !def.id) throw new Error('插件缺少 id');
+  if (!EXTENSION_ID_RE.test(def.id)) throw new Error('插件 id 只能包含小写字母、数字或连字符');
+  if (extensions.has(def.id)) throw new Error('插件「' + def.id + '」已注册');
   extensions.set(def.id, Object.assign({ enabled: true }, def));
 }
 
@@ -57,17 +60,37 @@ const uiRegistry = {
   settingsSections: [],    // {id, title, render(container)}
 };
 
+function addUiEntry(entries, entry, render = null) {
+  if (!entry || !entry.id) throw new Error('UI 扩展项缺少 id');
+  if (entries.some((item) => item.id === entry.id)) {
+    throw new Error('UI 扩展项「' + entry.id + '」已注册');
+  }
+  entries.push(entry);
+  render?.();
+  let active = true;
+  return () => {
+    if (!active) return;
+    active = false;
+    const index = entries.indexOf(entry);
+    if (index >= 0) entries.splice(index, 1);
+    render?.();
+  };
+}
+
 export const ui = {
-  addToolbarWidget(w) { uiRegistry.toolbarWidgets.push(w); renderToolbarWidgets(); },
-  addTocTab(tab) { uiRegistry.tocTabs.push(tab); renderTocTabs(); },
-  addContextAction(a) { uiRegistry.contextActions.push(a); },
-  addSettingsSection(s) { uiRegistry.settingsSections.push(s); renderSettingsSections(); },
+  addToolbarWidget(w) { return addUiEntry(uiRegistry.toolbarWidgets, w, renderToolbarWidgets); },
+  addTocTab(tab) { return addUiEntry(uiRegistry.tocTabs, tab, renderTocTabs); },
+  addContextAction(a) { return addUiEntry(uiRegistry.contextActions, a); },
+  addSettingsSection(s) { return addUiEntry(uiRegistry.settingsSections, s, renderSettingsSections); },
   registry: uiRegistry,
   reset() {
     uiRegistry.toolbarWidgets.length = 0;
     uiRegistry.tocTabs.length = 0;
     uiRegistry.contextActions.length = 0;
     uiRegistry.settingsSections.length = 0;
+    renderToolbarWidgets();
+    renderTocTabs();
+    renderSettingsSections();
   },
 };
 
@@ -153,9 +176,15 @@ export function injectCore(ctx, fns) {
 /* 激活一个插件（调用其 activate，传入 app 级 ctx） */
 export function activateExtension(id, ctx) {
   const def = extensions.get(id);
-  if (!def || !isEnabled(id)) return;
+  if (!def || !isEnabled(id) || def._active) return;
   try {
-    def._ctx = def.activate ? def.activate(ctx) : null;
+    const cleanup = def.activate ? def.activate(ctx) : null;
+    if (cleanup != null && typeof cleanup !== 'function') {
+      throw new TypeError('activate(ctx) 只能返回清理函数或空值');
+    }
+    def._ctx = ctx;
+    def._cleanup = cleanup;
+    def._active = true;
   } catch (e) {
     console.error('[plugin:' + id + '] activate 失败', e);
   }
@@ -163,9 +192,14 @@ export function activateExtension(id, ctx) {
 
 export function deactivateExtension(id) {
   const def = extensions.get(id);
-  if (def && def.deactivate && def._ctx !== undefined) {
-    try { def.deactivate(def._ctx); } catch (e) { console.error('[plugin:' + id + '] deactivate 失败', e); }
-  }
+  if (!def || !def._active) return;
+  const cleanup = def._cleanup;
+  const ctx = def._ctx;
+  def._active = false;
+  def._cleanup = null;
+  def._ctx = null;
+  try { cleanup?.(); } catch (e) { console.error('[plugin:' + id + '] cleanup 失败', e); }
+  try { def.deactivate?.(ctx); } catch (e) { console.error('[plugin:' + id + '] deactivate 失败', e); }
 }
 
 /* ---------- 由核心注入的后门 ---------- */
