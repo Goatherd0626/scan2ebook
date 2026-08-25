@@ -39,6 +39,7 @@ export function buildRenderModel(bookJson) {
     const last = prev[prev.length - 1], first = cur[0];
     if (last && first && last.type === 'body' && first.type === 'body'
         && !SENT_END.test(last.text.trimEnd()) && first.text.length >= 6) {
+      last._continues = true;
       first._continued = true;
     }
   }
@@ -150,10 +151,15 @@ export class TextView {
     this.currentPage = 0;
     this.hooks = hooks;            // { onItemRender, onPageRender, onPageChange, onScroll }
     this._scrollT = null;
+    this._hoveredItem = null;
+    this._pageHover = null;
+    this._pageLabel = null;
     panel.addEventListener('scroll', () => {
       clearTimeout(this._scrollT);
       this._scrollT = setTimeout(() => this._updatePageFromScroll(), 60);
     });
+    panel.addEventListener('pointermove', (e) => this._onSourceHover(e));
+    panel.addEventListener('pointerleave', () => this._hideSourceHover());
     // 选中文字：交给核心派发给插件注册的上下文操作
     panel.addEventListener('mouseup', (e) => this._onSelection(e));
   }
@@ -164,15 +170,20 @@ export class TextView {
     this.pageAnchors.clear();
     this.itemEls.clear();
     this.currentPage = 0;
+    this._hoveredItem = null;
+    this._pageHover = el('div', 'page-source-hover');
+    this._pageHover.hidden = true;
+    this._pageHover.setAttribute('aria-hidden', 'true');
+    this._pageLabel = el('div', 'page-source-label');
+    this._pageLabel.hidden = true;
+    this._pageLabel.setAttribute('aria-hidden', 'true');
+    this.holder.append(this._pageHover, this._pageLabel);
     const h1 = el('h1', 'book', meta.title || '');
     this.holder.appendChild(h1);
     const md = el('div', 'meta', [meta.author, meta.publisher, meta.edition, meta.isbn].filter(Boolean).join(' · '));
     this.holder.appendChild(md);
 
     for (const pg of model.pages) {
-      const banner = el('div', 'page-banner');
-      banner.appendChild(el('span', null, 'PDF 第 ' + pg.pdf_page + ' 页'));
-      this.holder.appendChild(banner);
       const anchor = el('div', 'page-anchor');
       anchor.dataset.page = pg.pdf_page;
       this.holder.appendChild(anchor);
@@ -186,10 +197,17 @@ export class TextView {
           anchor.appendChild(h);
           node = h;
         } else if (it.type === 'body') {
-          const p = el('p', 'body' + (it._continued ? ' _continued' : ''));
-          p.dataset.page = pg.pdf_page;
-          p.appendChild(document.createTextNode(it.text));
+          const flags = (it._continued ? ' _continued' : '') + (it._continues ? ' _continues' : '');
+          const p = el('p', 'body' + flags);
+          const content = el('span', 'item-content');
+          content.appendChild(document.createTextNode(it.text));
+          p.appendChild(content);
           anchor.appendChild(p);
+          if (it._continued && !it._continues) {
+            const paragraphBreak = el('span', 'paragraph-break');
+            paragraphBreak.setAttribute('aria-hidden', 'true');
+            anchor.appendChild(paragraphBreak);
+          }
           node = p;
         } else if (it.type === 'figure' || it.type === 'table') {
           const label = it.type === 'figure'
@@ -206,6 +224,11 @@ export class TextView {
           anchor.appendChild(marker);
           node = marker;
         }
+        if (node) {
+          node.classList.add('text-item');
+          node.dataset.page = pg.pdf_page;
+          node.dataset.item = pg.pdf_page + ':' + idx;
+        }
         this.itemEls.set(pg.pdf_page + ':' + idx, node);
         if (node) this.hooks.onItemRender?.({ el: node, item: it, page: pg.pdf_page, model });
       });
@@ -216,6 +239,7 @@ export class TextView {
   _onSelection(e) {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+    this._hideSourceHover();
     const anchorEl = sel.anchorNode?.parentElement;
     const itemEl = anchorEl?.closest('[data-page]');
     if (!itemEl) return;
@@ -229,7 +253,9 @@ export class TextView {
     const st = this.panel.scrollTop;
     let cur = 0;
     for (const [page, anchor] of this.pageAnchors) {
-      const top = anchor.getBoundingClientRect().top + st - 90;
+      const reference = this._pageItems(anchor)[0];
+      if (!reference) continue;
+      const top = reference.getBoundingClientRect().top + st - 90;
       if (top <= st + 40) cur = page; else break;
     }
     if (!cur && this.model.pages.length) cur = this.model.pages[0].pdf_page;
@@ -240,8 +266,10 @@ export class TextView {
   scrollToPage(n) {
     const a = this.pageAnchors.get(n);
     if (!a) return;
+    const reference = this._pageItems(a)[0];
+    if (!reference) return;
     const st = this.panel.scrollTop;
-    this.panel.scrollTo({ top: a.getBoundingClientRect().top + st - 70, behavior: 'smooth' });
+    this.panel.scrollTo({ top: reference.getBoundingClientRect().top + st - 70, behavior: 'smooth' });
   }
 
   scrollToItem(page, idx) {
@@ -249,6 +277,45 @@ export class TextView {
     if (!e) return;
     const st = this.panel.scrollTop;
     this.panel.scrollTo({ top: e.getBoundingClientRect().top + st - 70, behavior: 'smooth' });
+  }
+
+  _pageItems(anchor) {
+    return [...anchor.querySelectorAll(':scope > .text-item, :scope > .fn-orphan')];
+  }
+
+  _onSourceHover(event) {
+    const selection = window.getSelection?.();
+    if (selection && !selection.isCollapsed) { this._hideSourceHover(); return; }
+    const item = event.target.closest?.('.text-item');
+    if (!item || !this.holder.contains(item)) { this._hideSourceHover(); return; }
+    const page = Number(item.dataset.page);
+    const anchor = this.pageAnchors.get(page);
+    if (!anchor) { this._hideSourceHover(); return; }
+    const rects = this._pageItems(anchor)
+      .map((node) => node.getBoundingClientRect())
+      .filter((rect) => rect.bottom > rect.top);
+    if (!rects.length) { this._hideSourceHover(); return; }
+
+    this._hoveredItem?.classList.remove('source-item-hover');
+    this._hoveredItem = item;
+    item.classList.add('source-item-hover');
+
+    const holderRect = this.holder.getBoundingClientRect();
+    const top = Math.min(...rects.map((rect) => rect.top)) - holderRect.top;
+    const bottom = Math.max(...rects.map((rect) => rect.bottom)) - holderRect.top;
+    this._pageHover.style.top = top + 'px';
+    this._pageHover.style.height = (bottom - top) + 'px';
+    this._pageHover.hidden = false;
+    this._pageLabel.dataset.label = 'PDF 第 ' + page + ' 页';
+    this._pageLabel.style.top = Math.max(0, top - 25) + 'px';
+    this._pageLabel.hidden = false;
+  }
+
+  _hideSourceHover() {
+    this._hoveredItem?.classList.remove('source-item-hover');
+    this._hoveredItem = null;
+    if (this._pageHover) this._pageHover.hidden = true;
+    if (this._pageLabel) this._pageLabel.hidden = true;
   }
 }
 
