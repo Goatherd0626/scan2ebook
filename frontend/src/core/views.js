@@ -191,6 +191,20 @@ export class TextView {
           p.appendChild(document.createTextNode(it.text));
           anchor.appendChild(p);
           node = p;
+        } else if (it.type === 'figure' || it.type === 'table') {
+          const label = it.type === 'figure'
+            ? '此处原文有图片 · 点击查看 PDF'
+            : '此处原文有表格 · 点击查看 PDF';
+          const marker = el('button', 'source-object ' + it.type, label);
+          marker.type = 'button';
+          marker.dataset.type = it.type;
+          marker.dataset.page = pg.pdf_page;
+          marker.setAttribute('aria-label', label + '，PDF 第 ' + pg.pdf_page + ' 页');
+          marker.addEventListener('click', () => {
+            this.hooks.onSourceObject?.({ type: it.type, page: pg.pdf_page });
+          });
+          anchor.appendChild(marker);
+          node = marker;
         }
         this.itemEls.set(pg.pdf_page + ':' + idx, node);
         if (node) this.hooks.onItemRender?.({ el: node, item: it, page: pg.pdf_page, model });
