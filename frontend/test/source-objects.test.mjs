@@ -11,6 +11,7 @@ dom.window.HTMLElement.prototype.scrollTo = function () {};
 dom.window.HTMLElement.prototype.scrollIntoView = function () {};
 
 const { TextView } = await import('../src/core/views.js');
+const { revealPdfSource } = await import('../src/core/app.js');
 
 test('figure and table render in source order and emit their parent PDF page', () => {
   const events = [];
@@ -42,4 +43,33 @@ test('figure and table render in source order and emit their parent PDF page', (
     { type: 'figure', page: 7 },
     { type: 'table', page: 7 },
   ]);
+});
+
+test('text-only source reveal switches to split before jumping to PDF', async () => {
+  const events = [];
+  const view = {
+    prefs: { viewMode: 'text' },
+    setPrefs(patch) {
+      Object.assign(this.prefs, patch);
+      events.push('mode:' + patch.viewMode);
+    },
+    pdfPromise: Promise.resolve(),
+    pdfView: { gotoPage: (page) => events.push('pdf:' + page) },
+  };
+
+  await revealPdfSource(view, 12);
+  assert.deepEqual(events, ['mode:split', 'pdf:12']);
+});
+
+test('split source reveal jumps directly without changing mode', async () => {
+  const events = [];
+  const view = {
+    prefs: { viewMode: 'split' },
+    setPrefs: () => events.push('unexpected-mode-change'),
+    pdfPromise: Promise.resolve(),
+    pdfView: { gotoPage: (page) => events.push('pdf:' + page) },
+  };
+
+  await revealPdfSource(view, 9);
+  assert.deepEqual(events, ['pdf:9']);
 });

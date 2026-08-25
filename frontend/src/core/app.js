@@ -260,6 +260,13 @@ export function activeView() {
   return state.tabs.find((t) => t.bookId === state.activeBookId) || null;
 }
 
+export async function revealPdfSource(view, page) {
+  if (!view || !Number.isFinite(+page)) return;
+  if (view.prefs?.viewMode === 'text') view.setPrefs({ viewMode: 'split' });
+  await view.pdfPromise;
+  view.pdfView.gotoPage(+page);
+}
+
 function renderTabs() {
   const tabs = $('tabs');
   const empty = $('tabs-empty');
@@ -305,6 +312,7 @@ function createBookView(book) {
 
   const model = buildRenderModel(book.bookJson);
   const pdfView = new PdfView(wv.querySelector('.pdf-panel'));
+  let view = null;
   const textView = new TextView(wv.querySelector('.text-panel'), {
     onItemRender: (p) => bus.emit('item:render', Object.assign(p, { bookId: book.id })),
     onPageRender: (p) => bus.emit('page:render', Object.assign(p, { bookId: book.id })),
@@ -314,6 +322,7 @@ function createBookView(book) {
     },
     onScroll: (n) => bus.emit('text:scroll', { bookId: book.id, page: n }),
     onSelection: (sel) => showContextBar(sel),
+    onSourceObject: ({ page }) => revealPdfSource(view, page),
   });
   textView.load(model, book.meta);
 
@@ -321,7 +330,7 @@ function createBookView(book) {
   const pdfPromise = book.pdfBlob.arrayBuffer().then((data) => pdfjsLib.getDocument({ data }).promise);
   pdfPromise.then((doc) => pdfView.load(doc));
 
-  const view = { bookId: book.id, wv, pdfView, textView, model, pdfPromise };
+  view = { bookId: book.id, wv, pdfView, textView, model, pdfPromise };
   enableCustomTooltips(wv);
   // ---- 每本书自己的视图配置（记忆并持久化到 IndexedDB） ----
   book.prefs = Object.assign({
