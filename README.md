@@ -136,6 +136,8 @@ scan2ebook/
     {"pdf_page": 3, "page_kind": "body", "items": [
       {"type": "heading", "level": 1, "number": "第一章", "text": "第一章 导论"},
       {"type": "body",    "text": "……市场格局[1]？……"},
+      {"type": "figure"},
+      {"type": "table"},
       {"type": "footnote","index": 1, "text": "参见吴承明……第12页。"}
     ]},
     {"pdf_page": 13, "page_kind": "toc", "items": [], "toc": [{"number":"1","text":"前言","level":1,"printed_page":3}]}
@@ -146,6 +148,8 @@ scan2ebook/
 - 键全英文；`items` 为有序数组，数量与顺序由识别内容决定
 - **脚注恒在 items 最后**；**一个自然段 = 一个 body**
 - 正文中脚注引用位置保留为 `[序号]`；标题带 `number`（印刷编号）与 `level`（1/2/3）
+- `figure` / `table` 为仅含 `type` 的标记项，保留原阅读位置，不描述图片或转录表格内容
+- 模型输出的 `header` 项表示页眉，程序规范化时丢弃；页脚和页码直接忽略
 - 每页有 `page_kind`：cover/title/copyright/toc/body/blank/other
 - 目录页（page_kind=toc）输出 `toc` 数组（含目录标注的 printed_page）
 - **书级 `toc`**：目录条目与正文标题文本模糊匹配，`pdf_page` 为跳转目标；

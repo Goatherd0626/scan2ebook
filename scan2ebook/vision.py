@@ -32,21 +32,29 @@ from .config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_VISION_MODEL
 
 log = logging.getLogger(__name__)
 
-VALID_TYPES = {"heading", "body", "footnote"}
+TEXT_TYPES = {"heading", "body", "footnote"}
+MARKER_TYPES = {"figure", "table"}
+DISCARD_TYPES = {"header"}
+VALID_TYPES = TEXT_TYPES | MARKER_TYPES
 VALID_KINDS = {"cover", "title", "copyright", "toc", "body", "blank", "other"}
 
 # 注意：完整指令放在 user 消息里（放 system 消息模型容易无视），并显式要求只输出 JSON。
 USER_PROMPT = """把这一页扫描书籍整理成结构化 JSON。必须只输出一个 JSON 对象，禁止输出任何其他文字或 Markdown。
-格式：{"page_kind":"cover|title|copyright|toc|body|blank|other","items":[{"type":"heading|body|footnote","level":1或2或3(仅heading),"number":"标题印刷编号如 1.1.1 / 第一章(仅heading)","index":脚注序号(仅footnote),"text":"内容"}],"toc":[{"number":"编号","text":"标题文字","level":1或2或3,"printed_page":目录标注页码(数字,无则0)}]}
+格式：{"page_kind":"cover|title|copyright|toc|body|blank|other","items":[{"type":"heading|body|footnote|figure|table|header","level":1或2或3(仅heading),"number":"标题印刷编号如 1.1.1 / 第一章(仅heading),"index":脚注序号(仅footnote),"text":"内容(仅heading/body/footnote)"}],"toc":[{"number":"编号","text":"标题文字","level":1或2或3,"printed_page":目录标注页码(数字,无则0)}]}
 步骤：
 1. 先判断本页类型 page_kind：cover=封面，title=书名页，copyright=版权页，toc=目录页，body=正文页，blank=空白页，other=其他。
 2. 若是 toc：提取 "toc" 数组（每行一条，含目录标注的页码 printed_page），items 输出空数组。
 3. 若是 cover / copyright / blank：items 输出空数组。
 4. 若是 body / title / other：按下列规则输出 items：
 - 正文按自然段拆分，每个自然段为一个 body 项；标题用 heading 并给出 level 与 number；脚注用 footnote。
+- 页面顶部重复出现的书名、章名或作者名属于 header，不是 heading；页眉即使加粗或字号较大也输出 header。
+- 照片、插图、图表、地图等在原阅读位置输出 {"type":"figure"}。
+- 表格在原阅读位置输出 {"type":"table"}。
+- figure/table 禁止包含任何其他键，不描述图片内容，不转录表格内容。
+- header 仅供程序识别并丢弃；页脚和页码仍直接忽略。
 - items 的数量与顺序由本页实际内容决定，按阅读顺序排列；脚注项统一放在 items 的最后。
 - 正文中的脚注引用标记（①、1、* 等）原地改写为 [序号]，例如：市场格局[1]。
-- 页眉、页脚、页码一律不要输出。
+- 页脚、页码一律不要输出。
 - 一段文字若跨页，text 写到此页末尾即可，不要自行续写。
 - 脚注 text 以内容开头，不要包含脚注标记本身。
 OCR 文本仅供参考（以图像为准）：
@@ -111,7 +119,12 @@ def _normalize_items(items: list) -> list[dict]:
         if not isinstance(it, dict):
             continue
         t = str(it.get("type", "")).strip().lower()
-        if t not in VALID_TYPES:
+        if t in DISCARD_TYPES:
+            continue
+        if t in MARKER_TYPES:
+            out.append({"type": t})
+            continue
+        if t not in TEXT_TYPES:
             continue
         text = str(it.get("text", "")).strip()
         if not text:
