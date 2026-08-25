@@ -73,3 +73,21 @@ test('split source reveal jumps directly without changing mode', async () => {
   await revealPdfSource(view, 9);
   assert.deepEqual(events, ['pdf:9']);
 });
+
+test('sync-enabled source reveal does not scroll the text pane', async () => {
+  const events = [];
+  const view = {
+    prefs: { viewMode: 'split', sync: true },
+    textView: { scrollToPage: (page) => events.push('text:' + page) },
+    pdfPromise: Promise.resolve(),
+  };
+  view.pdfView = {
+    gotoPage(page) {
+      events.push('pdf:' + page);
+      if (view.prefs.sync && !view.suppressTextSync) view.textView.scrollToPage(page);
+    },
+  };
+
+  await revealPdfSource(view, 4);
+  assert.deepEqual(events, ['pdf:4']);
+});

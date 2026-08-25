@@ -264,7 +264,9 @@ export async function revealPdfSource(view, page) {
   if (!view || !Number.isFinite(+page)) return;
   if (view.prefs?.viewMode === 'text') view.setPrefs({ viewMode: 'split' });
   await view.pdfPromise;
-  view.pdfView.gotoPage(+page);
+  // 源定位不应触发同步回调，将文字面板带离当前占位标记。
+  view.suppressTextSync = true;
+  try { view.pdfView.gotoPage(+page); } finally { view.suppressTextSync = false; }
 }
 
 function renderTabs() {
@@ -367,7 +369,7 @@ function createBookView(book) {
   view.cleanup = () => splitResizer();
   let lock = false;
   pdfView.onPageChange = (n) => {
-    if (prefs.sync && !lock) { lock = true; textView.scrollToPage(n); setTimeout(() => { lock = false; }, 150); }
+    if (prefs.sync && !lock && !view.suppressTextSync) { lock = true; textView.scrollToPage(n); setTimeout(() => { lock = false; }, 150); }
   };
   wv.querySelector('.jump[data-dir="text"]').addEventListener('click', () => textView.scrollToPage(pdfView.currentPage || 1));
   wv.querySelector('.jump[data-dir="pdf"]').addEventListener('click', () => pdfView.gotoPage(textView.currentPage || 1));
