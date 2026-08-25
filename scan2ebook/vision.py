@@ -1,8 +1,8 @@
-"""ds-vision 逐页结构化：图像 + OCR 文本 → 有序 items（heading/body/footnote）。
+"""ds-vision 逐页结构化：图像 + OCR 文本 → 有序文本与来源标记。
 
 思路：Apple Vision 负责逐字转录（本地免费），DeepSeek V4 Flash Vision Exp
-同时接收「页面图像 + OCR 文本」，判断每块内容的性质（标题/正文/脚注）、
-标题层级与编号、正文中脚注引用标记的位置，并顺手修正 OCR 错字。
+同时接收「页面图像 + OCR 文本」，判断标题/正文/脚注，并在原阅读顺序中保留
+图片和表格标记。模型识别的 header 只用于过滤页眉，不进入最终电子书 JSON。
 
 每页输出（用户约定的存储格式，键为英文）：
 {
@@ -10,6 +10,8 @@
   "items": [
     {"type": "heading", "level": 1, "number": "第一章", "text": "第一章 导论"},
     {"type": "body",    "text": "……市场格局[1]？……"},
+    {"type": "figure"},
+    {"type": "table"},
     {"type": "footnote","index": 1, "text": "参见吴承明……"}
   ]
 }
@@ -60,9 +62,7 @@ USER_PROMPT = """把这一页扫描书籍整理成结构化 JSON。必须只输�
 OCR 文本仅供参考（以图像为准）：
 __OCR__"""
 
-RETRY_PROMPT = """上次的输出不是 JSON。请重新整理这一页扫描书籍，只输出一个 JSON 对象（格式同前：{"page_kind":"...","items":[...],"toc":[...]}），不要再输出任何解释或 Markdown。
-OCR 文本仅供参考（以图像为准）：
-__OCR__"""
+RETRY_PROMPT = """上次输出无法解析。严格按照上述完整格式和规则重试：只输出一个合法 JSON 对象，不要输出解释、Markdown 或代码围栏。"""
 
 _MARKER_RE = re.compile(r"\[\s*(\d+)\s*\]")
 _LEADING_FN_MARK_RE = re.compile(r"^\s*(?:[①②③④⑤⑥⑦⑧⑨⑩]|\d{1,2}[\.、．]?|\*{1,3}|[†‡§])\s*")
@@ -193,7 +193,7 @@ class VisionStructure:
                     return self._finalize(data)
                 if attempt == 0:  # 解析失败：用更强硬的提示重试一次
                     content = [
-                        {"type": "text", "text": RETRY_PROMPT.replace("__OCR__", ocr)},
+                        {"type": "text", "text": USER_PROMPT.replace("__OCR__", ocr) + "\n\n" + RETRY_PROMPT},
                         {"type": "image_url", "image_url": {"url": _image_data_url(img)}},
                     ]
             except Exception as e:  # noqa: BLE001

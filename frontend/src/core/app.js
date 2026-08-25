@@ -260,13 +260,36 @@ export function activeView() {
   return state.tabs.find((t) => t.bookId === state.activeBookId) || null;
 }
 
+function waitForPdfObserverDelivery() {
+  return new Promise((resolve) => {
+    // 两次绘制后再让出一个 task，覆盖 scrollIntoView 触发的 observer 延迟投递。
+    if (typeof globalThis.requestAnimationFrame !== 'function') {
+      setTimeout(resolve, 0);
+      return;
+    }
+    globalThis.requestAnimationFrame(() => {
+      globalThis.requestAnimationFrame(() => setTimeout(resolve, 0));
+    });
+  });
+}
+
 export async function revealPdfSource(view, page) {
   if (!view || !Number.isFinite(+page)) return;
   if (view.prefs?.viewMode === 'text') view.setPrefs({ viewMode: 'split' });
   await view.pdfPromise;
-  // 源定位不应触发同步回调，将文字面板带离当前占位标记。
+  // token 防止重叠导航中较早的调用提前恢复 PDF → 文字同步。
+  const suppressionToken = {};
+  view.textSyncSuppressionToken = suppressionToken;
   view.suppressTextSync = true;
-  try { view.pdfView.gotoPage(+page); } finally { view.suppressTextSync = false; }
+  try {
+    view.pdfView.gotoPage(+page);
+    await waitForPdfObserverDelivery();
+  } finally {
+    if (view.textSyncSuppressionToken === suppressionToken) {
+      view.suppressTextSync = false;
+      delete view.textSyncSuppressionToken;
+    }
+  }
 }
 
 function renderTabs() {

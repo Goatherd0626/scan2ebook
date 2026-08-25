@@ -7,6 +7,7 @@ globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 globalThis.NodeFilter = dom.window.NodeFilter;
 globalThis.IntersectionObserver = class { observe() {} disconnect() {} };
+globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
 dom.window.HTMLElement.prototype.scrollTo = function () {};
 dom.window.HTMLElement.prototype.scrollIntoView = function () {};
 
@@ -90,4 +91,29 @@ test('sync-enabled source reveal does not scroll the text pane', async () => {
 
   await revealPdfSource(view, 4);
   assert.deepEqual(events, ['pdf:4']);
+});
+
+test('source reveal suppresses deferred PDF observer sync and later user sync resumes', async () => {
+  const events = [];
+  const view = {
+    prefs: { viewMode: 'split', sync: true },
+    textView: { scrollToPage: (page) => events.push('text:' + page) },
+    pdfPromise: Promise.resolve(),
+  };
+  const notifyPageChange = (page) => {
+    if (view.prefs.sync && !view.suppressTextSync) view.textView.scrollToPage(page);
+  };
+  view.pdfView = {
+    gotoPage(page) {
+      events.push('pdf:' + page);
+      setTimeout(() => notifyPageChange(page), 0);
+    },
+  };
+
+  await revealPdfSource(view, 6);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(events, ['pdf:6']);
+
+  notifyPageChange(8);
+  assert.deepEqual(events, ['pdf:6', 'text:8']);
 });
