@@ -14,7 +14,7 @@ globalThis.localStorage = window.localStorage;
 const extensions = await import('../src/core/extensions.js');
 await import('../src/plugins/bookmarks/index.js');
 
-test('工具栏按当前 PDF 页切换唯一书签，文字选区不再提供书签入口', async () => {
+test('双栏控制岛按当前页切换唯一书签，文字选区不再提供书签入口', async () => {
   extensions.ui.reset();
   extensions.setEnabled('bookmarks', true);
   const book = { id: 'book-a', bookmarks: [] };
@@ -23,6 +23,8 @@ test('工具栏按当前 PDF 页切换唯一书签，文字选区不再提供书
   const jumps = [];
   const view = {
     bookId: 'book-a',
+    prefs: { viewMode: 'split' },
+    wv: Object.assign(document.createElement('div'), { innerHTML: '<span class="bookmark-island-slot"></span>' }),
     textView: {
       currentPage: 7,
       pageAnchors: new Map([[7, { textContent: '第七页正文内容' }]]),
@@ -33,7 +35,7 @@ test('工具栏按当前 PDF 页切换唯一书签，文字选区不再提供书
   const ctx = {
     bus: extensions.bus,
     ui: extensions.ui,
-    state: { activeBookId: 'book-a', books: [book] },
+    state: { activeBookId: 'book-a', books: [book], tabs: [view] },
     db: { updateBook: async () => { updates += 1; } },
     getView: () => view,
     toast: () => {},
@@ -42,9 +44,10 @@ test('工具栏按当前 PDF 页切换唯一书签，文字选区不再提供书
   extensions.activateExtension('bookmarks', ctx);
   const action = extensions.ui.registry.contextActions.find((item) => item.id === 'bookmark-selection-action');
   assert.equal(action, undefined);
-  const toolbar = extensions.ui.registry.toolbarWidgets.find((item) => item.id === 'bookmark-toggle');
-  assert.ok(toolbar);
-  const toggle = toolbar.el;
+  assert.equal(extensions.ui.registry.toolbarWidgets.some((item) => item.id === 'bookmark-toggle'), false);
+  const toggle = view.wv.querySelector('.bookmark-island-toggle');
+  assert.ok(toggle);
+  assert.equal(toggle.closest('.bookmark-island-slot') !== null, true);
   assert.equal(toggle.getAttribute('aria-pressed'), 'false');
   assert.ok(toggle.querySelector('.i-bookmark-context'));
 

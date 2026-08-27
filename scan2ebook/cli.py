@@ -49,12 +49,36 @@ def parse_args(argv=None) -> argparse.Namespace:
                     help="转换完成后自动启动阅读器并打开浏览器")
     ap.add_argument("--split-pages", action="store_true",
                     help="除整本 JSON 外，额外输出 pages/page_NNN.json（抽查单页用）")
+    ap.add_argument("--page-start", type=int, help="转换起始 PDF 页码（1-based，闭区间）")
+    ap.add_argument("--page-end", type=int, help="转换结束 PDF 页码（1-based，闭区间）")
+    ap.add_argument("--vision-model", help="多模态结构化模型（默认读取 DEEPSEEK_VISION_MODEL）")
+    ap.add_argument("--progress-json", action="store_true",
+                    help="向 stdout 输出 S2E_EVENT JSON 行，供 GUI 展示进度")
     ap.add_argument("--verbose", action="store_true")
     return ap.parse_args(argv)
 
 
-def _render_and_ocr(doc, args) -> tuple[list, list[str]]:
-    """渲染全部页面并得到每页 OCR 文本。返回 (imgs, ocr_texts)。
+def _resolve_page_indices(total_pages: int, start: int | None, end: int | None) -> list[int]:
+    """把用户的 1-based 闭区间转换为 0-based 页索引。"""
+    first = 1 if start is None else start
+    last = total_pages if end is None else end
+    if first < 1 or last < 1:
+        raise ValueError("页码必须从 1 开始")
+    if first > last:
+        raise ValueError("起始页不能大于结束页")
+    if last > total_pages:
+        raise ValueError(f"结束页 {last} 超出 PDF 总页数 {total_pages}")
+    return list(range(first - 1, last))
+
+
+def _emit_progress(enabled: bool, event: dict) -> None:
+    if not enabled:
+        return
+    print("S2E_EVENT " + json.dumps(event, ensure_ascii=False), flush=True)
+
+
+def _render_and_ocr(doc, args, page_indices: list[int]) -> tuple[list, list[str]]:
+    """渲染指定页面并得到每页 OCR 文本。返回 (imgs, ocr_texts)。
 
     PDF 自带文字层时直接用文字层文本（更准更快）；否则 Apple Vision OCR。
     """
@@ -66,25 +90,34 @@ def _render_and_ocr(doc, args) -> tuple[list, list[str]]:
 
     imgs: list = []
     ocr_texts: list[str] = []
-    for i in tqdm(range(len(doc)), desc="渲染+OCR", unit="页"):
+    iterator = tqdm(page_indices, desc="渲染+OCR", unit="页", disable=args.progress_json)
+    for completed, i in enumerate(iterator, start=1):
         try:
             img = render_page(doc, i, dpi=args.dpi)
         except Exception as e:  # noqa: BLE001
             log.warning("第 %d 页渲染失败：%s", i + 1, e)
             imgs.append(None)
             ocr_texts.append("")
-            continue
-        imgs.append(img)
-        if layer_texts is not None:
-            ocr_texts.append((layer_texts[i] or "").strip())
         else:
-            try:
-                blocks = ocr_image(img, languages=langs)
-                lines = sorted(blocks, key=lambda b: (b.cy, b.x0))
-                ocr_texts.append("\n".join(b.clean() for b in lines if b.clean()))
-            except Exception as e:  # noqa: BLE001
-                log.warning("第 %d 页 OCR 失败：%s", i + 1, e)
-                ocr_texts.append("")
+            imgs.append(img)
+            if layer_texts is not None:
+                ocr_texts.append((layer_texts[i] or "").strip())
+            else:
+                try:
+                    blocks = ocr_image(img, languages=langs)
+                    lines = sorted(blocks, key=lambda b: (b.cy, b.x0))
+                    ocr_texts.append("\n".join(b.clean() for b in lines if b.clean()))
+                except Exception as e:  # noqa: BLE001
+                    log.warning("第 %d 页 OCR 失败：%s", i + 1, e)
+                    ocr_texts.append("")
+        _emit_progress(args.progress_json, {
+            "stage": "ocr",
+            "current": completed,
+            "total": len(page_indices),
+            "pdf_page": i + 1,
+            "progress": round(5 + 45 * completed / len(page_indices), 2),
+            "message": f"正在渲染并识别第 {i + 1} 页",
+        })
     return imgs, ocr_texts
 
 
@@ -94,6 +127,8 @@ def main(argv=None) -> int:
     if argv and argv[0] == "serve":
         from .reader import main as reader_main
         return reader_main(argv[1:])
+    if argv and argv[0] == "inspect":
+        return _inspect_pdf(argv[1:])
 
     args = parse_args(argv)
     logging.basicConfig(
@@ -110,28 +145,60 @@ def main(argv=None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = src.stem
 
-    vs = VisionStructure()
+    vs = VisionStructure(model=args.vision_model)
     if not vs.enabled:
         log.error("需要 DEEPSEEK_API_KEY（在 .env 中配置）才能运行")
         return 1
 
     doc = open_pdf(str(src))
     log.info("共 %d 页：%s", len(doc), src.name)
+    try:
+        page_indices = _resolve_page_indices(len(doc), args.page_start, args.page_end)
+    except ValueError as e:
+        log.error("页码范围无效：%s", e)
+        return 2
+    page_numbers = [i + 1 for i in page_indices]
+    _emit_progress(args.progress_json, {
+        "stage": "start",
+        "current": 0,
+        "total": len(page_indices),
+        "progress": 1,
+        "model": vs.model,
+        "page_start": page_numbers[0],
+        "page_end": page_numbers[-1],
+        "message": f"准备转换第 {page_numbers[0]}–{page_numbers[-1]} 页",
+    })
 
     # 1) 渲染 + OCR
-    imgs, ocr_texts = _render_and_ocr(doc, args)
+    imgs, ocr_texts = _render_and_ocr(doc, args, page_indices)
 
     # 2) ds-vision 逐页结构化（图像 + OCR 文本）
     blank_indices = {i for i, t in enumerate(ocr_texts) if len(t.strip()) < BLANK_TEXT_THRESHOLD}
     if blank_indices:
         log.info("规则预筛 %d 页为空白/极简页（跳过视觉模型）", len(blank_indices))
-    structured = vs.structure_book(imgs, ocr_texts, blank_indices=blank_indices)
+    def on_structure_progress(event: dict) -> None:
+        event["progress"] = round(50 + 45 * event["current"] / event["total"], 2)
+        event["message"] = f"正在结构化第 {event['pdf_page']} 页"
+        _emit_progress(args.progress_json, event)
+
+    structured = vs.structure_book(
+        imgs,
+        ocr_texts,
+        blank_indices=blank_indices,
+        page_numbers=page_numbers,
+        progress_callback=on_structure_progress,
+        show_progress=not args.progress_json,
+    )
 
     if args.no_footnotes:
         for pg in structured:
             pg["items"] = [it for it in pg["items"] if it["type"] != "footnote"]
 
     # 3) 元数据（DeepSeek 文本模型，从书名页 OCR 提取）
+    _emit_progress(args.progress_json, {
+        "stage": "finalize", "progress": 96, "usage": vs.usage_snapshot(),
+        "message": "正在生成元数据与电子书文件",
+    })
     client = DeepSeekClient()
     metadata: dict = {}
     if client.enabled:
@@ -187,6 +254,40 @@ def main(argv=None) -> int:
         _launch_reader()
     else:
         print(f"   - 启动阅读器: python -m scan2ebook serve")
+    _emit_progress(args.progress_json, {
+        "stage": "complete",
+        "progress": 100,
+        "usage": vs.usage_snapshot(),
+        "output_dir": str(out_dir.resolve()),
+        "book_json": str(book_path.resolve()),
+        "html": str(html_path.resolve()),
+        "s2e": str((out_dir / (stem + ".s2e")).resolve()) if not args.no_bundle else None,
+        "message": "转换完成",
+    })
+    return 0
+
+
+def _inspect_pdf(argv: list[str]) -> int:
+    """为 GUI 返回 PDF 基本信息，不触发 OCR 或模型调用。"""
+    ap = argparse.ArgumentParser(prog="scan2ebook inspect", description="读取 PDF 页数")
+    ap.add_argument("book", help="PDF 路径")
+    args = ap.parse_args(argv)
+    src = Path(args.book)
+    if not src.is_file():
+        print(json.dumps({"ok": False, "error": f"找不到文件：{src}"}, ensure_ascii=False))
+        return 1
+    if src.suffix.lower() != ".pdf":
+        print(json.dumps({"ok": False, "error": "inspect 仅支持 PDF 文件"}, ensure_ascii=False))
+        return 1
+    try:
+        doc = open_pdf(str(src))
+        payload = {"ok": True, "path": str(src.resolve()), "name": src.name, "pages": len(doc)}
+        doc.close()
+    except Exception as e:  # noqa: BLE001
+        payload = {"ok": False, "error": f"无法读取 PDF：{e}"}
+        print(json.dumps(payload, ensure_ascii=False))
+        return 1
+    print(json.dumps(payload, ensure_ascii=False))
     return 0
 
 

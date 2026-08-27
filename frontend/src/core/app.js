@@ -57,7 +57,7 @@ export async function init() {
   });
 
   bindTopbar();
-  $('detail-panel')?.addEventListener('click', (event) => {
+  $('workspace').addEventListener('click', (event) => {
     if (event.target.closest('.dp-close')) {
       event.stopPropagation();
       $('detail-panel').hidden = true;
@@ -104,13 +104,9 @@ function renderLibrary() {
 function emptyLib() {
   const d = document.createElement('div');
   d.id = 'empty-hint';
-  d.innerHTML = '<div class="big"><span class="sf i-home-library" aria-hidden="true"></span></div><div>书库为空</div>';
-  const btn = document.createElement('button');
-  btn.className = 'import-big';
-  btn.textContent = '选择 .s2e 文件导入';
-  btn.addEventListener('click', () => $('import-input').click());
-  d.appendChild(btn);
-  d.appendChild(Object.assign(document.createElement('div'), { className: 'drop-hint', textContent: '也可以把 .s2e 文件直接拖到窗口任意位置' }));
+  d.className = 'library-empty-compact';
+  d.innerHTML = '<span class="sf i-home-library" aria-hidden="true"></span>'
+    + '<span>暂无电子书</span><small>可在首页或上方按钮导入</small>';
   return d;
 }
 
@@ -343,16 +339,19 @@ function createBookView(book) {
   wv.innerHTML = `
     <div class="pdf-panel"><div class="pdf-holder"></div></div>
     <div class="divider" role="separator" aria-orientation="vertical"
-         aria-label="调整 PDF 与文字视图宽度" tabindex="0">
-      <button class="jump" data-dir="text" title="跳转到对应文字段" aria-label="跳转到文字视图"><span class="sf i-right"></span></button>
-      <button class="jump" data-dir="pdf" title="跳转到对应 PDF 页" aria-label="跳转到 PDF 视图"><span class="sf i-left"></span></button>
-    </div>
-    <div class="text-panel"><div class="text-content"></div></div>`;
+         aria-label="调整 PDF 与文字视图宽度" tabindex="0"></div>
+    <div class="text-panel"><div class="text-content"></div></div>
+    <div class="view-control-island" role="group" aria-label="PDF、文字与书签操作">
+      <button class="view-island-action jump" data-dir="pdf" type="button"
+              title="跳转到对应 PDF 页" aria-label="跳转到 PDF 视图"><span class="sf i-left" aria-hidden="true"></span></button>
+      <button class="view-island-action jump" data-dir="text" type="button"
+              title="跳转到对应文字段" aria-label="跳转到文字视图"><span class="sf i-right" aria-hidden="true"></span></button>
+      <span class="bookmark-island-slot"></span>
+    </div>`;
   $('workspace').appendChild(wv);
 
   let model = buildRenderModel(book.bookJson);
   const pdfView = new PdfView(wv.querySelector('.pdf-panel'));
-  pdfView.onPageChange = (n) => bus.emit('page:change', { bookId: book.id, page: n, source: 'pdf' });
   let view = null;
   const textView = new TextView(wv.querySelector('.text-panel'), {
     onItemRender: (p) => bus.emit('item:render', Object.assign(p, { bookId: book.id })),
@@ -427,10 +426,11 @@ function createBookView(book) {
   };
   let lock = false;
   pdfView.onPageChange = (n) => {
+    bus.emit('page:change', { bookId: book.id, page: n, source: 'pdf' });
     if (prefs.sync && !lock && !view.suppressTextSync) { lock = true; textView.scrollToPage(n); setTimeout(() => { lock = false; }, 150); }
   };
-  wv.querySelector('.jump[data-dir="text"]').addEventListener('click', () => textView.scrollToPage(pdfView.currentPage || 1));
-  wv.querySelector('.jump[data-dir="pdf"]').addEventListener('click', () => pdfView.gotoPage(textView.currentPage || 1));
+  wv.querySelector('.view-control-island .jump[data-dir="text"]').addEventListener('click', () => textView.scrollToPage(pdfView.currentPage || 1));
+  wv.querySelector('.view-control-island .jump[data-dir="pdf"]').addEventListener('click', () => pdfView.gotoPage(textView.currentPage || 1));
   return view;
 }
 
@@ -573,7 +573,7 @@ function createTopbarViewSwitch() {
   sw.id = 'view-switch';
   sw.innerHTML = `
     <div class="seg" data-role="view-modes">
-      <button data-mode="split" class="active" title="双栏视图" aria-label="双栏视图"><span class="sf vm-pdf"></span><span class="vm-bar"></span><span class="sf i-t"></span></button>
+      <button data-mode="split" class="active" title="双栏视图" aria-label="双栏视图"><span class="split-mode-icon" aria-hidden="true"><span class="sf vm-pdf"></span><span class="vm-bar"></span><span class="sf i-t"></span></span></button>
       <button data-mode="pdf" title="仅 PDF 视图" aria-label="仅 PDF 视图"><span class="sf vm-pdf"></span></button>
       <button data-mode="text" title="仅文字视图" aria-label="仅文字视图"><span class="sf i-t"></span></button>
     </div>
@@ -624,11 +624,47 @@ function syncViewSwitch() {
 function bindSettingsDialog() {
   const dlg = $('settings-dialog');
   const mask = $('settings-mask');
-  const open = () => { mask.hidden = false; dlg.hidden = false; renderPluginList(); };
-  const close = () => { mask.hidden = true; dlg.hidden = true; };
+  let source = null;
+  const focusable = () => [...dlg.querySelectorAll(
+    'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
+  )];
+  const open = () => {
+    source = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    mask.hidden = false;
+    dlg.hidden = false;
+    renderPluginList();
+    $('sd-close').focus();
+  };
+  const close = () => {
+    if (dlg.hidden) return;
+    mask.hidden = true;
+    dlg.hidden = true;
+    source?.focus();
+    source = null;
+  };
   $('btn-settings').addEventListener('click', () => (dlg.hidden ? open() : close()));
   $('sd-close').addEventListener('click', close);
   mask.addEventListener('click', close);
+  dlg.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const elements = focusable();
+    if (!elements.length) return;
+    const first = elements[0];
+    const last = elements.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
   window.openSettings = open;
 }
 
@@ -1202,7 +1238,7 @@ function renderDetail() {
   }
   if (selectedBookIds.size > 1) {
     panel.innerHTML = `
-      <div class="dp-head"><span class="dp-title">详细信息</span></div>
+      <div class="dp-head"><span class="dp-title">详细信息</span><button type="button" class="dp-close icon-btn" title="关闭详细信息" aria-label="关闭详细信息"><span class="sf i-xmark"></span></button></div>
       <div class="dp-state">
         <div class="dp-state-icon"><span class="sf i-list"></span></div>
         <strong>已选择 ${selectedBookIds.size} 本电子书</strong>
@@ -1213,7 +1249,7 @@ function renderDetail() {
   const book = state.books.find((b) => b.id === selectedBookId);
   if (!book) {
     panel.innerHTML = `
-      <div class="dp-head"><span class="dp-title">详细信息</span></div>
+      <div class="dp-head"><span class="dp-title">详细信息</span><button type="button" class="dp-close icon-btn" title="关闭详细信息" aria-label="关闭详细信息"><span class="sf i-xmark"></span></button></div>
       <div class="dp-state empty">
         <div class="dp-state-icon"><span class="sf i-home-library"></span></div>
         <strong>未选择对象</strong>

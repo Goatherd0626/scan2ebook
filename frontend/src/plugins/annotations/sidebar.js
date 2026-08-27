@@ -391,12 +391,28 @@ export function createAnnotationsSidebar({
     aside.focus();
   }
 
+  function scrollCardWithinList(card, align = 'nearest') {
+    if (!card) return;
+    const listRect = list.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    let nextTop = list.scrollTop;
+    if (align === 'center') {
+      nextTop += ((cardRect.top + cardRect.bottom) - (listRect.top + listRect.bottom)) / 2;
+    } else if (cardRect.top < listRect.top) {
+      nextTop += cardRect.top - listRect.top;
+    } else if (cardRect.bottom > listRect.bottom) {
+      nextTop += cardRect.bottom - listRect.bottom;
+    }
+    // 只滚动内容列表，避免浏览器把整个 Inspector 的标题栏推出裁切区域。
+    list.scrollTop = Math.max(0, Math.round(nextTop));
+  }
+
   function moveSearch(delta) {
     const cards = [...list.querySelectorAll('.annotations-card')];
     if (!cards.length) return;
     searchIndex = (searchIndex + delta + cards.length) % cards.length;
     cards.forEach((card, index) => card.classList.toggle('search-current', index === searchIndex));
-    cards[searchIndex].scrollIntoView({ block: 'nearest' });
+    scrollCardWithinList(cards[searchIndex]);
     updateSearchCount(visibleRecords());
   }
 
@@ -538,7 +554,11 @@ export function createAnnotationsSidebar({
   function setVisible(visible) {
     aside.hidden = !visible;
     storage.setItem(OPEN_KEY, visible ? '1' : '0');
-    if (visible) render();
+    if (visible) {
+      // 兼容旧状态：打开时清除根容器曾被程序滚动后遗留的位置。
+      aside.scrollTop = 0;
+      render();
+    }
     onLayoutChange();
   }
 
@@ -556,7 +576,7 @@ export function createAnnotationsSidebar({
     lastSelected = id;
     render();
     const card = [...list.querySelectorAll('.annotations-card')].find((item) => item.dataset.id === id);
-    card?.scrollIntoView({ block: 'center' });
+    scrollCardWithinList(card, 'center');
     if (card && record.type === 'note') showCardPopover(record, card);
     updateSelection();
   }

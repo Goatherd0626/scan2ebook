@@ -61,3 +61,21 @@ test('可撤销 Toast 的动作最多执行一次且不会抢走焦点', async (
   assert.equal(document.activeElement, trigger);
   assert.match(document.getElementById('toast').textContent, /已撤销/);
 });
+
+test('应用 Sheet 消费 Escape，不触发背景快捷键', async () => {
+  let backgroundEscapeCount = 0;
+  const onBackgroundKeydown = (event) => {
+    if (event.key === 'Escape') backgroundEscapeCount += 1;
+  };
+  document.addEventListener('keydown', onBackgroundKeydown);
+
+  const result = confirmSheet({ title: '确认操作', message: '测试 Escape 隔离。' });
+  const dialog = document.querySelector('.app-sheet[role="dialog"]');
+  dialog.dispatchEvent(new window.KeyboardEvent('keydown', {
+    key: 'Escape', bubbles: true, cancelable: true,
+  }));
+
+  assert.equal(await result, false);
+  assert.equal(backgroundEscapeCount, 0);
+  document.removeEventListener('keydown', onBackgroundKeydown);
+});

@@ -54,6 +54,8 @@ test('首页和侧边栏无需模式按钮即可连续、增减和框选，并�
   await app.init();
   assert.equal(document.getElementById('detail-panel').hidden, false);
   assert.match(document.getElementById('detail-panel').textContent, /未选择对象/);
+  document.querySelector('#detail-panel .dp-close').click();
+  assert.equal(document.getElementById('detail-panel').hidden, true, '详情面板关闭按钮应在初始化后真实可用');
 
   const toolbarButtons = [...document.querySelectorAll('.home-actions > .home-tool')];
   assert.deepEqual(toolbarButtons.map((button) => button.id), [
@@ -67,6 +69,7 @@ test('首页和侧边栏无需模式按钮即可连续、增减和框选，并�
 
   const rows = [...document.querySelectorAll('#home-table .ht-row')];
   rows[0].click();
+  assert.equal(document.getElementById('detail-panel').hidden, false, '重新选择对象应再次显示详情面板');
   assert.equal(document.getElementById('home-delete').disabled, false);
   assert.match(document.getElementById('detail-panel').textContent, /第一本/);
   rows[2].dispatchEvent(new window.MouseEvent('click', { bubbles: true, shiftKey: true }));
@@ -76,6 +79,30 @@ test('首页和侧边栏无需模式按钮即可连续、增减和框选，并�
   assert.equal(document.querySelectorAll('#home-table .ht-row.selected').length, 2);
   assert.equal([...document.querySelectorAll('#home-table .ht-row.selected')]
     .every((row) => row.getAttribute('aria-selected') === 'true'), true);
+
+  const settingsButton = document.getElementById('btn-settings');
+  settingsButton.focus();
+  settingsButton.click();
+  const settingsDialog = document.getElementById('settings-dialog');
+  const settingsClose = document.getElementById('sd-close');
+  assert.equal(settingsDialog.hidden, false);
+  assert.equal(document.activeElement, settingsClose, '设置窗口打开后应把焦点移入窗口');
+  const settingsFocusable = [...settingsDialog.querySelectorAll(
+    'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
+  )];
+  settingsFocusable.at(-1).focus();
+  settingsDialog.dispatchEvent(new window.KeyboardEvent('keydown', {
+    key: 'Tab', bubbles: true, cancelable: true,
+  }));
+  assert.equal(document.activeElement, settingsClose, 'Tab 应在设置窗口内循环');
+  settingsDialog.dispatchEvent(new window.KeyboardEvent('keydown', {
+    key: 'Escape', bubbles: true, cancelable: true,
+  }));
+  assert.equal(settingsDialog.hidden, true);
+  assert.equal(document.activeElement, settingsButton, '关闭设置窗口后应恢复来源焦点');
+  assert.equal(document.querySelectorAll('#home-table .ht-row.selected').length, 2,
+    '关闭设置窗口不应清除背景中的书籍选择');
+
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
   assert.equal(document.querySelectorAll('#home-table .ht-row.selected').length, 0);
   assert.equal(document.getElementById('home-delete').disabled, true);

@@ -1,9 +1,10 @@
 {
   "name": "scan2ebook-reader",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.1.0",
   "type": "module",
   "description": "scan2ebook 网页阅读器（独立前端）：双视图 PDF/文字、书库、护眼、搜索",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -47,6 +47,32 @@ test('正文搜索按正文顺序保留同一段内的全部命中', () => {
   extensions.deactivateExtension('search');
 });
 
+test('正文无命中时顶部显示 0 / 0，结果列表保留无结果文案', () => {
+  extensions.ui.reset();
+  extensions.setEnabled('search', true);
+  const holder = document.querySelector('.text-content');
+  const ctx = {
+    bus: extensions.bus,
+    ui: extensions.ui,
+    state: { activeBookId: 'book-a', books: [], folders: [] },
+    getView: () => ({ textView: { holder } }),
+    openBook: () => {},
+  };
+  extensions.activateExtension('search', ctx);
+
+  const input = document.getElementById('search-input');
+  input.value = '不存在的搜索词';
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
+  assert.equal(document.getElementById('find-count').textContent, '0 / 0');
+  assert.equal(document.getElementById('find-count').classList.contains('none'), false);
+
+  document.querySelector('#find-strip [data-act="list"]').click();
+  const drop = document.getElementById('search-drop');
+  assert.equal(drop.hidden, false);
+  assert.equal(drop.querySelector('.sr-empty').textContent, '无结果');
+  extensions.deactivateExtension('search');
+});
+
 test('⌘F 按焦点路由:标注栏内打开标注搜索,其余位置打开全局搜索', () => {
   extensions.ui.reset();
   extensions.setEnabled('search', true);

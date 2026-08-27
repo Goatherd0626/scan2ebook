@@ -23,8 +23,9 @@ import io
 import json
 import logging
 import re
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Optional
+from typing import Callable, Optional
 
 from openai import OpenAI
 from PIL import Image
@@ -168,10 +169,28 @@ def _normalize_toc(toc: list) -> list[dict]:
 class VisionStructure:
     """ds-vision 逐页结构化客户端。"""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or DEEPSEEK_API_KEY
+        self.model = (model or DEEPSEEK_VISION_MODEL).strip()
         self.enabled = bool(self.api_key)
         self._client = OpenAI(api_key=self.api_key, base_url=DEEPSEEK_BASE_URL) if self.enabled else None
+        self._usage_lock = threading.Lock()
+        self._usage = {"requests": 0, "input_tokens": 0, "output_tokens": 0}
+
+    def usage_snapshot(self) -> dict[str, int]:
+        """返回线程安全的视觉 API 用量快照。"""
+        with self._usage_lock:
+            return dict(self._usage)
+
+    def _record_usage(self, response=None) -> None:
+        """每次请求都计数；provider 提供 token usage 时一并累计。"""
+        usage = getattr(response, "usage", None)
+        input_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+        output_tokens = int(getattr(usage, "completion_tokens", 0) or 0)
+        with self._usage_lock:
+            self._usage["requests"] += 1
+            self._usage["input_tokens"] += input_tokens
+            self._usage["output_tokens"] += output_tokens
 
     # ------------------------------------------------------------------
     def structure_page(self, img: Image.Image, ocr_text: str) -> dict:
@@ -182,13 +201,15 @@ class VisionStructure:
             {"type": "image_url", "image_url": {"url": _image_data_url(img)}},
         ]
         for attempt in range(2):
+            response = None
             try:
-                resp = self._client.chat.completions.create(
-                    model=DEEPSEEK_VISION_MODEL,
+                response = self._client.chat.completions.create(
+                    model=self.model,
                     temperature=0,
                     messages=[{"role": "user", "content": content}],
                 )
-                data = _extract_json(resp.choices[0].message.content or "")
+                self._record_usage(response)
+                data = _extract_json(response.choices[0].message.content or "")
                 if data:
                     return self._finalize(data)
                 if attempt == 0:  # 解析失败：用更强硬的提示重试一次
@@ -197,6 +218,8 @@ class VisionStructure:
                         {"type": "image_url", "image_url": {"url": _image_data_url(img)}},
                     ]
             except Exception as e:  # noqa: BLE001
+                if response is None:
+                    self._record_usage()
                 log.warning("ds-vision 第 %d 页失败：%s", getattr(img, "pdf_page", "?"), e)
                 break
         return {"page_kind": "blank", "items": [], "toc": []}
@@ -219,7 +242,10 @@ class VisionStructure:
     # ------------------------------------------------------------------
     def structure_book(self, imgs: list[Image.Image], ocr_texts: list[str],
                        workers: int = 6, blank_indices: Optional[set] = None,
-                       force_kind: Optional[dict] = None) -> list[dict]:
+                       force_kind: Optional[dict] = None,
+                       page_numbers: Optional[list[int]] = None,
+                       progress_callback: Optional[Callable[[dict], None]] = None,
+                       show_progress: bool = True) -> list[dict]:
         """整书逐页结构化（并发）。blank_indices 里的页直接按空白页跳过（省 API 调用）。
 
         force_kind: {页码: kind} 用于外部规则强制指定某些页的类型。
@@ -227,20 +253,38 @@ class VisionStructure:
         """
         blank = blank_indices or set()
         force = force_kind or {}
+        numbers = page_numbers or list(range(1, len(imgs) + 1))
+        if len(numbers) != len(imgs):
+            raise ValueError("page_numbers 长度必须与 imgs 一致")
         results: list[Optional[dict]] = [None] * len(imgs)
 
         def work(i: int):
-            page = force.get(i + 1)
+            pdf_page = numbers[i]
+            page = force.get(pdf_page)
             if page or (i in blank) or imgs[i] is None:
                 kind = page if page else "blank"
-                return i, {"pdf_page": i + 1, "page_kind": kind, "items": [], "toc": []}
+                return i, {"pdf_page": pdf_page, "page_kind": kind, "items": [], "toc": []}
             r = self.structure_page(imgs[i], ocr_texts[i])
-            r["pdf_page"] = i + 1
+            r["pdf_page"] = pdf_page
             return i, r
 
         with ThreadPoolExecutor(max_workers=workers) as ex:
             futs = [ex.submit(work, i) for i in range(len(imgs))]
-            for fut in tqdm(as_completed(futs), total=len(futs), desc="ds-vision 版面结构化"):
+            completed = 0
+            iterator = tqdm(
+                as_completed(futs), total=len(futs), desc="ds-vision 版面结构化",
+                disable=not show_progress,
+            )
+            for fut in iterator:
                 i, page = fut.result()
                 results[i] = page
+                completed += 1
+                if progress_callback is not None:
+                    progress_callback({
+                        "stage": "structure",
+                        "current": completed,
+                        "total": len(futs),
+                        "pdf_page": page["pdf_page"],
+                        "usage": self.usage_snapshot(),
+                    })
         return [r for r in results if r is not None]

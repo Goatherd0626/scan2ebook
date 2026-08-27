@@ -4,6 +4,28 @@
 书库 + 文件夹分类 + 标签页多开，护眼阅读环境，全文搜索、书签、阅读进度记忆。
 **每个段落锚定其来源的 PDF 页码**，可双向跳转，专为论文引文核对设计。
 
+当前版本：**0.1.0**。本项目采用 [MIT License](LICENSE)。
+
+## 平台与环境限制
+
+| 组件 | 当前支持范围 |
+|---|---|
+| Python 转换器 / Apple Vision OCR | **仅 macOS**；已在 Apple Silicon 上开发和测试，Intel Mac 未持续验证 |
+| DSH Skill | DeepSeek Harness 可加载 Skill 的环境 |
+| DSH sidebar 插件 | **仅 macOS**；依赖系统文件选择器、macOS Keychain 与 `/usr/bin/open` |
+| 独立网页阅读器 | 构建后可在现代桌面浏览器运行；阅读器本身不依赖 Apple Vision |
+
+开发与构建要求：
+
+- Python 3.10 或更高版本；当前主要测试环境为 Python 3.12。
+- Node.js 20.19 或更高版本，用于网页阅读器测试和 Vite 构建。
+- DSH 插件要求 DeepSeek Harness `>=0.1.1-rc.1`。
+- 结构化转换需要用户自己的 DeepSeek API Key 和可用的多模态模型权限。
+- 默认模型 `deepseek-v4-flash-vision-exp` 是可配置推荐值，不保证所有账户或未来版本始终可用。
+
+Windows 和 Linux 当前不能运行 Apple Vision OCR 或 DSH 插件的 macOS 原生集成功能。
+若 PDF 已有文字层，未来可以增加跨平台路径，但当前发布版本仍按 macOS-only 转换器维护。
+
 ## 核心思路（AI 驱动结构化）
 
 代码只负责「渲染 + OCR + 渲染输出」，**版面结构（标题/正文/脚注/引用位置/
@@ -33,9 +55,18 @@ PDF ──▶ 逐页渲染(300dpi) ──▶ Apple Vision OCR(本地免费)
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
+.venv/bin/pip install -e .
 cp .env.example .env   # 填入 DEEPSEEK_API_KEY
+
+# 构建独立网页阅读器
+cd frontend
+npm ci
+npm run build
+cd ..
 ```
+
+`pyproject.toml` 当前面向 clone 后的源码 editable 安装。网页阅读器资源仍由仓库中的
+`frontend/` 提供，因此首个 0.1.0 版本暂不承诺 PyPI wheel 包含完整阅读器资源。
 
 ## 使用
 
@@ -55,6 +86,10 @@ cp .env.example .env   # 填入 DEEPSEEK_API_KEY
 #   --no-bundle     不打包 .s2e
 #   --serve         转换完成后自动启动阅读器并打开浏览器
 #   --split-pages   额外输出 pages/page_NNN.json（抽查单页用）
+#   --page-start N  起始 PDF 页码（1-based，两端闭区间）
+#   --page-end N    结束 PDF 页码（1-based，两端闭区间）
+#   --vision-model  覆盖多模态结构化模型
+#   --progress-json 输出供 GUI 消费的 S2E_EVENT 进度行
 ```
 
 ### 阅读器启动方式（三种，任选）
@@ -97,7 +132,12 @@ cp .env.example .env   # 填入 DEEPSEEK_API_KEY
 scan2ebook/
 ├── docs/
 │   ├── reader-plugin-dev.md    # 阅读器插件开发指南（API/事件/扩展点/示例）
-│   └── webgui-plugin-design.md # DSH Web GUI 插件设计稿（待做）
+│   ├── webgui-plugin-design.md # DSH Web GUI 插件设计与落地说明
+│   └── release-checklist.md    # GitHub 开源发布检查清单
+├── dsh-plugin/
+│   └── dsh-client-ui-scan2ebook/ # DSH 左侧入口、转换面板、RPC 与阅读器进程管理
+├── dsh-skill/
+│   └── scan2ebook/SKILL.md     # 可随仓库发布和安装的 DSH Skill
 ├── scan2ebook/           # Python：转换 + 阅读器服务
 │   ├── cli.py            # 转换（产出 .s2e / json）
 │   ├── reader.py         # 本地阅读器服务（python -m scan2ebook serve）
@@ -158,9 +198,8 @@ scan2ebook/
 ## 已知限制与路线图
 
 - [x] Skill 注册：`~/.dsh/skills/scan2ebook/SKILL.md`
+- [x] DSH Web GUI 插件：单个「Scan2Ebook」入口和右侧 sidebar，支持任意 PDF、同级输出、页码范围、进度/计费与阅读器启停
 - [ ] 二期：文字高亮（多色）/ 添加注释 + 右侧注释侧边栏
 - [ ] 二期：编辑模式（修正识别错误，写回 JSON）
 - [ ] 二期：复制引文（GB/T 7714 模板）、标注导出
 - [ ] 竖排古籍 / 双栏版面（ds-vision 可处理，需验证）
-- [ ] Web GUI 插件（暂缓）：`~/.dsh/plugins/dsh-client-ui-scan2ebook/`，
-      用 `dsh-better-sidebar` 的 `registerTab` 挂侧边栏「📖 电子书转换」

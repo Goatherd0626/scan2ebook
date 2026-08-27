@@ -178,9 +178,7 @@ registerExtension({
       const n = results.length;
       if (!query) { countEl.textContent = ''; return; }
       if (isHome()) { countEl.textContent = n + ' 本'; return; }
-      if (!n) { countEl.textContent = '没有结果'; countEl.classList.add('none'); return; }
-      countEl.classList.remove('none');
-      countEl.textContent = (idx >= 0 ? idx + 1 : 1) + ' / ' + n;
+      countEl.textContent = n ? (idx >= 0 ? idx + 1 : 1) + ' / ' + n : '0 / 0';
     }
 
     function jump(i) {
@@ -237,7 +235,6 @@ registerExtension({
       results = []; idx = -1; listOpen = false;
       strip.hidden = true; drop.hidden = true;
       countEl.textContent = '';
-      countEl.classList.remove('none');
     }
 
     /* ---------- 定位：控件条在输入框正下方，结果列表再往下 ---------- */

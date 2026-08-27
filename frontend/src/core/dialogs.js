@@ -88,6 +88,7 @@ function openSheet(options, inputOptions = null) {
   dialog.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       event.preventDefault();
+      event.stopPropagation();
       close(null);
       return;
     }

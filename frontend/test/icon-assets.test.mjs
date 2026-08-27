@@ -18,6 +18,7 @@ const expected = {
   'i-trash': 'trash.svg',
   'i-gear': 'gear.svg',
   'i-t': 't.square.svg',
+  'i-text-editor': 'long.text.page.and.pencil.svg',
   'i-up': 'arrow.up.svg',
   'i-down': 'arrow.down.svg',
   'i-x': 'multiply.svg',

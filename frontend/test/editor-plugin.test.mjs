@@ -63,8 +63,11 @@ test('编辑模式按页增删 item，确认后原子保存并归档受影响注
 
   const toggle = document.querySelector('.editor-toggle');
   assert.ok(toggle);
+  assert.ok(toggle.querySelector('.sf.i-text-editor'));
+  assert.equal(toggle.querySelector('.editor-toggle-label').textContent, '编辑');
   toggle.click();
   assert.equal(toggle.getAttribute('aria-pressed'), 'true');
+  assert.equal(toggle.querySelector('.editor-toggle-label').textContent, '编辑中');
   assert.equal(hoverModes.at(-1), true);
   assert.match(document.querySelector('.editor-mode-banner')?.textContent || '', /选择一页进行编辑/);
   document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

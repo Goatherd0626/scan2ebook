@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 from PIL import Image
 
+from scan2ebook.cli import _resolve_page_indices
 from scan2ebook.vision import VisionStructure, _normalize_items
 
 
@@ -46,6 +47,10 @@ class VisionRetryContractTest(unittest.TestCase):
         )
         vision = VisionStructure.__new__(VisionStructure)
         vision._client = client
+        vision.model = "test-vision"
+        import threading
+        vision._usage_lock = threading.Lock()
+        vision._usage = {"requests": 0, "input_tokens": 0, "output_tokens": 0}
 
         result = vision.structure_page(Image.new("RGB", (1, 1)), "OCR sample")
 
@@ -59,6 +64,31 @@ class VisionRetryContractTest(unittest.TestCase):
         self.assertIn("figure/table 禁止包含任何其他键", retry_text)
         self.assertIn("header 仅供程序识别并丢弃", retry_text)
         self.assertIn("页脚和页码仍直接忽略", retry_text)
+        self.assertEqual(vision.usage_snapshot()["requests"], 2)
+
+
+class PageRangeTest(unittest.TestCase):
+    def test_resolves_one_based_closed_interval(self):
+        self.assertEqual(_resolve_page_indices(10, 3, 5), [2, 3, 4])
+        self.assertEqual(_resolve_page_indices(3, None, None), [0, 1, 2])
+
+    def test_rejects_invalid_range(self):
+        for start, end in ((0, 2), (4, 3), (1, 11)):
+            with self.subTest(start=start, end=end):
+                with self.assertRaises(ValueError):
+                    _resolve_page_indices(10, start, end)
+
+
+class PageNumberMappingTest(unittest.TestCase):
+    def test_preserves_original_pdf_page_numbers_for_subset(self):
+        vision = VisionStructure.__new__(VisionStructure)
+        vision._usage_lock = __import__("threading").Lock()
+        vision._usage = {"requests": 0, "input_tokens": 0, "output_tokens": 0}
+        result = vision.structure_book(
+            [None, None], ["", ""], blank_indices={0, 1},
+            page_numbers=[7, 8], show_progress=False,
+        )
+        self.assertEqual([page["pdf_page"] for page in result], [7, 8])
 
 
 if __name__ == "__main__":

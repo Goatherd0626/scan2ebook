@@ -29,7 +29,13 @@ registerExtension({
     const toggle = document.createElement('button');
     toggle.type = 'button';
     toggle.className = 'icon-btn text-btn editor-toggle';
-    toggle.textContent = '编辑';
+    const toggleIcon = document.createElement('span');
+    toggleIcon.className = 'sf i-text-editor';
+    toggleIcon.setAttribute('aria-hidden', 'true');
+    const toggleLabel = document.createElement('span');
+    toggleLabel.className = 'editor-toggle-label';
+    toggleLabel.textContent = '编辑';
+    toggle.append(toggleIcon, toggleLabel);
     toggle.title = '编辑当前电子书的结构化正文';
     toggle.setAttribute('aria-label', '切换正文编辑模式');
     toggle.setAttribute('aria-pressed', 'false');
@@ -60,7 +66,7 @@ registerExtension({
       toggle.hidden = !currentView || currentView.prefs?.viewMode === 'pdf';
       toggle.classList.toggle('active', mode);
       toggle.setAttribute('aria-pressed', mode ? 'true' : 'false');
-      toggle.textContent = mode ? '编辑中' : '编辑';
+      toggleLabel.textContent = mode ? '编辑中' : '编辑';
     }
 
     async function closeEditor(force = false) {

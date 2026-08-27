@@ -367,8 +367,13 @@ export class TextView {
     this._pageHover.style.top = top + 'px';
     this._pageHover.style.height = (bottom - top) + 'px';
     this._pageHover.hidden = false;
-    this._pageLabel.dataset.label = 'PDF 第 ' + page + ' 页';
-    this._pageLabel.style.top = Math.max(0, top - 25) + 'px';
+    this._pageLabel.dataset.page = String(page);
+    const panelRect = this.panel.getBoundingClientRect();
+    const visibleTop = panelRect.top - holderRect.top + 8;
+    const visibleBottom = panelRect.bottom - holderRect.top - 38;
+    // 页首滚到工具栏下方时，把页码块收进文字栏可视区，避免被顶栏遮住。
+    const labelTop = Math.min(Math.max(top - 36, visibleTop), Math.max(visibleTop, visibleBottom));
+    this._pageLabel.style.top = Math.max(0, labelTop) + 'px';
     this._pageLabel.hidden = false;
     return page;
   }

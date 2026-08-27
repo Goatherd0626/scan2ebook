@@ -184,7 +184,7 @@ test('双栏跳转按钮不触发拖动，双击与键盘可以调整分割线',
   view.remove();
 });
 
-test('阅读器按书保存双栏比例，视图切换后中缝和跳转按钮保持对应位置', async () => {
+test('阅读器按书保存双栏比例，视图操作岛与中缝拖动结构互不干扰', async () => {
   const { openBook, state } = await import('../src/core/app.js');
   const book = {
     id: 'resize-book',
@@ -206,17 +206,20 @@ test('阅读器按书保存双栏比例，视图切换后中缝和跳转按钮�
 
   const view = state.tabs.find((item) => item.bookId === book.id);
   const divider = view.wv.querySelector('.divider');
+  const island = view.wv.querySelector('.view-control-island');
   divider.setPointerCapture = () => {};
   divider.releasePointerCapture = () => {};
   view.wv.getBoundingClientRect = () => ({ left: 0, width: 1000, right: 1000, top: 0, bottom: 600, height: 600 });
 
   assert.equal(parseFloat(view.wv.style.getPropertyValue('--pdf-ratio')), 65);
   assert.equal(divider.getAttribute('role'), 'separator');
+  assert.equal(divider.querySelectorAll('button').length, 0, '分割线内部不再包含操作按钮');
   assert.deepEqual(
-    [...divider.querySelectorAll(':scope > button.jump')].map((button) => button.dataset.dir),
-    ['text', 'pdf'],
-    '恢复上一版纵向双向跳转按钮顺序',
+    [...island.querySelectorAll(':scope > button.jump')].map((button) => button.dataset.dir),
+    ['pdf', 'text'],
+    '控制岛前两项依次跳到 PDF 和文字',
   );
+  assert.ok(island.querySelector('.bookmark-island-slot'), '第三格预留给书签插件');
 
   divider.dispatchEvent(pointerEvent('pointerdown', 650, 30));
   document.dispatchEvent(pointerEvent('pointermove', 700, 30));
@@ -226,5 +229,5 @@ test('阅读器按书保存双栏比例，视图切换后中缝和跳转按钮�
   view.setPrefs({ viewMode: 'pdf' });
   view.setPrefs({ viewMode: 'split' });
   assert.equal(parseFloat(view.wv.style.getPropertyValue('--pdf-ratio')), 70);
-  assert.equal(divider.querySelectorAll(':scope > button.jump').length, 2);
+  assert.equal(island.querySelectorAll(':scope > button.jump').length, 2);
 });

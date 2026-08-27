@@ -1,4 +1,4 @@
-/* 插件：书签 —— 工具栏 🔖 + 目录面板「书签」tab，存于书记录（IndexedDB） */
+/* 插件：书签 —— 双栏控制岛 + 目录面板「书签」tab，存于书记录（IndexedDB） */
 import { registerExtension } from '../../core/extensions.js';
 
 registerExtension({
@@ -14,6 +14,7 @@ registerExtension({
     let selectedIds = new Set();
     let selectionAnchorId = null;
     let marquee = null;
+    const viewButtons = new Map();
     // 「书签」tab 主体
     const body = document.createElement('div');
     body.id = 'tab-body-bookmarks';
@@ -51,24 +52,23 @@ registerExtension({
         : (view.textView.currentPage || view.pdfView.currentPage || 1);
     }
 
-    const toolbarToggle = document.createElement('button');
-    toolbarToggle.type = 'button';
-    toolbarToggle.className = 'icon-btn bookmark-toolbar-toggle';
-    toolbarToggle.setAttribute('aria-label', '添加当前页书签');
-    toolbarToggle.setAttribute('aria-pressed', 'false');
-    const removeToolbar = ctx.ui.addToolbarWidget({ id: 'bookmark-toggle', el: toolbarToggle });
-
-    function updateToolbar(page = null) {
-      const book = currentBook();
-      const view = ctx.getView && ctx.getView();
-      toolbarToggle.hidden = !book || !view;
-      const active = !!book && !!bookmarkAt(book, page || currentPage(view));
+    function updateButton(view, page = null) {
+      const button = viewButtons.get(view.bookId);
+      const book = ctx.state?.books.find((item) => item.id === view.bookId);
+      if (!button || !book) return;
+      const active = !!bookmarkAt(book, page || currentPage(view));
       const label = active ? '取消当前页书签' : '添加当前页书签';
-      toolbarToggle.setAttribute('aria-label', label);
-      toolbarToggle.setAttribute('aria-pressed', active ? 'true' : 'false');
-      toolbarToggle.dataset.tip = label;
-      toolbarToggle.innerHTML = '<span class="bookmark-context-icon '
+      button.setAttribute('aria-label', label);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      button.dataset.tip = label;
+      button.innerHTML = '<span class="bookmark-context-icon '
         + (active ? 'i-bookmark-context-filled' : 'i-bookmark-context') + '" aria-hidden="true"></span>';
+    }
+
+    function updateButtons(page = null, bookId = null) {
+      for (const view of ctx.state?.tabs || []) {
+        updateButton(view, bookId === view.bookId ? page : null);
+      }
     }
 
     function formatTime(timestamp) {
@@ -92,12 +92,12 @@ registerExtension({
       ids.forEach((id) => selectedIds.delete(id));
       await ctx.db.updateBook(book);
       renderList();
-      updateToolbar();
+      updateButtons();
     }
 
-    async function toggleBookmark(source = null) {
-      const book = currentBook();
-      const view = ctx.getView && ctx.getView();
+    async function toggleBookmark(source = null, targetView = null) {
+      const view = targetView || (ctx.getView && ctx.getView());
+      const book = view && ctx.state?.books.find((item) => item.id === view.bookId);
       if (!book || !view) return;
       const page = source?.page || currentPage(view);
       const anchor = view.textView.pageAnchors.get(page);
@@ -108,12 +108,26 @@ registerExtension({
       else book.bookmarks.push({ id: crypto.randomUUID(), page, snippet, at: Date.now() });
       await ctx.db.updateBook(book);
       renderList();
-      updateToolbar(page);
+      updateButton(view, page);
       ctx.toast((existing ? '已取消书签：PDF 第 ' : '已添加书签：PDF 第 ') + page + ' 页');
     }
 
-    listen(toolbarToggle, 'click', () => toggleBookmark());
-    updateToolbar();
+    function attachViewButton(view) {
+      if (!view?.wv || viewButtons.has(view.bookId)) return;
+      const slot = view.wv.querySelector('.bookmark-island-slot');
+      if (!slot) return;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'view-island-action bookmark-island-toggle';
+      button.setAttribute('aria-label', '添加当前页书签');
+      button.setAttribute('aria-pressed', 'false');
+      slot.replaceChildren(button);
+      viewButtons.set(view.bookId, button);
+      listen(button, 'click', () => toggleBookmark(null, view));
+      updateButton(view);
+    }
+
+    for (const view of ctx.state?.tabs || []) attachViewButton(view);
 
     function renderList() {
       const book = currentBook();
@@ -260,23 +274,29 @@ registerExtension({
       selectedIds.clear();
       selectionAnchorId = null;
       if (!body.hidden) renderList();
-      updateToolbar();
+      updateButtons();
     });
     const offPageChange = ctx.bus.on('page:change', ({ bookId, page }) => {
-      if (bookId === ctx.state.activeBookId) updateToolbar(page);
+      const view = (ctx.state?.tabs || []).find((item) => item.bookId === bookId);
+      if (view) updateButton(view, page);
     });
     const offContentChange = ctx.bus.on('book:content-change', () => {
       if (!body.hidden) renderList();
-      updateToolbar();
+      updateButtons();
     });
+    const offBookOpen = ctx.bus.on('book:open', ({ view }) => attachViewButton(view));
+    const offBookClose = ctx.bus.on('book:close', ({ bookId }) => viewButtons.delete(bookId));
 
     return () => {
       controller.abort();
       offSwitch();
       offPageChange();
       offContentChange();
+      offBookOpen();
+      offBookClose();
       marquee?.box.remove();
-      removeToolbar();
+      viewButtons.forEach((button) => button.remove());
+      viewButtons.clear();
       removeTab();
       body.remove();
     };

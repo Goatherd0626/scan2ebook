@@ -266,14 +266,22 @@ registerExtension({
       root.className = 'annotations-context';
       const records = recordsFor(view.bookId);
       const highlights = records.filter((record) => record.type === 'highlight');
+      const selectedColors = new Set(
+        highlights
+          .filter((record) => rangeIntersects(record.range, selection.range))
+          .map((record) => record.color),
+      );
 
       for (const color of COLORS) {
         const swatch = document.createElement('button');
         swatch.type = 'button';
         swatch.className = 'annotations-swatch c-' + color;
+        const isSelected = selectedColors.has(color);
+        swatch.classList.toggle('is-selected', isSelected);
         swatch.dataset.color = color;
         swatch.title = '高亮为' + color;
         swatch.setAttribute('aria-label', '高亮为' + color);
+        swatch.setAttribute('aria-pressed', String(isSelected));
         swatch.addEventListener('click', async () => {
           const current = recordsFor(view.bookId);
           const notes = current.filter((record) => record.type !== 'highlight');
@@ -308,7 +316,10 @@ registerExtension({
       const divider = document.createElement('span');
       divider.className = 'annotations-context-divider';
       divider.setAttribute('aria-hidden', 'true');
-      root.append(divider, remove);
+      root.appendChild(divider);
+
+      const actionGroup = document.createElement('span');
+      actionGroup.className = 'annotations-context-actions';
 
       const noteButton = document.createElement('button');
       noteButton.type = 'button';
@@ -317,7 +328,7 @@ registerExtension({
       const existingNote = records.find((record) => record.type === 'note' && sameRange(record.range, selection.range));
       noteButton.title = existingNote ? '编辑注释' : '添加注释';
       noteButton.setAttribute('aria-label', noteButton.title);
-      noteButton.innerHTML = '<span class="annotations-action-icon i-annotate"></span><span>注释</span>';
+      noteButton.innerHTML = '<span class="annotations-action-icon i-annotate" aria-hidden="true"></span>';
       noteButton.addEventListener('click', () => {
         root.querySelector('.annotations-note-editor')?.remove();
         const editor = document.createElement('div');
@@ -355,7 +366,8 @@ registerExtension({
         root.appendChild(editor);
         textarea.focus();
       });
-      root.appendChild(noteButton);
+      actionGroup.append(remove, noteButton);
+      root.appendChild(actionGroup);
       return root;
     }
 

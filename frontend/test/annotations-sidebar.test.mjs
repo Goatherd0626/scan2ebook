@@ -195,3 +195,46 @@ test('右侧栏宽度拖动时限制范围并记忆', () => {
   assert.equal(localStorage.getItem('s2e-annotations-width'), '450');
   sidebar.destroy();
 });
+
+test('重新打开注释栏时恢复 Inspector 自身位置，不裁掉顶部标题栏', () => {
+  const view = { wv: document.querySelector('.book-view') };
+  const sidebar = createAnnotationsSidebar({ view, records });
+  const aside = view.wv.querySelector('.annotations-sidebar');
+
+  sidebar.setVisible(true);
+  aside.scrollTop = 36;
+  sidebar.setVisible(false);
+  sidebar.setVisible(true);
+  assert.equal(aside.scrollTop, 0, '重新打开时应恢复 Inspector 自身的滚动位置');
+  sidebar.destroy();
+});
+
+test('定位注释时只滚动内容列表，不移动 Inspector 标题栏', () => {
+  const view = { wv: document.querySelector('.book-view') };
+  const sidebar = createAnnotationsSidebar({ view, records });
+  const aside = view.wv.querySelector('.annotations-sidebar');
+  const list = aside.querySelector('.annotations-list');
+  const originalRect = window.HTMLElement.prototype.getBoundingClientRect;
+
+  window.HTMLElement.prototype.getBoundingClientRect = function () {
+    if (this.classList?.contains('annotations-list')) {
+      return { top: 100, bottom: 300, left: 0, right: 300, width: 300, height: 200 };
+    }
+    if (this.classList?.contains('annotations-card') && this.dataset.id === 'n3') {
+      return { top: 400, bottom: 460, left: 0, right: 300, width: 300, height: 60 };
+    }
+    return originalRect.call(this);
+  };
+
+  try {
+    sidebar.setVisible(true);
+    aside.scrollTop = 0;
+    list.scrollTop = 20;
+    sidebar.reveal('n3');
+    assert.equal(aside.scrollTop, 0, '定位注释不能滚动 Inspector 根容器');
+    assert.equal(list.scrollTop, 250, '定位注释应把目标居中滚动到内容列表内');
+  } finally {
+    window.HTMLElement.prototype.getBoundingClientRect = originalRect;
+    sidebar.destroy();
+  }
+});

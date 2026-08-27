@@ -78,6 +78,8 @@ test('插件从选区创建高亮和注释，渲染段末标记并在停用时�
   let closed = 0;
   const colorMenu = action.render({ selection, view, close: () => { closed += 1; } });
   document.body.appendChild(colorMenu);
+  assert.equal(colorMenu.querySelectorAll('.annotations-swatch').length, 5);
+  assert.equal(colorMenu.querySelector('[data-color="yellow"]').getAttribute('aria-pressed'), 'false');
   colorMenu.querySelector('[data-color="yellow"]').click();
   await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -89,8 +91,15 @@ test('插件从选区创建高亮和注释，渲染段末标记并在停用时�
 
   const noteMenu = action.render({ selection, view, close: () => { closed += 1; } });
   document.body.appendChild(noteMenu);
+  assert.ok(noteMenu.querySelector('.annotations-context-divider'));
+  assert.ok(noteMenu.querySelector('.annotations-context-actions'));
+  assert.equal(noteMenu.querySelector('[data-color="yellow"]').getAttribute('aria-pressed'), 'true');
+  assert.ok(noteMenu.querySelector('[data-color="yellow"]').classList.contains('is-selected'));
   assert.ok(noteMenu.querySelector('[data-action="remove-highlight"] .i-eraser'));
-  assert.ok(noteMenu.querySelector('[data-action="note"] .i-annotate'));
+  const noteAction = noteMenu.querySelector('[data-action="note"]');
+  assert.ok(noteAction.querySelector('.i-annotate'));
+  assert.equal(noteAction.getAttribute('aria-label'), '添加注释');
+  assert.equal(noteAction.textContent.trim(), '');
   noteMenu.querySelector('[data-action="note"]').click();
   const editor = noteMenu.querySelector('textarea');
   editor.value = '重点概念';

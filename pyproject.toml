@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scan2ebook"
+version = "0.1.0"
+description = "Convert scanned PDF books into page-anchored structured ebooks and a local web reader."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = ["ocr", "pdf", "ebook", "apple-vision", "deepseek"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+  "ocrmac",
+  "pillow",
+  "pymupdf",
+  "python-dotenv",
+  "openai",
+  "tqdm",
+]
+
+[project.scripts]
+scan2ebook = "scan2ebook.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["scan2ebook*"]

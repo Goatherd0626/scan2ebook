@@ -111,7 +111,7 @@ test('单击 item 才显示选中框，页级范围在首尾 item 外各留 6px'
   }));
   assert.equal(pageHover.hidden, false);
   assert.equal(pageLabel.hidden, false);
-  assert.equal(pageLabel.dataset.label, 'PDF 第 2 页');
+  assert.equal(pageLabel.dataset.page, '2');
   assert.equal(pageHover.style.top, '104px');
   assert.equal(pageHover.style.height, '122px');
   assert.equal(pageTwoFirst.classList.contains('source-item-hover'), true);
@@ -164,7 +164,7 @@ test('编辑模式悬浮预览当前页和 item，单击后才触发页面编辑
   view.setSourcePreviewOnHover(true);
   pageTwoFirst.dispatchEvent(new window.MouseEvent('pointermove', { bubbles: true }));
   assert.equal(holder.querySelector('.page-source-hover').hidden, false);
-  assert.equal(holder.querySelector('.page-source-label').dataset.label, 'PDF 第 2 页');
+  assert.equal(holder.querySelector('.page-source-label').dataset.page, '2');
   assert.equal(pageTwoFirst.classList.contains('source-item-hover'), true);
   assert.deepEqual(selectedPages, [], '悬浮只预览，不打开编辑器');
 
@@ -179,6 +179,29 @@ test('编辑模式悬浮预览当前页和 item，单击后才触发页面编辑
   view.setSourcePreviewOnHover(false);
   pageTwoFirst.dispatchEvent(new window.MouseEvent('pointermove', { bubbles: true }));
   assert.equal(holder.querySelector('.page-source-hover').hidden, true);
+  view.destroy();
+});
+
+test('页码方块在页首贴近顶栏时收进文字栏可视区', () => {
+  const panel = document.querySelector('.text-panel');
+  const view = new TextView(panel);
+  view.load(modelWithContinuation(), { title: '页码位置测试' });
+
+  const holder = panel.querySelector('.text-content');
+  const pageTwoFirst = view.itemEls.get('2:0');
+  const pageTwoSecond = view.itemEls.get('2:1');
+  panel.getBoundingClientRect = () => ({ top: 100, bottom: 500, left: 100, right: 700, width: 600, height: 400 });
+  holder.getBoundingClientRect = () => ({ top: -900, bottom: 1200, left: 100, right: 700, width: 600, height: 2100 });
+  pageTwoFirst.getBoundingClientRect = () => ({ top: 105, bottom: 155, left: 130, right: 670, width: 540, height: 50 });
+  pageTwoSecond.getBoundingClientRect = () => ({ top: 165, bottom: 215, left: 130, right: 670, width: 540, height: 50 });
+  window.getSelection = () => ({ isCollapsed: true });
+
+  pageTwoFirst.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+
+  const pageLabel = holder.querySelector('.page-source-label');
+  assert.equal(pageLabel.dataset.page, '2');
+  assert.equal(pageLabel.style.top, '1008px');
+  assert.equal(Number(pageLabel.style.top.replace('px', '')) + holder.getBoundingClientRect().top, 108);
   view.destroy();
 });
 

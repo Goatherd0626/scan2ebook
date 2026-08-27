@@ -1,19 +1,19 @@
-# DSH Web GUI 插件设计稿（待做）
+# DSH Web GUI 插件设计与实现
 
-> 状态：**设计稿 / 暂缓**。当前阅读器以「本地网页 + skill」形态交付，
-> 等真实扫描书测试稳定、功能定型后再实现。
-> 目的：给 DSH Web 界面加一个「📖 电子书转换」侧边栏入口，
+> 状态：**已实现并以本地 link 包安装到 DSH web profile**。
+> 源码：`dsh-plugin/dsh-client-ui-scan2ebook/`。
+> 目的：给 DSH Web 界面加一个「Scan2Ebook」侧边栏入口，
 > 让非技术用户（不经命令行）也能导入 PDF → 转换 → 打开阅读器。
 
 ## 一、背景：DSH 的插件机制（已调研确认）
 
-本机已有三套能力包形态，scan2ebook 选择的前两个已落地：
+本机三套能力包形态均已落地：
 
 | 形态 | 位置 | 状态 |
 |---|---|---|
 | **Skill** | `~/.dsh/skills/scan2ebook/SKILL.md` | ✅ 已注册 |
 | **本地网页阅读器** | `frontend/` + `python -m scan2ebook serve` | ✅ 已实现 |
-| **Web GUI 客户端插件** | `~/.dsh/plugins/dsh-client-ui-scan2ebook/` | ⏳ 本设计稿 |
+| **Web GUI 客户端插件** | `dsh-plugin/dsh-client-ui-scan2ebook/`（link 安装） | ✅ 已实现 |
 
 调研结论（来自已装插件 `dsh-client-ui-file-mention` 与 `dsh-better-sidebar`）：
 
@@ -21,23 +21,26 @@
   `"dsh": { "client": { "platform": "web" } }` 与 `exports["./client"]`）、
   `lib/index.js`（宿主半：`connection.rpc.handle('/xxx', ...)`）、
   `lib/client.js`（浏览器半：`window.__ModuleLoader__.load({id, factory})`）
-- 侧边栏标签：用 `dsh-better-sidebar` 的
-  `ctx.betterSidebar.registerTab({ id, title, component })`（React 组件，
-  组件接收 `{ scope }`，scope 带 sessionId）
-- 接线：软链进 `~/.dsh/profiles/web/node_modules/` + `cordis.patch.yml`
-  insert loader 条目 + 刷新页面（与 file-mention 的安装流程一致）
+- 实际交互位置是 DSH 左侧主导航，与「任务看板 / SSH / 技能中心」同组并排在其后。
+  该区域没有公开 slot，因此沿用这些现有插件的自修复 DOM 注入方式，点击后打开一个非阻塞的右侧 sidebar。
+- 插件通过自身 `cordis.patch.yml` 接线，并使用
+  `dsh plugin --profile web add link:<插件目录>` 安装；无需手改 profile lockfile。
 
 ## 二、目标形态
 
 ```
-DSH Web GUI 侧边栏「📖 电子书转换」标签
-  ├─ 选择工作区里的扫描 PDF（或拖入）
+DSH Web GUI 左侧「Scan2Ebook」入口 → 单个右侧 sidebar
+  ├─ 通过系统文件选择器选择任意目录中的扫描 PDF
+  ├─ 选择 PDF 起止页（1-based、两端闭区间）
+  ├─ 配置多模态模型与当次 API Key
   ├─ 点击「转换」→ 宿主半 spawn Python 流水线（.venv + DEEPSEEK_API_KEY）
   ├─ 实时回传进度（阶段日志：渲染/OCR/ds-vision 结构化）
-  └─ 完成后显示下载/打开按钮：.s2e 包、启动阅读器
+  ├─ 按视觉请求次数显示 token 与费用估算
+  ├─ 输出 JSON、HTML 和 .s2e 到所选 PDF 的同级目录
+  └─ 在同一个 sidebar 下方按可编辑端口启动/打开/终止网页阅读器
 ```
 
-- 重活全在宿主机（Python 流水线不动），插件只是 GUI 壳 + RPC 桥
+- 重活全在宿主机；Python 流水线新增页码范围与 `S2E_EVENT` 进度协议，插件负责 GUI、RPC 和进程生命周期
 - 与 Skill 共用同一套 `.s2e` 产物与阅读器，不重复实现
 
 ## 三、模块划分
@@ -50,10 +53,10 @@ export const inject = ['connection']   // 或 ctx.inject(['connection'], ...)
 
 export function apply(ctx) {
   ctx.inject(['connection'], ({ connection }) => {
-    connection.rpc.handle('/scan2ebook/list-pdfs',  async (ep, { sessionId }) => { /* 列出工作区 PDF */ })
-    connection.rpc.handle('/scan2ebook/run',        async (ep, { sessionId, pdf }) => { /* spawn 流水线，流式进度 */ })
-    connection.rpc.handle('/scan2ebook/status',     async (ep, { jobId }) => { /* 查询状态 */ })
-    connection.rpc.handle('/scan2ebook/cancel',     async (ep, { jobId }) => {})
+    connection.rpc.handle('/scan2ebook', async (endpoint, payload) => {
+      // bootstrap / inspect / start / status / cancel / ui-request
+      // reader-start / reader-status / reader-stop
+    })
   })
 }
 ```
@@ -61,15 +64,9 @@ export function apply(ctx) {
 ### 浏览器半 `lib/client.js`
 
 ```js
-// 注入 betterSidebar（if 可用）
-inject: ['betterSidebar']
-function apply(ctx) {
-  ctx.betterSidebar.registerTab({
-    id: 'scan2ebook',
-    title: '📖 电子书转换',
-    component: ({ scope }) => {/* React 组件：PDF 列表/拖拽 + 进度 + 下载按钮 */},
-  })
-}
+// 自修复地插入 data-dsh-scan2ebook-entry，位置在
+// task-board / ssh / skill-explorer 这一组入口之后。
+// 注册单个 dsh-better-sidebar Tab；转换和阅读器作为同一栏内的两个功能区。
 ```
 
 ### 打包依赖
@@ -77,12 +74,12 @@ function apply(ctx) {
 
 ## 四、实现步骤（立项后）
 
-1. `~/.dsh/plugins/dsh-client-ui-scan2ebook/` 建包（对照 file-mention 结构）
-2. 宿主半：rpc 桥接 Python（`subprocess.spawn` + 日志流）
-3. 浏览器半：better-sidebar tab + 上传/进度 UI（参考 `dsh-better-sidebar/docs/` 组件示例）
-4. 接线：软链 + `~/.dsh/profiles/web/cordis.patch.yml` insert
-5. 自测：RPC 冒烟（curl/浏览器控制台）、转换一本真实书
-6. 授权口径：API key 复用仓库 `.env`；转换结果写入默认输出目录
+1. [x] 建立本地 DSH 双半插件包
+2. [x] 宿主半：RPC 桥接 Python（`spawn` + JSON 行进度协议）
+3. [x] 浏览器半：单个左侧入口 + 非阻塞右侧 sidebar + 意图检测 + Skill 工具唤起
+4. [x] 通过 DSH 官方 `plugin add link:` 接入 web profile
+5. [x] Python/Node 测试与阅读器启动/终止进程测试
+6. [ ] 用一本真实扫描书做完整付费转换验收
 
 ## 五、注意
 
