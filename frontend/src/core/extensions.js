@@ -56,7 +56,7 @@ export const bus = new Bus();
 const uiRegistry = {
   toolbarWidgets: [],      // {id, el}  -> #plugin-toolbar
   tocTabs: [],             // {id, title} -> TOC 面板 tab（目录之后）
-  contextActions: [],      // {id, label, apply(text, view)}
+  contextActions: [],      // {id, label/apply} 或 {id, render({selection,view,close})}
   settingsSections: [],    // {id, title, render(container)}
 };
 

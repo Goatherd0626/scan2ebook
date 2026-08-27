@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { indexedDB } from 'fake-indexeddb';
+import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { JSDOM } from 'jsdom';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -18,6 +18,7 @@ window.indexedDB = indexedDB;
 globalThis.window = window;
 globalThis.document = window.document;
 globalThis.indexedDB = indexedDB;
+globalThis.IDBKeyRange = IDBKeyRange;
 globalThis.localStorage = window.localStorage;
 globalThis.location = window.location;
 globalThis.NodeFilter = window.NodeFilter;
@@ -117,6 +118,29 @@ test('双栏分割线实时调整比例、限制最小栏宽并在松手时提�
   document.dispatchEvent(pointerEvent('pointerup', 1050, 11));
   assert.equal(parseFloat(view.style.getPropertyValue('--pdf-ratio')), 76);
   assert.equal(commits.at(-1), 0.76);
+
+  cleanup();
+  view.remove();
+});
+
+test('打开右侧标注栏后双栏比例按剩余阅读区计算', async () => {
+  const { initSplitResizer } = await import('../src/core/layout_resize.js');
+  const { view, divider } = splitHarness();
+  const commits = [];
+  const cleanup = initSplitResizer({
+    view,
+    divider,
+    initialRatio: 0.5,
+    getRightInset: () => 300,
+    onCommit: (ratio) => commits.push(ratio),
+  });
+
+  assert.equal(parseFloat(view.style.getPropertyValue('--pdf-ratio')), 35);
+  divider.dispatchEvent(pointerEvent('pointerdown', 450, 12));
+  document.dispatchEvent(pointerEvent('pointermove', 520, 12));
+  document.dispatchEvent(pointerEvent('pointerup', 520, 12));
+  assert.equal(commits.at(-1), 0.6);
+  assert.equal(parseFloat(view.style.getPropertyValue('--pdf-ratio')), 42);
 
   cleanup();
   view.remove();

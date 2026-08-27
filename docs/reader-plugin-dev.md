@@ -100,7 +100,7 @@ activate(ctx) {
 |---|---|
 | `ctx.bus` | 事件总线：`on(evt, fn)`（返回取消订阅函数）/ `off` / `emit` |
 | `ctx.ui` | UI 扩展点（见下节） |
-| `ctx.db` | **绑定好的库 API**：`getBooks() / addBook(book) / updateBook(book) / deleteBooks(ids) / moveBooks(ids, folderId)` —— 只需传书对象，无需管 IndexedDB 实例 |
+| `ctx.db` | **绑定好的库 API**：书库 CRUD，`getAnnotations(bookId) / replaceAnnotations(bookId, records)`，以及同时保存正文与标注的 `updateBookAndAnnotations(book, records)` —— 无需管理 IndexedDB 实例 |
 | `ctx.state` | 核心状态：`books / folders / tabs / activeBookId / batchMode`（注意：`loadLibrary()` 刷新后 books 数组元素是新的对象引用） |
 | `ctx.getView()` | 返回当前活动书的视图 `{ bookId, wv, pdfView, textView, model, prefs, applyPrefs, setPrefs }`；首页时可能为 null |
 | `ctx.toast(msg)` | 全局提示 |
@@ -121,6 +121,8 @@ activate(ctx) {
 | `page:render` | `{ page, anchor, model, bookId }` | 每页内容渲染完成后 |
 | `page:change` | `{ bookId, page }` | 当前页变化 |
 | `text:scroll` | `{ bookId, page }` | 文字视图滚动（防抖后） |
+| `page:select` | `{ bookId, page }` | 用户单击文字视图的页来源范围；页面编辑器使用 |
+| `book:content-change` | `{ bookId, view, book, model }` | `book.json` 内容保存并重建文字视图后 |
 
 ## 五、UI 扩展点（ctx.ui）
 
@@ -128,7 +130,8 @@ activate(ctx) {
 |---|---|
 | `ctx.ui.addToolbarWidget({ id, el })` | 往顶栏插件区加元素（搜索框、按钮等），返回注销函数 |
 | `ctx.ui.addTocTab({ id, title, onShow })` | 在左侧目录面板加 tab，返回注销函数；插件仍需自行创建和删除 `#tab-body-<id>` |
-| `ctx.ui.addContextAction({ id, label, apply(text, view) })` | 添加选中文字后的浮动操作项，返回注销函数 |
+| `ctx.ui.addContextAction({ id, label, apply(text, view) })` | 添加简单的选中文字按钮，返回注销函数 |
+| `ctx.ui.addContextAction({ id, render })` | 添加富选区 UI；`render({ selection, view, close })` 返回 DOM，可使用 `selection.range/quote/rect` |
 | `ctx.ui.addSettingsSection({ id, title, render(sec) })` | 往 ⚙ 设置对话框加分区，返回注销函数 |
 
 同一扩展点内的 `id` 必须唯一。所有注销函数均可安全地重复调用，但插件通常只需
@@ -143,6 +146,28 @@ activate(ctx) {
 | `plugins/bookmarks` | `addTocTab`、自有 DOM 清理与 `ctx.db.updateBook` 持久化 |
 | `plugins/eyecare` | 多个 UI 扩展点、CSS 状态回滚与 `ctx.storage` 持久化 |
 | `plugins/progress` | 事件退订，以及停用时取消尚未执行的防抖保存 |
+| `plugins/annotations` | 富选区 UI、CSS Custom Highlight、独立 IndexedDB 数据、右侧栏与 `.s2e` sidecar 导出 |
+| `plugins/editor` | 页面级 items 编辑、保存影响提示、正文/标注原子更新与历史注释归档 |
+
+### 富选区示例
+
+```js
+const remove = ctx.ui.addContextAction({
+  id: 'quote-tool',
+  render({ selection, view, close }) {
+    const button = document.createElement('button');
+    button.textContent = '处理选区';
+    button.addEventListener('click', () => {
+      console.log(selection.quote, selection.range, view.bookId);
+      close();
+    });
+    return button;
+  },
+});
+```
+
+`selection.range` 使用 `{ start: {page,item,offset}, end: ... }`，可跨 item 和 PDF 页。
+富选区内的输入框、按钮不会触发核心的外部点击关闭逻辑。
 
 ## 七、新增插件清单
 

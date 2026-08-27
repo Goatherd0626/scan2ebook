@@ -5,3 +5,5 @@ import './search/index.js';
 import './bookmarks/index.js';
 import './eyecare/index.js';
 import './progress/index.js';
+import './annotations/index.js';
+import './editor/index.js';

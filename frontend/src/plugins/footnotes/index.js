@@ -52,6 +52,7 @@ registerExtension({
             const sup = document.createElement('sup');
             sup.className = 'fnref';
             sup.dataset.g = g;
+            sup.dataset.sourceLength = String(('⟦' + g + '⟧').length);
             sup.textContent = g;
             bindFn(sup, g, model);
             frag.appendChild(sup);

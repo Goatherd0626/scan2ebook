@@ -12,7 +12,9 @@ const css = readFileSync(join(root, 'src/style.css'), 'utf8');
 const expected = {
   'i-list': 'list.dash.svg',
   'i-folder': 'folder.badge.plus.svg',
+  'i-folder-plain': 'folder.svg',
   'i-upload': 'square.and.arrow.up.svg',
+  'i-trash': 'trash.svg',
   'i-gear': 'gear.svg',
   'i-t': 't.square.svg',
   'i-up': 'arrow.up.svg',
@@ -21,6 +23,8 @@ const expected = {
   'i-left': 'arrow.left.svg',
   'i-right': 'arrow.right.svg',
   'i-reset-clockwise': 'arrow.clockwise.svg',
+  'i-sidebar-left': 'sidebar.left.svg',
+  'i-home-library': 'building.columns.fill.svg',
   'vm-pdf': 'pdf.svg',
 };
 

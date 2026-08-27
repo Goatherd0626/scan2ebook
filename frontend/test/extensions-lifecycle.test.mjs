@@ -138,6 +138,7 @@ test('现有插件停用后清理 DOM、事件和待执行进度保存，并可�
     model: footnoteModel,
   });
   assert.equal(body.querySelectorAll('sup.fnref').length, 1);
+  assert.equal(body.querySelector('sup.fnref').dataset.sourceLength, '3');
 
   const pageAnchor = document.createElement('div');
   pageAnchor.className = 'page-anchor';

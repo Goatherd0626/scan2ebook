@@ -16,8 +16,12 @@ const { revealPdfSource } = await import('../src/core/app.js');
 
 test('figure and table render in source order and emit their parent PDF page', () => {
   const events = [];
+  const selectedPages = [];
   const panel = document.querySelector('.text-panel');
-  const view = new TextView(panel, { onSourceObject: (event) => events.push(event) });
+  const view = new TextView(panel, {
+    onSourceObject: (event) => events.push(event),
+    onPageSelect: (page) => selectedPages.push(page),
+  });
   view.load({
     pages: [{
       pdf_page: 7,
@@ -44,6 +48,18 @@ test('figure and table render in source order and emit their parent PDF page', (
     { type: 'figure', page: 7 },
     { type: 'table', page: 7 },
   ]);
+
+  panel.querySelectorAll('.text-item').forEach((item, index) => {
+    item.getBoundingClientRect = () => ({ top: 100 + index * 40, bottom: 130 + index * 40 });
+  });
+  panel.querySelector('.text-content').getBoundingClientRect = () => ({ top: 50 });
+  view.setSourcePreviewOnHover(true);
+  placeholders[0].dispatchEvent(new window.MouseEvent('pointermove', { bubbles: true }));
+  assert.equal(panel.querySelector('.page-source-hover').hidden, false);
+  placeholders[0].click();
+  assert.deepEqual(selectedPages, [7]);
+  assert.equal(events.length, 2, '编辑模式点击图片占位不应再跳转 PDF');
+  view.destroy();
 });
 
 test('text-only source reveal switches to split before jumping to PDF', async () => {

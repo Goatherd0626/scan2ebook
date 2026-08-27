@@ -72,7 +72,10 @@ registerExtension({
       });
     }
     function resetTable() {
-      document.querySelectorAll('#home-table .ht-row').forEach((row) => { row.style.display = ''; });
+      document.querySelectorAll('#home-table .ht-row, #home-table .ht-folder-row').forEach((row) => {
+        row.style.display = '';
+        row.hidden = row.dataset.treeHidden === '1';
+      });
     }
 
     /* ---------- 搜索执行 ---------- */
@@ -81,6 +84,9 @@ registerExtension({
       const ql = q.toLowerCase();
       if (!ql) return [];
       const out = [];
+      document.querySelectorAll('#home-table .ht-row, #home-table .ht-folder-row').forEach((row) => {
+        row.style.display = 'none';
+      });
       for (const book of ctx.state.books || []) {
         const folder = (ctx.state.folders || []).find((f) => f.id === book.folderId);
         const fields = [
@@ -91,7 +97,15 @@ registerExtension({
         ].filter((f) => f.v);
         const hit = ql && fields.some((f) => f.v.toLowerCase().includes(ql));
         const row = document.querySelector(`#home-table .ht-row[data-id="${book.id}"]`);
-        if (row) row.style.display = hit ? '' : 'none';
+        if (row && hit) {
+          row.hidden = false;
+          row.style.display = '';
+          for (const folderId of (row.dataset.folderPath || '').split(',').filter(Boolean)) {
+            const folderRow = [...document.querySelectorAll('#home-table .ht-folder-row')]
+              .find((item) => item.dataset.folderId === folderId);
+            if (folderRow) { folderRow.hidden = false; folderRow.style.display = ''; }
+          }
+        }
         if (hit) {
           const f = fields.find((f) => f.v.toLowerCase().includes(ql));
           out.push({ kind: 'book', book, snippet: f.k + '：' + f.v });
@@ -111,23 +125,35 @@ registerExtension({
       while (walker.nextNode()) nodes.push(walker.currentNode);
       const out = [];
       for (const node of nodes) {
-        const i = node.textContent.toLowerCase().indexOf(ql);
-        if (i < 0) continue;
-        const mark = document.createElement('mark');
-        mark.className = 'hit';
-        const after = node.splitText(i);
-        after.data = after.data.substring(q.length);
-        mark.textContent = q;
-        node.parentNode.insertBefore(mark, after);
-        const para = mark.closest('.body, .heading');
+        const para = node.parentElement?.closest('.body, .heading, .fn-orphan');
         const anchor = para && para.closest('.page-anchor');
         if (!anchor) continue;
-        const before = node.data.slice(Math.max(0, i - 18));
-        const afterText = after.data.slice(0, 18);
-        out.push({
-          kind: 'text', el: mark, page: +anchor.dataset.page,
-          snippet: (before ? '…' : '') + before + mark.textContent + afterText + (afterText.length >= 18 ? '…' : ''),
-        });
+        const text = node.textContent;
+        const lower = text.toLowerCase();
+        let cursor = 0;
+        let matchAt = lower.indexOf(ql, cursor);
+        if (matchAt < 0) continue;
+        const fragment = document.createDocumentFragment();
+        while (matchAt >= 0) {
+          if (matchAt > cursor) fragment.appendChild(document.createTextNode(text.slice(cursor, matchAt)));
+          const matchedText = text.slice(matchAt, matchAt + q.length);
+          const mark = document.createElement('mark');
+          mark.className = 'hit';
+          mark.textContent = matchedText;
+          fragment.appendChild(mark);
+          const before = text.slice(Math.max(0, matchAt - 18), matchAt);
+          const afterStart = matchAt + q.length;
+          const afterText = text.slice(afterStart, afterStart + 18);
+          out.push({
+            kind: 'text', el: mark, page: +anchor.dataset.page,
+            snippet: (matchAt > 18 ? '…' : '') + before + matchedText + afterText
+              + (afterStart + 18 < text.length ? '…' : ''),
+          });
+          cursor = afterStart;
+          matchAt = lower.indexOf(ql, cursor);
+        }
+        if (cursor < text.length) fragment.appendChild(document.createTextNode(text.slice(cursor)));
+        node.replaceWith(fragment);
       }
       return out;
     }
@@ -247,11 +273,13 @@ registerExtension({
       }
     });
     const offSwitch = ctx.bus.on('book:switch', () => { updatePlaceholder(); if (query) run(); });
+    const offContentChange = ctx.bus.on('book:content-change', () => { if (query) run(); });
     updatePlaceholder();
 
     return () => {
       controller.abort();
       offSwitch();
+      offContentChange();
       clearAll();
       removeToolbar();
       strip.remove();

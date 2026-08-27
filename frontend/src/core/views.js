@@ -1,5 +1,6 @@
 /* 核心渲染引擎：PDF 视图 + 文字视图（含事件钩子，供插件挂接） */
 import * as pdfjsLib from 'pdfjs-dist';
+import { selectionToAnchor } from './text_anchor.js';
 
 const HIDE_KINDS = new Set(['cover', 'copyright', 'blank', 'toc']);
 const SENT_END = /[。！？!?…."”’』」）\)]$/;
@@ -154,14 +155,18 @@ export class TextView {
     this._hoveredItem = null;
     this._pageHover = null;
     this._pageLabel = null;
+    this._sourcePreviewOnHover = false;
     this._eventController = new window.AbortController();
     const eventOptions = { signal: this._eventController.signal };
     panel.addEventListener('scroll', () => {
       clearTimeout(this._scrollT);
-      this._scrollT = setTimeout(() => this._updatePageFromScroll(), 60);
+      this._scrollT = setTimeout(() => this._updatePageFromScroll(), 100);
     }, eventOptions);
-    panel.addEventListener('pointermove', (e) => this._onSourceHover(e), eventOptions);
-    panel.addEventListener('pointerleave', () => this._hideSourceHover(), eventOptions);
+    panel.addEventListener('pointermove', (e) => this._onSourcePointerMove(e), eventOptions);
+    panel.addEventListener('pointerleave', () => {
+      if (this._sourcePreviewOnHover) this._hideSourceHover();
+    }, eventOptions);
+    panel.addEventListener('click', (e) => this._onSourceClick(e), eventOptions);
     // 选中文字：交给核心派发给插件注册的上下文操作
     panel.addEventListener('mouseup', (e) => this._onSelection(e), eventOptions);
     document.addEventListener('selectionchange', () => this._onSelectionChange(), eventOptions);
@@ -221,7 +226,8 @@ export class TextView {
           marker.dataset.type = it.type;
           marker.dataset.page = pg.pdf_page;
           marker.setAttribute('aria-label', label + '，PDF 第 ' + pg.pdf_page + ' 页');
-          marker.addEventListener('click', () => {
+          marker.addEventListener('click', (event) => {
+            if (this._sourcePreviewOnHover) { event.preventDefault(); return; }
             this.hooks.onSourceObject?.({ type: it.type, page: pg.pdf_page });
           });
           anchor.appendChild(marker);
@@ -242,32 +248,44 @@ export class TextView {
   _onSelection(e) {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
-    this._hideSourceHover();
-    const anchorEl = sel.anchorNode?.parentElement;
-    const itemEl = anchorEl?.closest('[data-page]');
-    if (!itemEl) return;
+    this._clearSourceSelection();
+    const anchor = selectionToAnchor(sel);
+    if (!anchor) return;
     const text = sel.toString().replace(/\s+/g, ' ').trim();
     if (!text) return;
-    const rect = sel.getRangeAt(0).getBoundingClientRect();
-    this.hooks.onSelection?.({ text, page: +itemEl.dataset.page, rect, view: this });
+    const nativeRange = sel.getRangeAt(0);
+    const rect = nativeRange.getClientRects?.()[0] || nativeRange.getBoundingClientRect();
+    this.hooks.onSelection?.({
+      kind: 'text',
+      text,
+      quote: anchor.quote,
+      range: anchor.range,
+      page: anchor.range.start.page,
+      rect,
+      view: this,
+    });
   }
 
   _onSelectionChange() {
+    if (this._hasActiveSelection()) this._clearSourceSelection();
+  }
+
+  _hasActiveSelection() {
     const selection = window.getSelection?.();
-    if (!selection || selection.isCollapsed) return;
-    const belongsToPanel = [selection.anchorNode, selection.focusNode]
+    if (!selection || selection.isCollapsed) return false;
+    return [selection.anchorNode, selection.focusNode]
       .some((node) => node && this.panel.contains(node));
-    if (belongsToPanel) this._hideSourceHover();
   }
 
   _updatePageFromScroll() {
-    const st = this.panel.scrollTop;
+    if (this._hasActiveSelection()) return;
+    const panelRect = this.panel.getBoundingClientRect();
+    const focusY = panelRect.top + panelRect.height * 0.35;
     let cur = 0;
     for (const [page, anchor] of this.pageAnchors) {
       const reference = this._pageItems(anchor)[0];
       if (!reference) continue;
-      const top = reference.getBoundingClientRect().top + st - 90;
-      if (top <= st + 40) cur = page; else break;
+      if (reference.getBoundingClientRect().top <= focusY) cur = page; else break;
     }
     if (!cur && this.model.pages.length) cur = this.model.pages[0].pdf_page;
     if (cur !== this.currentPage) { this.currentPage = cur; this.hooks.onPageChange?.(cur); }
@@ -294,32 +312,69 @@ export class TextView {
     return [...anchor.querySelectorAll(':scope > .text-item, :scope > .fn-orphan')];
   }
 
-  _onSourceHover(event) {
+  setSourcePreviewOnHover(on) {
+    this._sourcePreviewOnHover = !!on;
+    if (!on) this._hideSourceHover();
+  }
+
+  _sourceItemFromEvent(event) {
+    if (event.target.closest?.('.fnref, .annotations-marker')) return null;
+    if (!this._sourcePreviewOnHover && event.target.closest?.('.source-object')) return null;
+    const item = event.target.closest?.('.text-item');
+    return item && this.holder.contains(item) ? item : null;
+  }
+
+  _onSourcePointerMove(event) {
+    if (!this._sourcePreviewOnHover) return;
     const selection = window.getSelection?.();
     if (selection && !selection.isCollapsed) { this._hideSourceHover(); return; }
-    const item = event.target.closest?.('.text-item');
-    if (!item || !this.holder.contains(item)) { this._hideSourceHover(); return; }
+    const item = this._sourceItemFromEvent(event);
+    if (!item) { this._hideSourceHover(); return; }
+    this._showSourceSelection(item);
+  }
+
+  _onSourceClick(event) {
+    const selection = window.getSelection?.();
+    if (selection && !selection.isCollapsed) { this._clearSourceSelection(); return; }
+    const item = this._sourceItemFromEvent(event);
+    if (!item) { this._clearSourceSelection(); return; }
+    if (!this._sourcePreviewOnHover
+        && this._hoveredItem === item && this._pageHover && !this._pageHover.hidden) {
+      this._clearSourceSelection();
+      return;
+    }
+    const page = this._showSourceSelection(item);
+    if (page) this.hooks.onPageSelect?.(page);
+  }
+
+  _showSourceSelection(item) {
     const page = Number(item.dataset.page);
     const anchor = this.pageAnchors.get(page);
-    if (!anchor) { this._hideSourceHover(); return; }
+    if (!anchor) { this._hideSourceHover(); return 0; }
     const rects = this._pageItems(anchor)
       .map((node) => node.getBoundingClientRect())
       .filter((rect) => rect.bottom > rect.top);
-    if (!rects.length) { this._hideSourceHover(); return; }
+    if (!rects.length) { this._hideSourceHover(); return 0; }
 
     this._hoveredItem?.classList.remove('source-item-hover');
     this._hoveredItem = item;
     item.classList.add('source-item-hover');
 
     const holderRect = this.holder.getBoundingClientRect();
-    const top = Math.min(...rects.map((rect) => rect.top)) - holderRect.top;
-    const bottom = Math.max(...rects.map((rect) => rect.bottom)) - holderRect.top;
+    const pagePadding = 6;
+    const top = Math.min(...rects.map((rect) => rect.top)) - holderRect.top - pagePadding;
+    const bottom = Math.max(...rects.map((rect) => rect.bottom)) - holderRect.top + pagePadding;
     this._pageHover.style.top = top + 'px';
     this._pageHover.style.height = (bottom - top) + 'px';
     this._pageHover.hidden = false;
     this._pageLabel.dataset.label = 'PDF 第 ' + page + ' 页';
     this._pageLabel.style.top = Math.max(0, top - 25) + 'px';
     this._pageLabel.hidden = false;
+    return page;
+  }
+
+  _clearSourceSelection() {
+    this._hideSourceHover();
   }
 
   _hideSourceHover() {

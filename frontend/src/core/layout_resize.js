@@ -101,6 +101,7 @@ export function initSplitResizer({
   view,
   divider,
   initialRatio = DEFAULT_SPLIT_RATIO,
+  getRightInset = () => 0,
   onChange = () => {},
   onCommit = () => {},
 }) {
@@ -110,21 +111,30 @@ export function initSplitResizer({
   let pointerId = null;
   let ratio = DEFAULT_SPLIT_RATIO;
 
+  const layoutWidths = () => {
+    const full = view.getBoundingClientRect().width;
+    const maxInset = Math.max(0, full - MIN_PANEL_WIDTH * 2);
+    const inset = clamp(Number(getRightInset()) || 0, 0, maxInset);
+    return { full, content: Math.max(0, full - inset) };
+  };
+
   const apply = (nextRatio) => {
-    const width = view.getBoundingClientRect().width;
-    ratio = Number(clampSplitRatio(nextRatio, width).toFixed(4));
-    view.style.setProperty('--pdf-ratio', Number((ratio * 100).toFixed(2)) + '%');
+    const { full, content } = layoutWidths();
+    ratio = Number(clampSplitRatio(nextRatio, content).toFixed(4));
+    const basis = full > 0 ? ratio * content / full : ratio;
+    view.style.setProperty('--pdf-ratio', Number((basis * 100).toFixed(2)) + '%');
     divider.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
-    divider.setAttribute('aria-valuemin', String(Math.round(clampSplitRatio(MIN_SPLIT_RATIO, width) * 100)));
-    divider.setAttribute('aria-valuemax', String(Math.round(clampSplitRatio(1 - MIN_SPLIT_RATIO, width) * 100)));
+    divider.setAttribute('aria-valuemin', String(Math.round(clampSplitRatio(MIN_SPLIT_RATIO, content) * 100)));
+    divider.setAttribute('aria-valuemax', String(Math.round(clampSplitRatio(1 - MIN_SPLIT_RATIO, content) * 100)));
     onChange(ratio);
     return ratio;
   };
 
   const applyPointer = (clientX) => {
     const rect = view.getBoundingClientRect();
-    if (!rect.width) return ratio;
-    return apply((clientX - rect.left) / rect.width);
+    const { content } = layoutWidths();
+    if (!content) return ratio;
+    return apply((clientX - rect.left) / content);
   };
 
   apply(initialRatio);
