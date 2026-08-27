@@ -12,7 +12,7 @@
 | 形态 | 位置 | 状态 |
 |---|---|---|
 | **Skill** | `~/.dsh/skills/scan2ebook/SKILL.md` | ✅ 已注册 |
-| **本地网页阅读器** | `frontend/` + `python -m scan2ebook serve` | ✅ 已实现 |
+| **本地网页阅读器** | `reader/` + `python -m scan2ebook serve` | ✅ 已实现 |
 | **Web GUI 客户端插件** | `dsh-plugin/dsh-client-ui-scan2ebook/`（link 安装） | ✅ 已实现 |
 
 调研结论（来自已装插件 `dsh-client-ui-file-mention` 与 `dsh-better-sidebar`）：

@@ -21,8 +21,8 @@ vendor/*.zip
 .DS_Store
 
 # 前端构建产物与依赖
-frontend/node_modules/
-frontend/dist/
+reader/node_modules/
+reader/dist/
 
 # 隔离开发工作区
 .worktrees/

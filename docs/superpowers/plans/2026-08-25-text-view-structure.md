@@ -20,7 +20,7 @@
 - Preserve PDF page anchoring through the parent page's `pdf_page`.
 - Old `.s2e` books must continue to render.
 - Do not modify `scan2ebook/web_reader.py`; the lightweight standalone HTML has no PDF pane to reveal.
-- Preserve the untracked `frontend/src/assets/icons/bookmark.svg` and `bookmark.fill.svg`; do not stage them in these commits.
+- Preserve the untracked `reader/src/assets/icons/bookmark.svg` and `bookmark.fill.svg`; do not stage them in these commits.
 
 ---
 
@@ -125,7 +125,7 @@ Run:
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v
-cd frontend && npm test
+cd reader && npm test
 ```
 
 Expected: Python test PASS; existing frontend tests PASS.
@@ -142,9 +142,9 @@ git commit -m "feat: 扩展图片表格与页眉识别类型"
 ### Task 2: Render accessible source placeholders
 
 **Files:**
-- Create: `frontend/test/source-objects.test.mjs`
-- Modify: `frontend/src/core/views.js:143-236`
-- Modify: `frontend/src/style.css:486-545`
+- Create: `reader/test/source-objects.test.mjs`
+- Modify: `reader/src/core/views.js:143-236`
+- Modify: `reader/src/style.css:486-545`
 
 **Interfaces:**
 - Consumes: model items `{type: "figure"}` and `{type: "table"}` nested under a page with `pdf_page`.
@@ -205,7 +205,7 @@ test('figure and table render in source order and emit their parent PDF page', (
 Run:
 
 ```bash
-cd frontend && node --test test/source-objects.test.mjs
+cd reader && node --test test/source-objects.test.mjs
 ```
 
 Expected: FAIL because `TextView.load()` currently ignores marker items.
@@ -233,7 +233,7 @@ In the per-item branch in `TextView.load`, add:
 
 Keep `itemEls` population and `onItemRender` behavior unchanged so plugins can observe the marker if needed.
 
-Add a restrained placeholder style in `frontend/src/style.css`:
+Add a restrained placeholder style in `reader/src/style.css`:
 
 ```css
 .source-object {
@@ -254,7 +254,7 @@ Add a restrained placeholder style in `frontend/src/style.css`:
 Run:
 
 ```bash
-cd frontend && node --test test/source-objects.test.mjs && npm test
+cd reader && node --test test/source-objects.test.mjs && npm test
 ```
 
 Expected: all tests PASS.
@@ -262,7 +262,7 @@ Expected: all tests PASS.
 - [ ] **Step 5: Commit marker rendering**
 
 ```bash
-git add frontend/src/core/views.js frontend/src/style.css frontend/test/source-objects.test.mjs
+git add reader/src/core/views.js reader/src/style.css reader/test/source-objects.test.mjs
 git commit -m "feat: 渲染图片与表格来源占位"
 ```
 
@@ -271,8 +271,8 @@ git commit -m "feat: 渲染图片与表格来源占位"
 ### Task 3: Reveal marker source in the PDF pane
 
 **Files:**
-- Modify: `frontend/test/source-objects.test.mjs`
-- Modify: `frontend/src/core/app.js:280-365`
+- Modify: `reader/test/source-objects.test.mjs`
+- Modify: `reader/src/core/app.js:280-365`
 
 **Interfaces:**
 - Consumes: `TextView` hook payload `{type, page}` and the active book view `{prefs, setPrefs, pdfPromise, pdfView}`.
@@ -318,14 +318,14 @@ test('split source reveal jumps directly without changing mode', async () => {
 Run:
 
 ```bash
-cd frontend && node --test test/source-objects.test.mjs
+cd reader && node --test test/source-objects.test.mjs
 ```
 
 Expected: FAIL because `revealPdfSource` is not exported.
 
 - [ ] **Step 3: Implement app-owned mode switching and PDF navigation**
 
-Add this helper near `activeView()` in `frontend/src/core/app.js`:
+Add this helper near `activeView()` in `reader/src/core/app.js`:
 
 ```javascript
 export async function revealPdfSource(view, page) {
@@ -360,7 +360,7 @@ Run:
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -p 'test_*.py' -v
-cd frontend
+cd reader
 npm test
 npm run test:smoke
 npm run build
@@ -382,7 +382,7 @@ Verify the text panel does not scroll away from the clicked marker and both mark
 - [ ] **Step 6: Commit app navigation**
 
 ```bash
-git add frontend/src/core/app.js frontend/test/source-objects.test.mjs
+git add reader/src/core/app.js reader/test/source-objects.test.mjs
 git commit -m "feat: 从文字占位跳转原始 PDF 页"
 ```
 
@@ -400,8 +400,8 @@ git status --short
 - [ ] Confirm no out-of-scope files are staged, especially:
 
 ```text
-frontend/src/assets/icons/bookmark.svg
-frontend/src/assets/icons/bookmark.fill.svg
+reader/src/assets/icons/bookmark.svg
+reader/src/assets/icons/bookmark.fill.svg
 scan2ebook/web_reader.py
 ```
 

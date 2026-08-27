@@ -41,17 +41,17 @@
 ### Task 1: 建立 Liquid Glass 视觉基础层
 
 **Files:**
-- Create: `frontend/src/liquid-glass.css`
-- Modify: `frontend/src/main.js`
-- Modify: `frontend/src/style.css`
-- Modify: `frontend/test/icon-assets.test.mjs`
-- Create: `frontend/test/liquid-glass-ui.test.mjs`
-- Add: `frontend/src/assets/icons/arrow.up.arrow.down.svg`
-- Add: `frontend/src/assets/icons/magnifyingglass.svg`
-- Add: `frontend/src/assets/icons/plus.svg`
-- Add: `frontend/src/assets/icons/rectangle.split.2x1.svg`
-- Add: `frontend/src/assets/icons/sidebar.right.svg`
-- Add: `frontend/src/assets/icons/xmark.svg`
+- Create: `reader/src/liquid-glass.css`
+- Modify: `reader/src/main.js`
+- Modify: `reader/src/style.css`
+- Modify: `reader/test/icon-assets.test.mjs`
+- Create: `reader/test/liquid-glass-ui.test.mjs`
+- Add: `reader/src/assets/icons/arrow.up.arrow.down.svg`
+- Add: `reader/src/assets/icons/magnifyingglass.svg`
+- Add: `reader/src/assets/icons/plus.svg`
+- Add: `reader/src/assets/icons/rectangle.split.2x1.svg`
+- Add: `reader/src/assets/icons/sidebar.right.svg`
+- Add: `reader/src/assets/icons/xmark.svg`
 
 **Interfaces:**
 - Consumes: existing DOM classes and CSS variables from `style.css`.
@@ -74,7 +74,7 @@ test('Liquid Glass 定义材质、动态和无障碍回退', () => {
 
 - [x] **Step 2: Run the new tests and verify RED**
 
-Run: `cd frontend && node --test test/liquid-glass-ui.test.mjs test/icon-assets.test.mjs`
+Run: `cd reader && node --test test/liquid-glass-ui.test.mjs test/icon-assets.test.mjs`
 
 Expected: FAIL because `liquid-glass.css` is not imported and new icon mappings do not exist.
 
@@ -88,27 +88,27 @@ Use opaque system surfaces when `backdrop-filter` is unsupported or transparency
 
 - [x] **Step 5: Run focused tests**
 
-Run: `cd frontend && node --test test/liquid-glass-ui.test.mjs test/icon-assets.test.mjs`
+Run: `cd reader && node --test test/liquid-glass-ui.test.mjs test/icon-assets.test.mjs`
 
 Expected: PASS.
 
 - [x] **Step 6: Commit**
 
 ```bash
-git add frontend/src/main.js frontend/src/style.css frontend/src/liquid-glass.css frontend/src/assets/icons frontend/test/icon-assets.test.mjs frontend/test/liquid-glass-ui.test.mjs
+git add reader/src/main.js reader/src/style.css reader/src/liquid-glass.css reader/src/assets/icons reader/test/icon-assets.test.mjs reader/test/liquid-glass-ui.test.mjs
 git commit -m "style: 建立 Liquid Glass 阅读器视觉系统"
 ```
 
 ### Task 2: 重组应用框架与顶部工具栏
 
 **Files:**
-- Modify: `frontend/index.html`
-- Modify: `frontend/src/core/app.js`
-- Modify: `frontend/src/core/extensions.js`
-- Modify: `frontend/src/liquid-glass.css`
-- Modify: `frontend/test/extensions-lifecycle.test.mjs`
-- Modify: `frontend/test/layout-resize.test.mjs`
-- Modify: `frontend/test/liquid-glass-ui.test.mjs`
+- Modify: `reader/index.html`
+- Modify: `reader/src/core/app.js`
+- Modify: `reader/src/core/extensions.js`
+- Modify: `reader/src/liquid-glass.css`
+- Modify: `reader/test/extensions-lifecycle.test.mjs`
+- Modify: `reader/test/layout-resize.test.mjs`
+- Modify: `reader/test/liquid-glass-ui.test.mjs`
 
 **Interfaces:**
 - Consumes: `ui.addToolbarWidget()` and existing `#tabs`, `#view-switch`, `#plugin-toolbar` controls.
@@ -132,7 +132,7 @@ test('同步和摊开按钮使用 SVG 且按视图模式切换', () => {
 
 - [x] **Step 2: Run focused tests and verify RED**
 
-Run: `cd frontend && node --test test/liquid-glass-ui.test.mjs test/extensions-lifecycle.test.mjs test/layout-resize.test.mjs`
+Run: `cd reader && node --test test/liquid-glass-ui.test.mjs test/extensions-lifecycle.test.mjs test/layout-resize.test.mjs`
 
 - [x] **Step 3: Restructure toolbar markup without changing IDs**
 
@@ -148,20 +148,20 @@ Create the inset floating toolbar, glass groups, lightweight document tabs, trai
 
 - [x] **Step 6: Run focused tests and commit**
 
-Run: `cd frontend && node --test test/liquid-glass-ui.test.mjs test/extensions-lifecycle.test.mjs test/layout-resize.test.mjs`
+Run: `cd reader && node --test test/liquid-glass-ui.test.mjs test/extensions-lifecycle.test.mjs test/layout-resize.test.mjs`
 
 ```bash
-git add frontend/index.html frontend/src/core/app.js frontend/src/core/extensions.js frontend/src/liquid-glass.css frontend/test
+git add reader/index.html reader/src/core/app.js reader/src/core/extensions.js reader/src/liquid-glass.css reader/test
 git commit -m "style: 重构阅读器应用框架与工具栏"
 ```
 
 ### Task 3: 将书签入口迁移到阅读工具栏
 
 **Files:**
-- Modify: `frontend/src/plugins/bookmarks/index.js`
-- Modify: `frontend/src/liquid-glass.css`
-- Modify: `frontend/test/bookmark-context.test.mjs`
-- Modify: `frontend/test/extensions-lifecycle.test.mjs`
+- Modify: `reader/src/plugins/bookmarks/index.js`
+- Modify: `reader/src/liquid-glass.css`
+- Modify: `reader/test/bookmark-context.test.mjs`
+- Modify: `reader/test/extensions-lifecycle.test.mjs`
 
 **Interfaces:**
 - Consumes: `ctx.ui.addToolbarWidget`, `ctx.bus` 的 `page:change/book:switch/book:close` 事件和现有 `book.bookmarks`。
@@ -183,7 +183,7 @@ test('书签只从工具栏切换当前页，不进入文字选区浮窗', async
 
 - [x] **Step 2: Run test and verify RED**
 
-Run: `cd frontend && node --test test/bookmark-context.test.mjs`
+Run: `cd reader && node --test test/bookmark-context.test.mjs`
 
 - [x] **Step 3: Move the existing toggle logic**
 
@@ -191,31 +191,31 @@ Remove the context action registration. Register an icon-only toolbar button usi
 
 - [x] **Step 4: Run bookmark and lifecycle tests**
 
-Run: `cd frontend && node --test test/bookmark-context.test.mjs test/extensions-lifecycle.test.mjs`
+Run: `cd reader && node --test test/bookmark-context.test.mjs test/extensions-lifecycle.test.mjs`
 
 - [x] **Step 5: Commit**
 
 ```bash
-git add frontend/src/plugins/bookmarks/index.js frontend/src/liquid-glass.css frontend/test/bookmark-context.test.mjs frontend/test/extensions-lifecycle.test.mjs
+git add reader/src/plugins/bookmarks/index.js reader/src/liquid-glass.css reader/test/bookmark-context.test.mjs reader/test/extensions-lifecycle.test.mjs
 git commit -m "refactor: 将页书签入口移到阅读工具栏"
 ```
 
 ### Task 4: 建立应用内 Sheet、确认与可撤销反馈
 
 **Files:**
-- Create: `frontend/src/core/dialogs.js`
-- Modify: `frontend/src/core/app.js`
-- Modify: `frontend/src/core/extensions.js`
-- Modify: `frontend/src/plugins/bookmarks/index.js`
-- Modify: `frontend/src/plugins/annotations/index.js`
-- Modify: `frontend/src/plugins/annotations/sidebar.js`
-- Modify: `frontend/src/plugins/editor/index.js`
-- Modify: `frontend/src/liquid-glass.css`
-- Create: `frontend/test/dialogs.test.mjs`
-- Modify: `frontend/test/folder-delete.test.mjs`
-- Modify: `frontend/test/home-delete.test.mjs`
-- Modify: `frontend/test/annotations-sidebar.test.mjs`
-- Modify: `frontend/test/editor-plugin.test.mjs`
+- Create: `reader/src/core/dialogs.js`
+- Modify: `reader/src/core/app.js`
+- Modify: `reader/src/core/extensions.js`
+- Modify: `reader/src/plugins/bookmarks/index.js`
+- Modify: `reader/src/plugins/annotations/index.js`
+- Modify: `reader/src/plugins/annotations/sidebar.js`
+- Modify: `reader/src/plugins/editor/index.js`
+- Modify: `reader/src/liquid-glass.css`
+- Create: `reader/test/dialogs.test.mjs`
+- Modify: `reader/test/folder-delete.test.mjs`
+- Modify: `reader/test/home-delete.test.mjs`
+- Modify: `reader/test/annotations-sidebar.test.mjs`
+- Modify: `reader/test/editor-plugin.test.mjs`
 
 **Interfaces:**
 - Produces: `promptSheet(options): Promise<string|null>`, `confirmSheet(options): Promise<boolean>`, `showToast({ message, actionLabel?, onAction? }): void`.
@@ -243,7 +243,7 @@ test('Toast 的撤销动作只执行一次', () => {
 
 - [x] **Step 2: Run focused tests and verify RED**
 
-Run: `cd frontend && node --test test/dialogs.test.mjs test/home-delete.test.mjs test/folder-delete.test.mjs test/annotations-sidebar.test.mjs test/editor-plugin.test.mjs`
+Run: `cd reader && node --test test/dialogs.test.mjs test/home-delete.test.mjs test/folder-delete.test.mjs test/annotations-sidebar.test.mjs test/editor-plugin.test.mjs`
 
 - [x] **Step 3: Implement the dialog service**
 
@@ -259,25 +259,25 @@ Before deleting one note, retain the removed record in memory; save the deletion
 
 - [x] **Step 6: Run dialog and affected feature tests**
 
-Run: `cd frontend && node --test test/dialogs.test.mjs test/home-delete.test.mjs test/folder-delete.test.mjs test/annotations-sidebar.test.mjs test/editor-plugin.test.mjs test/bookmark-context.test.mjs`
+Run: `cd reader && node --test test/dialogs.test.mjs test/home-delete.test.mjs test/folder-delete.test.mjs test/annotations-sidebar.test.mjs test/editor-plugin.test.mjs test/bookmark-context.test.mjs`
 
 - [x] **Step 7: Commit**
 
 ```bash
-git add frontend/src/core frontend/src/plugins frontend/src/liquid-glass.css frontend/test
+git add reader/src/core reader/src/plugins reader/src/liquid-glass.css reader/test
 git commit -m "feat: 统一阅读器确认与撤销交互"
 ```
 
 ### Task 5: 重做首页、侧栏与 Finder 式多选视觉
 
 **Files:**
-- Modify: `frontend/src/core/app.js`
-- Modify: `frontend/src/plugins/bookmarks/index.js`
-- Modify: `frontend/src/plugins/annotations/sidebar.js`
-- Modify: `frontend/src/liquid-glass.css`
-- Modify: `frontend/test/home-delete.test.mjs`
-- Modify: `frontend/test/folder-delete.test.mjs`
-- Modify: `frontend/test/annotations-sidebar.test.mjs`
+- Modify: `reader/src/core/app.js`
+- Modify: `reader/src/plugins/bookmarks/index.js`
+- Modify: `reader/src/plugins/annotations/sidebar.js`
+- Modify: `reader/src/liquid-glass.css`
+- Modify: `reader/test/home-delete.test.mjs`
+- Modify: `reader/test/folder-delete.test.mjs`
+- Modify: `reader/test/annotations-sidebar.test.mjs`
 
 **Interfaces:**
 - Consumes: existing selection sets and Shift/Command/Ctrl/marquee logic.
@@ -305,7 +305,7 @@ test('书签和注释卡片同步 aria-selected 并支持 Escape 清除', () => 
 
 - [x] **Step 2: Run affected tests and verify RED**
 
-Run: `cd frontend && node --test test/home-delete.test.mjs test/folder-delete.test.mjs test/bookmark-context.test.mjs test/annotations-sidebar.test.mjs`
+Run: `cd reader && node --test test/home-delete.test.mjs test/folder-delete.test.mjs test/bookmark-context.test.mjs test/annotations-sidebar.test.mjs`
 
 - [x] **Step 3: Normalize selection state**
 
@@ -321,27 +321,27 @@ Use one Inspector header/tab/list/action structure for directory/bookmarks and n
 
 - [x] **Step 6: Run focused tests and commit**
 
-Run: `cd frontend && node --test test/home-delete.test.mjs test/folder-delete.test.mjs test/bookmark-context.test.mjs test/annotations-sidebar.test.mjs`
+Run: `cd reader && node --test test/home-delete.test.mjs test/folder-delete.test.mjs test/bookmark-context.test.mjs test/annotations-sidebar.test.mjs`
 
 ```bash
-git add frontend/src/core/app.js frontend/src/plugins/bookmarks/index.js frontend/src/plugins/annotations/sidebar.js frontend/src/liquid-glass.css frontend/test
+git add reader/src/core/app.js reader/src/plugins/bookmarks/index.js reader/src/plugins/annotations/sidebar.js reader/src/liquid-glass.css reader/test
 git commit -m "style: 重构书库与侧栏交互层级"
 ```
 
 ### Task 6: 重做阅读工作区、选区工具与分割控制岛
 
 **Files:**
-- Modify: `frontend/src/core/app.js`
-- Modify: `frontend/src/core/views.js`
-- Modify: `frontend/src/plugins/annotations/index.js`
-- Modify: `frontend/src/plugins/annotations/sidebar.js`
-- Modify: `frontend/src/plugins/search/index.js`
-- Modify: `frontend/src/liquid-glass.css`
-- Modify: `frontend/test/annotations-context.test.mjs`
-- Modify: `frontend/test/annotations-sidebar.test.mjs`
-- Modify: `frontend/test/layout-resize.test.mjs`
-- Modify: `frontend/test/search-order.test.mjs`
-- Modify: `frontend/test/text-view-flow.test.mjs`
+- Modify: `reader/src/core/app.js`
+- Modify: `reader/src/core/views.js`
+- Modify: `reader/src/plugins/annotations/index.js`
+- Modify: `reader/src/plugins/annotations/sidebar.js`
+- Modify: `reader/src/plugins/search/index.js`
+- Modify: `reader/src/liquid-glass.css`
+- Modify: `reader/test/annotations-context.test.mjs`
+- Modify: `reader/test/annotations-sidebar.test.mjs`
+- Modify: `reader/test/layout-resize.test.mjs`
+- Modify: `reader/test/search-order.test.mjs`
+- Modify: `reader/test/text-view-flow.test.mjs`
 
 **Interfaces:**
 - Consumes: `.book-view`, `.pdf-panel`, `.divider`, `.text-panel`, `showContextBar()` and existing resizer contracts.
@@ -366,7 +366,7 @@ test('视图分割控制岛不改变现有拖动与键盘比例', () => {
 
 - [x] **Step 2: Run focused tests and verify RED where behavior is new**
 
-Run: `cd frontend && node --test test/annotations-context.test.mjs test/annotations-sidebar.test.mjs test/layout-resize.test.mjs test/search-order.test.mjs test/text-view-flow.test.mjs`
+Run: `cd reader && node --test test/annotations-context.test.mjs test/annotations-sidebar.test.mjs test/layout-resize.test.mjs test/search-order.test.mjs test/text-view-flow.test.mjs`
 
 - [x] **Step 3: Apply content-first workspace styling**
 
@@ -382,23 +382,23 @@ Global `Command/Ctrl+F` continues to follow focus: right Inspector focus opens a
 
 - [x] **Step 6: Run focused tests and commit**
 
-Run: `cd frontend && node --test test/annotations-context.test.mjs test/annotations-sidebar.test.mjs test/layout-resize.test.mjs test/search-order.test.mjs test/text-view-flow.test.mjs`
+Run: `cd reader && node --test test/annotations-context.test.mjs test/annotations-sidebar.test.mjs test/layout-resize.test.mjs test/search-order.test.mjs test/text-view-flow.test.mjs`
 
 ```bash
-git add frontend/src/core frontend/src/plugins frontend/src/liquid-glass.css frontend/test
+git add reader/src/core reader/src/plugins reader/src/liquid-glass.css reader/test
 git commit -m "style: 重构阅读工作区与上下文工具"
 ```
 
 ### Task 7: 统一编辑器、设置、阅读外观与响应式状态
 
 **Files:**
-- Modify: `frontend/src/plugins/editor/index.js`
-- Modify: `frontend/src/plugins/eyecare/index.js`
-- Modify: `frontend/src/core/app.js`
-- Modify: `frontend/src/liquid-glass.css`
-- Modify: `frontend/test/editor-plugin.test.mjs`
-- Modify: `frontend/test/eyecare.test.mjs`
-- Modify: `frontend/test/liquid-glass-ui.test.mjs`
+- Modify: `reader/src/plugins/editor/index.js`
+- Modify: `reader/src/plugins/eyecare/index.js`
+- Modify: `reader/src/core/app.js`
+- Modify: `reader/src/liquid-glass.css`
+- Modify: `reader/test/editor-plugin.test.mjs`
+- Modify: `reader/test/eyecare.test.mjs`
+- Modify: `reader/test/liquid-glass-ui.test.mjs`
 
 **Interfaces:**
 - Consumes: existing editor dirty state, eyecare preview/apply state and settings plugin registry.
@@ -419,7 +419,7 @@ Assert that settings and page editor use labelled dialogs, close icons use `xmar
 
 - [x] **Step 2: Run focused tests and verify RED**
 
-Run: `cd frontend && node --test test/editor-plugin.test.mjs test/eyecare.test.mjs test/liquid-glass-ui.test.mjs`
+Run: `cd reader && node --test test/editor-plugin.test.mjs test/eyecare.test.mjs test/liquid-glass-ui.test.mjs`
 
 - [x] **Step 3: Add editor mode feedback**
 
@@ -435,10 +435,10 @@ At narrow desktop widths, keep content first, allow side Inspectors to overlay i
 
 - [x] **Step 6: Run focused tests and commit**
 
-Run: `cd frontend && node --test test/editor-plugin.test.mjs test/eyecare.test.mjs test/liquid-glass-ui.test.mjs`
+Run: `cd reader && node --test test/editor-plugin.test.mjs test/eyecare.test.mjs test/liquid-glass-ui.test.mjs`
 
 ```bash
-git add frontend/src/plugins/editor frontend/src/plugins/eyecare frontend/src/core/app.js frontend/src/liquid-glass.css frontend/test
+git add reader/src/plugins/editor reader/src/plugins/eyecare reader/src/core/app.js reader/src/liquid-glass.css reader/test
 git commit -m "style: 统一阅读工具与编辑界面"
 ```
 
@@ -453,19 +453,19 @@ git commit -m "style: 统一阅读工具与编辑界面"
 
 - [x] **Step 1: Run source hygiene checks**
 
-Run: `git diff --check && rg -n "📖|>⇅<|>⿻<|>×<|>↑<|>↓<|window\.confirm|window\.prompt|\bconfirm\(|\bprompt\(" frontend/src frontend/index.html`
+Run: `git diff --check && rg -n "📖|>⇅<|>⿻<|>×<|>↑<|>↓<|window\.confirm|window\.prompt|\bconfirm\(|\bprompt\(" reader/src reader/index.html`
 
 Expected: no Emoji structural icon, toolbar character icon or native prompt/confirm remains.
 
 - [x] **Step 2: Run the complete test suite**
 
-Run: `cd frontend && npm test`
+Run: `cd reader && npm test`
 
 Expected: all tests pass, zero failures.
 
 - [x] **Step 3: Run production build**
 
-Run: `cd frontend && npm run build`
+Run: `cd reader && npm run build`
 
 Expected: Vite exits 0 and emits `dist/` assets.
 
@@ -480,6 +480,6 @@ Keyboard through toolbar, tabs, both Inspectors, dialog controls and resizers; v
 - [x] **Step 6: Commit final corrections**
 
 ```bash
-git add frontend
+git add reader
 git commit -m "fix: 完成 Liquid Glass 界面验证与收尾"
 ```

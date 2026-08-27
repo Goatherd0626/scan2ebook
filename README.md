@@ -79,7 +79,7 @@ PDF ──▶ 逐页渲染(300dpi) ──▶ Apple Vision OCR(本地免费)
 ### 1. Python 转换器
 
 ```bash
-git clone https://github.com/OWNER/scan2ebook.git
+# 下载或 clone 本仓库后进入项目目录
 cd scan2ebook
 
 python3 -m venv .venv
@@ -93,28 +93,27 @@ editable 安装后会提供 `.venv/bin/scan2ebook` 命令。也可以先激活�
 ### 2. 独立网页阅读器
 
 ```bash
-cd frontend
+cd reader
 npm ci
 npm run build
 cd ..
 ```
 
-构建后的静态网页位于 `frontend/dist/`。使用 Python 转换器启动：
+构建后的静态网页位于 `reader/dist/`。使用 Python 转换器启动：
 
 ```bash
 .venv/bin/scan2ebook serve
 ```
 
-`frontend/dist/` 不提交到 Git，因此 GitHub 自动生成的 Source code zip/tar.gz
-也不包含它。从源码安装的用户必须先执行上述构建命令。如果希望
-普通用户下载后直接启动，应在 GitHub Release 中另行附加包含 `dist/`
-和启动器的预构建 reader 压缩包，或完成下文的 npm 包。
+`reader/dist/` 不提交到 Git，因此 GitHub 自动生成的 Source code zip/tar.gz
+也不包含它。从源码安装的用户必须先执行上述构建命令。
+`npm pack` 和 `npm publish` 会在打包前自动构建，并将 `dist/` 放入 reader npm 发布包。
 
-如果只需要阅读器、不安装 Python 转换器，也可以从 `frontend/` 启动
+如果只需要阅读器、不安装 Python 转换器，也可以从 `reader/` 启动
 Vite preview：
 
 ```bash
-cd frontend
+cd reader
 npm ci
 npm run build
 npm run preview -- --host 127.0.0.1 --port 8765
@@ -141,25 +140,20 @@ scan2ebook 仓库定位 `.venv/bin/python` 和阅读器资源，因此不能只�
 `dsh-plugin/` 目录。真正的独立 npm 插件发布需要先解除这个仓库路径依赖。
 
 `pyproject.toml` 当前面向 clone 后的源码 editable 安装。网页阅读器资源仍由仓库中的
-`frontend/` 提供，因此首个 0.1.0 版本暂不承诺 PyPI wheel 包含完整阅读器资源。
+`reader/` 提供，因此首个 0.1.0 版本暂不承诺 PyPI wheel 包含完整阅读器资源。
 
-## npm 安装状态
+## reader npm 包
 
-网页阅读器在技术上可以发布为 npm 包，但当前 **还不能** 执行
-`npm install scan2ebook-reader` 后直接使用：
+`reader/` 现在是可独立打包的 `scan2ebook-reader` npm 包，提供：
 
-- `frontend/package.json` 当前为 `"private": true`，不允许 npm publish；
-- 当前没有把 `dist/` 列为发布文件；
-- 当前没有 `scan2ebook-reader` CLI 用于选择端口并启动静态服务；
-- DSH 插件目前仍直接依赖仓库根目录的 `.venv` 和 `frontend/`。
+- 预构建的 `dist/` 阅读器；
+- `scan2ebook-reader` CLI；
+- 可供 DSH 插件等 Node.js 程序调用的 `startReader()` API；
+- 零第三方运行时依赖的本地 HTTP 服务；
+- health 身份检查、端口复用/冲突识别、路径穿越防护和跨平台打开浏览器。
 
-后续建议拆成两个 npm 发布物：
-
-1. `scan2ebook-reader`：包含已构建的 `dist/` 和一个跨平台启动 CLI；
-2. `dsh-client-ui-scan2ebook`：DSH 集成层，调用已安装的阅读器和 Python
-   `scan2ebook` 命令，不再假设用户保留完整 Git 仓库。
-
-建议未来 reader 包的用户接口为（当前尚未实现）：
+当前代码已经可以生成并本地安装 `.tgz`，但 **尚未发布到 npm registry**。
+在正式 `npm publish` 之前，下面的 `npx`/全局安装命令只表示发布后的用户接口：
 
 ```bash
 # 无需全局安装
@@ -172,6 +166,21 @@ scan2ebook-reader --port 8765
 
 npm 包安装后，阅读器程序文件会位于 npm 的 `node_modules` 或全局 npm 前缀中；
 用户导入的电子书仍不应存放在 npm 包目录，而应继续使用浏览器 IndexedDB。
+
+本地打包与安装验证：
+
+```bash
+cd reader
+npm ci
+npm test
+npm run build
+npm run test:package
+npm pack
+npm install --global ./scan2ebook-reader-0.1.0.tgz
+```
+
+DSH 插件目前仍使用 Python reader 兼容入口，且转换功能仍依赖仓库根目录
+`.venv`。后续再让 DSH 插件直接依赖并调用这个 reader npm 包。
 
 ## 使用
 
@@ -210,8 +219,9 @@ npm 包安装后，阅读器程序文件会位于 npm 的 `node_modules` 或全�
 ### 阅读器程序和电子书存在哪里
 
 - **程序文件**：当前没有系统级安装器。用户 clone 仓库或下载 GitHub Release
-  压缩包后，阅读器就位于用户自己选择的仓库/解压目录 `frontend/`，
-  构建产物位于 `frontend/dist/`。本地 HTTP 服务只读取这些静态文件。
+  压缩包后，阅读器就位于用户自己选择的仓库/解压目录 `reader/`，
+  构建产物位于 `reader/dist/`。npm 安装时则位于对应
+  `node_modules/scan2ebook-reader/`或 npm 全局安装目录。
 - **导入的电子书**：存在浏览器 IndexedDB 数据库 `scan2ebook-reader` 中，
   包含 PDF Blob、`book.json`、元数据、文件夹、阅读进度、书签和标注。
 - **物理磁盘路径**：由 Chrome / Safari / Edge 等浏览器管理，位于该浏览器的
@@ -231,7 +241,7 @@ npm 包安装后，阅读器程序文件会位于 npm 的 `node_modules` 或全�
 
 阅读器采用**插件架构**（学习 dsh-web-ui 的 cordis 插件思想：核心最小化 + 扩展点 + 插件注册）。
 核心只做：书库/IndexedDB、标签页、双视图渲染（PDF/文字）、事件总线、插件管理器。
-**全部功能都是插件**（`frontend/src/plugins/`），可在 ⚙ 设置里启停：
+**全部功能都是插件**（`reader/src/plugins/`），可在 ⚙ 设置里启停：
 
 | 插件 | 功能 |
 |---|---|
@@ -247,7 +257,7 @@ npm 包安装后，阅读器程序文件会位于 npm 的 `node_modules` 或全�
 书库（文件夹分类、批量移动/删除、双击编辑书名）；标签页多开；左侧边栏上层书库、
 下层目录（可跳转）/插件 tab；选中文字上下文操作条。
 
-新增插件 = 在 `frontend/src/plugins/` 建文件夹，写 `index.js` 调 `registerExtension(...)`，
+新增插件 = 在 `reader/src/plugins/` 建文件夹，写 `index.js` 调 `registerExtension(...)`，
 在 `src/plugins/index.js` 加一行 import——核心零改动。
 
 ## 项目结构
@@ -269,7 +279,7 @@ scan2ebook/
 │   ├── toc.py            # 目录装配：TOC 条目 ↔ 正文标题匹配
 │   ├── web_reader.py     # 单文件预览 HTML 生成（轻量预览用）
 │   ├── llm.py / ocr_engine.py / pdf_utils.py / config.py / page_model.py
-├── frontend/             # 独立前端（Vite，阅读器本体）
+├── reader/               # 独立前端（Vite，阅读器本体）
 │   ├── index.html
 │   ├── src/
 │   │   ├── main.js       # 入口：pdf.js worker + 插件注册 + 启动
@@ -323,8 +333,9 @@ scan2ebook/
 
 - [x] Skill 注册：`~/.dsh/skills/scan2ebook/SKILL.md`
 - [x] DSH Web GUI 插件：单个「Scan2Ebook」入口和右侧 sidebar，支持任意 PDF、同级输出、页码范围、进度/计费与阅读器启停
-- [ ] 发布独立 `scan2ebook-reader` npm 包（包含 `dist/` 和启动 CLI）
-- [ ] GitHub Release 附加预构建 reader 压缩包，避免阅读器用户必须安装 Node.js
+- [x] 打包独立 `scan2ebook-reader` npm 包（包含 `dist/`、CLI 和 Node.js API）
+- [ ] 查询 npm 包名可用性并正式发布 `scan2ebook-reader@0.1.0`
+- [ ] GitHub Release 附加 reader `.tgz`，并视需要增加不要求 Node.js 的桌面封装
 - [ ] 解除 DSH 插件对 Git 仓库根目录和 `.venv` 固定路径的依赖，再发布 npm 包
 - [ ] 二期：文字高亮（多色）/ 添加注释 + 右侧注释侧边栏
 - [ ] 二期：编辑模式（修正识别错误，写回 JSON）

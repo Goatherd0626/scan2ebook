@@ -12,7 +12,7 @@
 ## 仓库结构
 
 - [x] Python 转换器位于 `scan2ebook/`。
-- [x] 网页阅读器位于 `frontend/`。
+- [x] 网页阅读器位于 `reader/`。
 - [x] DSH 插件位于 `dsh-plugin/dsh-client-ui-scan2ebook/`。
 - [x] 可发布 Skill 位于 `dsh-skill/scan2ebook/`。
 - [x] 增加根目录架构图和“CLI / Skill / 插件 / 阅读器”的关系说明。
@@ -32,7 +32,9 @@
 - [x] README 明确说明 Apple Vision OCR 仅支持 macOS；其他系统需要替代 OCR backend。
 - [x] 写明 Python、Node.js 与 DSH 版本要求；最低 macOS 版本仍需进一步实机确认。
 - [x] 提供从全新 clone 开始的安装验证步骤。
-- [x] `0.1.0` 明确使用源码安装；PyPI 完整 wheel、独立 reader npm 包和 DSH 插件 npm 包留待后续拆包。
+- [x] `0.1.0` 明确说明源码安装；reader npm 包已可本地打包，PyPI 完整 wheel 和 DSH 插件 npm 包留待后续拆包。
+- [x] reader npm tarball 包含 `dist/`、CLI、Node API、README 和 MIT License，不包含源码、测试、`.env` 或电子书。
+- [ ] 确认 `scan2ebook-reader` npm 包名可用性、npm 账号与 2FA，然后执行正式发布。
 - [x] README 说明阅读器程序位置、IndexedDB 书库、origin/端口隔离和备份风险。
 - [ ] 检查 `启动阅读器.command` 的可执行权限和相对路径行为。
 

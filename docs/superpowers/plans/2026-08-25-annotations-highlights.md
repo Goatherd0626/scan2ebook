@@ -22,14 +22,14 @@
 ### Task 1: 范围模型与高亮集合运算
 
 **Files:**
-- Create: `frontend/src/plugins/annotations/ranges.js`
-- Create: `frontend/test/annotations-ranges.test.mjs`
+- Create: `reader/src/plugins/annotations/ranges.js`
+- Create: `reader/test/annotations-ranges.test.mjs`
 
 **Interfaces:**
 - Produces: `comparePosition(a,b)`, `compareRange(a,b)`, `sameRange(a,b)`, `rangeIntersects(a,b)`, `applyHighlight(records, range, color, quote, now)`, `removeHighlights(records, range, now)`。
 
 - [ ] **Step 1: 写失败测试**：用字面量位置验证跨 item 排序、颜色覆盖时左右拆分、局部取消、相邻同色合并。
-- [ ] **Step 2: 运行 `node --test frontend/test/annotations-ranges.test.mjs`，确认缺少模块而失败。**
+- [ ] **Step 2: 运行 `node --test reader/test/annotations-ranges.test.mjs`，确认缺少模块而失败。**
 - [ ] **Step 3: 实现纯函数。** 范围统一为半开区间；覆盖流程先对每条旧记录执行差集，再插入新记录并按范围排序、合并同色邻接项：
 
 ```js
@@ -45,10 +45,10 @@ export function applyHighlight(records, range, color, quote, now = Date.now()) {
 ### Task 2: 独立存储和 annotations.json 格式
 
 **Files:**
-- Create: `frontend/src/core/annotation_format.js`
-- Modify: `frontend/src/core/db.js`
-- Modify: `frontend/src/core/app.js`
-- Create: `frontend/test/annotations-storage.test.mjs`
+- Create: `reader/src/core/annotation_format.js`
+- Modify: `reader/src/core/db.js`
+- Modify: `reader/src/core/app.js`
+- Create: `reader/test/annotations-storage.test.mjs`
 
 **Interfaces:**
 - Produces: `parseAnnotationSidecar(text, bookId)`, `buildAnnotationSidecar(records)`, `getAnnotations(db,bookId)`, `replaceAnnotations(db,bookId,records)`, `deleteAnnotations(db,bookId)`。
@@ -64,12 +64,12 @@ export function applyHighlight(records, range, color, quote, now = Date.now()) {
 ### Task 3: 稳定文字锚点与富选区扩展点
 
 **Files:**
-- Create: `frontend/src/core/text_anchor.js`
-- Modify: `frontend/src/core/views.js`
-- Modify: `frontend/src/core/extensions.js`
-- Modify: `frontend/src/core/app.js`
+- Create: `reader/src/core/text_anchor.js`
+- Modify: `reader/src/core/views.js`
+- Modify: `reader/src/core/extensions.js`
+- Modify: `reader/src/core/app.js`
 - Modify: `docs/reader-plugin-dev.md`
-- Create: `frontend/test/annotations-anchors.test.mjs`
+- Create: `reader/test/annotations-anchors.test.mjs`
 
 **Interfaces:**
 - Produces: `selectionToAnchor(selection)`, `resolveAnchor(textView, range)`, `scrollToAnchor(view, range)`。
@@ -85,10 +85,10 @@ export function applyHighlight(records, range, color, quote, now = Date.now()) {
 ### Task 4: 注释插件控制器、正文渲染和选区操作
 
 **Files:**
-- Create: `frontend/src/plugins/annotations/index.js`
-- Modify: `frontend/src/plugins/index.js`
-- Modify: `frontend/src/style.css`
-- Create: `frontend/test/annotations-plugin.test.mjs`
+- Create: `reader/src/plugins/annotations/index.js`
+- Modify: `reader/src/plugins/index.js`
+- Modify: `reader/src/style.css`
+- Create: `reader/test/annotations-plugin.test.mjs`
 
 **Interfaces:**
 - Consumes: Tasks 1–3 的 range、anchor、ctx DB API。
@@ -104,10 +104,10 @@ export function applyHighlight(records, range, color, quote, now = Date.now()) {
 ### Task 5: 右侧栏、搜索筛选、多选和导出
 
 **Files:**
-- Create: `frontend/src/plugins/annotations/sidebar.js`
-- Modify: `frontend/src/plugins/annotations/index.js`
-- Modify: `frontend/src/style.css`
-- Create: `frontend/test/annotations-sidebar.test.mjs`
+- Create: `reader/src/plugins/annotations/sidebar.js`
+- Modify: `reader/src/plugins/annotations/index.js`
+- Modify: `reader/src/style.css`
+- Create: `reader/test/annotations-sidebar.test.mjs`
 
 **Interfaces:**
 - Produces: `createAnnotationsSidebar({ view, records, onChange, onJump, onExport })`，返回 `{ render(records), reveal(id), destroy() }`。
@@ -123,7 +123,7 @@ export function applyHighlight(records, range, color, quote, now = Date.now()) {
 ### Task 6: 集成验证与构建
 
 **Files:**
-- Modify: `frontend/test/extensions-lifecycle.test.mjs`
+- Modify: `reader/test/extensions-lifecycle.test.mjs`
 - Modify: `docs/reader-requirements.md`
 
 **Interfaces:**
@@ -132,6 +132,6 @@ export function applyHighlight(records, range, color, quote, now = Date.now()) {
 
 - [ ] **Step 1: 扩展生命周期测试，验证插件即时停用/启用不会重复面板、toolbar、marker 或全局监听。**
 - [ ] **Step 2: 将需求文档中的高亮、注释、右侧栏和 sidecar 标为已实现；导出 Markdown/CSV 仍保留二期。**
-- [ ] **Step 3: 运行 `npm --prefix frontend test`，要求全部通过。**
-- [ ] **Step 4: 运行 `npm --prefix frontend run build` 和 `git diff --check`，要求成功；不运行 smoke test。**
+- [ ] **Step 3: 运行 `npm --prefix reader test`，要求全部通过。**
+- [ ] **Step 4: 运行 `npm --prefix reader run build` 和 `git diff --check`，要求成功；不运行 smoke test。**
 - [ ] **Step 5: 只提交本功能文件和此前已确认但尚未提交的文字视图交互改动，不纳入无关文件。**

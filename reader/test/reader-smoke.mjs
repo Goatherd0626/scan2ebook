@@ -1,5 +1,5 @@
 /* 阅读器核心+插件冒烟测试（jsdom + fake-indexeddb）。
-   运行：cd frontend && node test/reader-smoke.mjs
+   运行：cd reader && node test/reader-smoke.mjs
    验证：核心初始化、插件激活（工具栏/目录tab）、.s2e 解析、开书渲染（文字视图+脚注插件）。
    Node 环境限制：PDF 画布渲染与「File→JSZip」为浏览器行为，此处用桩/直测替代。 */
 import { JSDOM } from 'jsdom';

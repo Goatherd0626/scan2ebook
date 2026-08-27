@@ -1,0 +1,46 @@
+{
+  "name": "scan2ebook-reader",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Local browser reader for page-anchored .s2e ebooks.",
+  "license": "MIT",
+  "bin": {
+    "scan2ebook-reader": "./bin/scan2ebook-reader.js"
+  },
+  "exports": {
+    ".": "./lib/server.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "node ./bin/scan2ebook-reader.js",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test && npm run pack:check",
+    "test": "node --test test/*.test.mjs",
+    "test:smoke": "node test/reader-smoke.mjs",
+    "test:package": "node scripts/verify-package.mjs",
+    "pack:check": "npm run build && npm run test:package"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^29.1.1",
+    "jszip": "^3.10.1",
+    "pdfjs-dist": "^4.10.38",
+    "vite": "^5.4.11"
+  }
+}

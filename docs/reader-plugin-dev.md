@@ -1,11 +1,11 @@
 # 阅读器插件开发指南
 
-阅读器（`frontend/`）采用**插件架构**：核心只做书库/双视图/事件总线/插件管理器，
-功能全部由 `frontend/src/plugins/` 下的插件提供。本文档说明如何开发一个新插件。
+阅读器（`reader/`）采用**插件架构**：核心只做书库/双视图/事件总线/插件管理器，
+功能全部由 `reader/src/plugins/` 下的插件提供。本文档说明如何开发一个新插件。
 
 ## 一、最小示例
 
-在 `frontend/src/plugins/hello/` 下新建 `index.js`：
+在 `reader/src/plugins/hello/` 下新建 `index.js`：
 
 ```js
 import { registerExtension } from '../../core/extensions.js';
@@ -35,13 +35,13 @@ registerExtension({
 });
 ```
 
-然后在 `frontend/src/plugins/index.js` 加一行：
+然后在 `reader/src/plugins/index.js` 加一行：
 
 ```js
 import './hello/index.js';
 ```
 
-重建即生效：`cd frontend && npm run build`（正式）或 `npm run dev`（热更新）。
+重建即生效：`cd reader && npm run build`（正式）或 `npm run dev`（热更新）。
 
 ## 二、注册表 API
 
@@ -171,13 +171,13 @@ const remove = ctx.ui.addContextAction({
 
 ## 七、新增插件清单
 
-1. `frontend/src/plugins/<id>/index.js` 写 `registerExtension({...})`
-2. `frontend/src/plugins/index.js` 加一行 import
-3. 需要新图标：优先从 macOS SF Symbols 应用导出 SVG 到 `frontend/src/assets/icons/`，
+1. `reader/src/plugins/<id>/index.js` 写 `registerExtension({...})`
+2. `reader/src/plugins/index.js` 加一行 import
+3. 需要新图标：优先从 macOS SF Symbols 应用导出 SVG 到 `reader/src/assets/icons/`，
    在 `style.css` 加 `.sf.i-<name> { --sf: url(...) }`；无法取得 SVG 时再用
-   `swift scripts/export_sf_symbol.swift "<SymbolName>" frontend/src/assets/icons/<name>.png [bold]` 导出 PNG 回退
+   `swift scripts/export_sf_symbol.swift "<SymbolName>" reader/src/assets/icons/<name>.png [bold]` 导出 PNG 回退
 4. `activate(ctx)` 返回清理函数，覆盖事件、UI、DOM、定时器等全部自有资源
-5. 在 `frontend/test/*.test.mjs` 补可自动失败的行为测试，运行 `npm test`
+5. 在 `reader/test/*.test.mjs` 补可自动失败的行为测试，运行 `npm test`
 6. 可选运行 `npm run test:smoke` 做带本地样书的阅读器集成冒烟
 7. `npm run build` → 浏览器 Cmd+Shift+R
 
