@@ -23,4 +23,8 @@ API Key 直接在 sidebar 中输入，只保留在当前 sidebar 的浏览器内
 dsh plugin --profile web add link:/absolute/path/to/scan2ebook/dsh-plugin/dsh-client-ui-scan2ebook
 ```
 
+当前 `0.1.0` 为源码 link 开发安装：插件会从完整 scan2ebook 仓库定位
+`.venv/bin/python` 和 `frontend/`，因此还不能把该子目录单独发布为可独立工作的
+npm 包。发布 npm 版前需要改为调用 `PATH` 中的 `scan2ebook` 命令和独立阅读器包。
+
 Host 代码更新后重启 `dsh web`；Client 代码更新后硬刷新页面。

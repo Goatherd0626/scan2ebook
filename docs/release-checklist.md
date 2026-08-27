@@ -5,7 +5,7 @@
 - [x] 选择并添加 MIT 开源许可证。
 - [ ] 确认 Git 历史中从未提交 `.env`、API Key、真实书籍 PDF 或受版权保护的转换产物。
 - [x] 为 Python 项目补充 `pyproject.toml`，声明包元数据、Python 版本、依赖和 CLI 入口。
-- [ ] 将安装说明从本机绝对路径改为仓库相对路径或占位路径。
+- [x] 将安装说明从本机绝对路径改为仓库相对路径或占位路径。
 - [ ] 确认示例 PDF、截图、字体、图标和 SF Symbols 导出资源具有可再分发许可。
 - [ ] 决定 DeepSeek 模型名称是否仍为公开可用模型；实验模型应允许用户覆盖并在文档中标注。
 
@@ -15,7 +15,7 @@
 - [x] 网页阅读器位于 `frontend/`。
 - [x] DSH 插件位于 `dsh-plugin/dsh-client-ui-scan2ebook/`。
 - [x] 可发布 Skill 位于 `dsh-skill/scan2ebook/`。
-- [ ] 增加根目录架构图和“CLI / Skill / 插件 / 阅读器”的关系说明。
+- [x] 增加根目录架构图和“CLI / Skill / 插件 / 阅读器”的关系说明。
 - [ ] 增加最小可运行示例；只使用自制或明确可公开的数据。
 
 ## 密钥与隐私
@@ -31,8 +31,9 @@
 - [x] DSH 插件默认从自身位置推导项目根目录，不再硬编码开发者路径。
 - [x] README 明确说明 Apple Vision OCR 仅支持 macOS；其他系统需要替代 OCR backend。
 - [x] 写明 Python、Node.js 与 DSH 版本要求；最低 macOS 版本仍需进一步实机确认。
-- [ ] 提供从全新 clone 开始的安装验证步骤。
-- [ ] 决定是否发布 PyPI 包、npm 包；若不发布，明确使用源码安装。
+- [x] 提供从全新 clone 开始的安装验证步骤。
+- [x] `0.1.0` 明确使用源码安装；PyPI 完整 wheel、独立 reader npm 包和 DSH 插件 npm 包留待后续拆包。
+- [x] README 说明阅读器程序位置、IndexedDB 书库、origin/端口隔离和备份风险。
 - [ ] 检查 `启动阅读器.command` 的可执行权限和相对路径行为。
 
 ## 质量保障

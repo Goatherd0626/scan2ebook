@@ -26,6 +26,29 @@
 Windows 和 Linux 当前不能运行 Apple Vision OCR 或 DSH 插件的 macOS 原生集成功能。
 若 PDF 已有文字层，未来可以增加跨平台路径，但当前发布版本仍按 macOS-only 转换器维护。
 
+## 组件关系与按需安装
+
+本仓库包含四个层次，它们不是必须全部安装的单一程序：
+
+| 组件 | 作用 | 能否单独使用 |
+|---|---|---|
+| Python 转换器 | OCR、多模态结构化，生成 `.json` / `.html` / `.s2e` | 可以 |
+| DSH Skill | 告诉 DSH 何时使用 scan2ebook、如何校验输出 | 可以，但转换时仍需要已安装的 Python 转换器 |
+| DSH sidebar 插件 | 在 DSH 中提供选文件、页码、API Key、进度、计费和阅读器启停 UI | 可选，只是 DSH 便利层 |
+| 独立网页阅读器 | 导入和阅读已有 `.s2e` 文件 | 可以，不需要 DSH 或转换 API Key |
+
+推荐按需选择：
+
+| 需求 | 安装组合 |
+|---|---|
+| 只阅读别人提供的 `.s2e` | 仅网页阅读器 |
+| 在 DSH 中由 Skill 指导、使用 CLI 转换 | Python 转换器 + Skill + 网页阅读器 |
+| 在 DSH sidebar 中完成选文件、转换、进度和阅读器启停 | Python 转换器 + Skill + DSH 插件 + 网页阅读器 |
+
+Skill 不包含 OCR 或阅读器程序；它是工作流说明。DSH 插件也不是转换核心；
+它调用同一套 Python 转换器和网页阅读器。因此不使用 DSH 时，转换器和
+阅读器仍可以完整工作。
+
 ## 核心思路（AI 驱动结构化）
 
 代码只负责「渲染 + OCR + 渲染输出」，**版面结构（标题/正文/脚注/引用位置/
@@ -51,22 +74,104 @@ PDF ──▶ 逐页渲染(300dpi) ──▶ Apple Vision OCR(本地免费)
   标题层级与编号、正文中脚注引用位置，并修正 OCR 错字
 - **页码锚定**：一律以 **PDF 页**为准（原书单双页错位不影响引用核对）
 
-## 安装
+## 从源码安装
+
+### 1. Python 转换器
 
 ```bash
+git clone https://github.com/OWNER/scan2ebook.git
+cd scan2ebook
+
 python3 -m venv .venv
 .venv/bin/pip install -e .
 cp .env.example .env   # 填入 DEEPSEEK_API_KEY
+```
 
-# 构建独立网页阅读器
+editable 安装后会提供 `.venv/bin/scan2ebook` 命令。也可以先激活虚拟环境，
+再直接使用 `scan2ebook`。
+
+### 2. 独立网页阅读器
+
+```bash
 cd frontend
 npm ci
 npm run build
 cd ..
 ```
 
+构建后的静态网页位于 `frontend/dist/`。使用 Python 转换器启动：
+
+```bash
+.venv/bin/scan2ebook serve
+```
+
+`frontend/dist/` 不提交到 Git，因此 GitHub 自动生成的 Source code zip/tar.gz
+也不包含它。从源码安装的用户必须先执行上述构建命令。如果希望
+普通用户下载后直接启动，应在 GitHub Release 中另行附加包含 `dist/`
+和启动器的预构建 reader 压缩包，或完成下文的 npm 包。
+
+如果只需要阅读器、不安装 Python 转换器，也可以从 `frontend/` 启动
+Vite preview：
+
+```bash
+cd frontend
+npm ci
+npm run build
+npm run preview -- --host 127.0.0.1 --port 8765
+```
+
+### 3. DSH Skill（可选）
+
+```bash
+mkdir -p ~/.dsh/skills/scan2ebook
+cp dsh-skill/scan2ebook/SKILL.md ~/.dsh/skills/scan2ebook/SKILL.md
+```
+
+Skill 单独安装时，请确保 `scan2ebook` 命令在 DSH 运行环境的 `PATH` 中。
+如果 DSH 从终端启动，可先激活本仓库的 `.venv`。
+
+### 4. DSH sidebar 插件（可选）
+
+```bash
+dsh plugin --profile web add link:/absolute/path/to/scan2ebook/dsh-plugin/dsh-client-ui-scan2ebook
+```
+
+安装后重启 `dsh web`。当前 `0.1.0` 插件仍是源码联调形态：它会从整个
+scan2ebook 仓库定位 `.venv/bin/python` 和阅读器资源，因此不能只复制
+`dsh-plugin/` 目录。真正的独立 npm 插件发布需要先解除这个仓库路径依赖。
+
 `pyproject.toml` 当前面向 clone 后的源码 editable 安装。网页阅读器资源仍由仓库中的
 `frontend/` 提供，因此首个 0.1.0 版本暂不承诺 PyPI wheel 包含完整阅读器资源。
+
+## npm 安装状态
+
+网页阅读器在技术上可以发布为 npm 包，但当前 **还不能** 执行
+`npm install scan2ebook-reader` 后直接使用：
+
+- `frontend/package.json` 当前为 `"private": true`，不允许 npm publish；
+- 当前没有把 `dist/` 列为发布文件；
+- 当前没有 `scan2ebook-reader` CLI 用于选择端口并启动静态服务；
+- DSH 插件目前仍直接依赖仓库根目录的 `.venv` 和 `frontend/`。
+
+后续建议拆成两个 npm 发布物：
+
+1. `scan2ebook-reader`：包含已构建的 `dist/` 和一个跨平台启动 CLI；
+2. `dsh-client-ui-scan2ebook`：DSH 集成层，调用已安装的阅读器和 Python
+   `scan2ebook` 命令，不再假设用户保留完整 Git 仓库。
+
+建议未来 reader 包的用户接口为（当前尚未实现）：
+
+```bash
+# 无需全局安装
+npx scan2ebook-reader --port 8765
+
+# 或全局安装后启动
+npm install --global scan2ebook-reader
+scan2ebook-reader --port 8765
+```
+
+npm 包安装后，阅读器程序文件会位于 npm 的 `node_modules` 或全局 npm 前缀中；
+用户导入的电子书仍不应存放在 npm 包目录，而应继续使用浏览器 IndexedDB。
 
 ## 使用
 
@@ -100,8 +205,27 @@ cd ..
 | `python -m scan2ebook 书.pdf --serve` | 转换完直接进阅读器 |
 | **双击 `启动阅读器.command`** | Finder 双击即开（零命令行），适合非技术用户 |
 
-阅读器打开后把 `.s2e` 拖进窗口即导入书库；书库存在浏览器 IndexedDB，
-导入后电脑上的原文件可删除。
+阅读器打开后把 `.s2e` 拖进窗口即可导入书库。
+
+### 阅读器程序和电子书存在哪里
+
+- **程序文件**：当前没有系统级安装器。用户 clone 仓库或下载 GitHub Release
+  压缩包后，阅读器就位于用户自己选择的仓库/解压目录 `frontend/`，
+  构建产物位于 `frontend/dist/`。本地 HTTP 服务只读取这些静态文件。
+- **导入的电子书**：存在浏览器 IndexedDB 数据库 `scan2ebook-reader` 中，
+  包含 PDF Blob、`book.json`、元数据、文件夹、阅读进度、书签和标注。
+- **物理磁盘路径**：由 Chrome / Safari / Edge 等浏览器管理，位于该浏览器的
+  profile 数据目录，不是 scan2ebook 可直接管理的普通文件夹。
+  开发者可在浏览器 DevTools 的 **Application / Storage → IndexedDB →
+  `scan2ebook-reader`** 中查看逻辑数据，不建议直接修改浏览器的底层数据文件。
+- **书库隔离规则**：IndexedDB 按 `scheme + host + port` 隔离。
+  `127.0.0.1:8765`、`127.0.0.1:9000` 和 `localhost:8765` 是三个不同的书库。
+  为了一直看到同一个书库，建议固定使用默认地址
+  `http://127.0.0.1:8765`。
+- **删除风险**：把 `.s2e` 导入后，技术上可以删除原文件，因为阅读器已保存一份
+  PDF 和 JSON。但清理浏览器站点数据、删除浏览器 profile 或更换端口都可能让书库
+  不再可见；浏览器配额和存储压力策略也会影响可容纳的 PDF 总量。
+  因此建议保留原 `.s2e` 作为备份；带标注的书可使用阅读器的导出功能另存。
 
 ## 阅读器功能（插件架构）
 
@@ -199,6 +323,9 @@ scan2ebook/
 
 - [x] Skill 注册：`~/.dsh/skills/scan2ebook/SKILL.md`
 - [x] DSH Web GUI 插件：单个「Scan2Ebook」入口和右侧 sidebar，支持任意 PDF、同级输出、页码范围、进度/计费与阅读器启停
+- [ ] 发布独立 `scan2ebook-reader` npm 包（包含 `dist/` 和启动 CLI）
+- [ ] GitHub Release 附加预构建 reader 压缩包，避免阅读器用户必须安装 Node.js
+- [ ] 解除 DSH 插件对 Git 仓库根目录和 `.venv` 固定路径的依赖，再发布 npm 包
 - [ ] 二期：文字高亮（多色）/ 添加注释 + 右侧注释侧边栏
 - [ ] 二期：编辑模式（修正识别错误，写回 JSON）
 - [ ] 二期：复制引文（GB/T 7714 模板）、标注导出

@@ -4,7 +4,8 @@
     python -m scan2ebook serve [--port 8765] [--host 127.0.0.1]
     python -m scan2ebook.reader [--port 8765]        # 等价
 
-服务 frontend/dist/（已构建）；未构建时回退到 frontend/ 源码目录。
+服务 frontend/dist/（已构建）。源码依赖 Vite 打包和模块解析，
+因此未构建时不能直接作为普通静态文件服务。
 前端是独立 Vite 项目（frontend/），开发用 `cd frontend && npm run dev`。
 
 启动后自动打开浏览器；若端口已被占用（阅读器可能已在运行），
@@ -30,9 +31,8 @@ def _web_dir() -> Path:
     dist = FRONTEND / "dist"
     if dist.exists() and (dist / "index.html").exists():
         return dist
-    if (FRONTEND / "index.html").exists():
-        return FRONTEND
-    raise FileNotFoundError(f"未找到前端（{dist} 或 {FRONTEND}），请先 cd frontend && npm run build")
+    # 源码中包含 Vite 的 bare imports，SimpleHTTPRequestHandler 无法直接提供可用阅读器。
+    raise FileNotFoundError(f"未找到已构建的阅读器 {dist}，请先运行：cd frontend && npm ci && npm run build")
 
 
 def _probe(host: str, port: int, timeout: float = 0.5) -> bool:

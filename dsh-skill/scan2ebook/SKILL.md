@@ -20,8 +20,11 @@ description: 将扫描版书籍 PDF 转换为带原始 PDF 页码锚点的结构
 插件不可用时，再使用仓库 CLI：
 
 ```bash
-.venv/bin/python -m scan2ebook "<输入.pdf>" -o "<输入 PDF 所在目录>"
+scan2ebook "<输入.pdf>" -o "<输入 PDF 所在目录>"
 ```
+
+如果 `scan2ebook` 不在 `PATH` 中，应请用户先安装 Python 包或激活其虚拟环境；
+不要假设 DSH 的当前工作区就是 scan2ebook 源码仓库。
 
 可选参数：
 
