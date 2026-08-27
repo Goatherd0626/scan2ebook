@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import net from 'node:net'
 import { fileURLToPath } from 'node:url'
-import { apply, resolveAuthorizedPdf, resolveWorkspacePath, validatePort } from '../lib/index.js'
+import { apply, requireApiKey, resolveAuthorizedPdf, resolveWorkspacePath, validatePort } from '../lib/index.js'
 
 test('workspace path rejects traversal', () => {
   assert.equal(resolveWorkspacePath('/tmp/work', 'books/a.pdf'), '/tmp/work/books/a.pdf')
@@ -19,35 +19,10 @@ test('absolute PDF paths require explicit file-picker authorization', () => {
   assert.throws(() => resolveAuthorizedPdf('/tmp', process.execPath, new Set()), /授权/)
 })
 
-test('stores only API key status through the credential RPC surface', async () => {
-  let rpcHandler
-  let storedKey = null
-  const credentialStore = {
-    async get() { return storedKey },
-    async set(value) { storedKey = value },
-    async clear() { storedKey = null },
-  }
-  const ctx = {
-    tools: { register() {} },
-    get() { return undefined },
-    inject(_deps, callback) {
-      callback({ connection: { rpc: { handle(_route, handler) { rpcHandler = handler } } } })
-    },
-    effect() {},
-  }
-  apply(ctx, { credentialStore })
-
-  const saved = await rpcHandler('api-key-save', { args: { apiKey: 'test-secret' } })
-  assert.deepEqual(saved, { ok: true, value: { configured: true } })
-  assert.equal(storedKey, 'test-secret')
-  assert.equal(JSON.stringify(saved).includes('test-secret'), false)
-
-  const status = await rpcHandler('api-key-status', { args: {} })
-  assert.deepEqual(status, { ok: true, value: { configured: true } })
-
-  const cleared = await rpcHandler('api-key-clear', { args: {} })
-  assert.deepEqual(cleared, { ok: true, value: { configured: false } })
-  assert.equal(storedKey, null)
+test('requires an explicitly supplied API key', () => {
+  assert.equal(requireApiKey('  test-secret  '), 'test-secret')
+  assert.throws(() => requireApiKey(''), /填写 API Key/)
+  assert.throws(() => requireApiKey(undefined), /填写 API Key/)
 })
 
 async function freePort() {

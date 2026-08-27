@@ -13,13 +13,9 @@ DeepSeek Harness 本地插件，为 `scan2ebook` 提供左侧导航入口和图�
 - 启动和终止插件管理的本地网页阅读器，并通过系统默认浏览器打开，不占用 DSH 内置 sidebar；
 - 提供 `scan2ebook_open` 工具，供 Skill 在识别到转换需求后唤起面板。
 
-API Key 只随一次 `start` RPC 进入本机宿主，并作为 Python 子进程环境变量使用；浏览器不持久化，宿主不写日志。
+API Key 直接在 sidebar 中输入，只保留在当前 sidebar 的浏览器内存中。它只随 `start` RPC 进入本机宿主，并作为 Python 子进程环境变量使用。关闭 sidebar、切换到其他 sidebar Tab 或退出 DSH 后，输入的 Key 会自动清除。
 
-API Key 来源可在选择 PDF 前配置：
-
-- **macOS 钥匙串（推荐）**：可在 sidebar 中保存、更新或删除；浏览器只读取配置状态，不会取回明文；
-- **仅本次转换输入**：只保留在当前 sidebar 的内存中，任务启动后清空；
-- **环境变量 / 项目 `.env`**：使用 `DEEPSEEK_API_KEY`，适合已有 CLI 配置的用户。
+插件不使用 macOS 钥匙串、`.env`、DSH Provider API Key、`localStorage` 或其他持久化存储，也不会把 API Key 写入日志。CLI 用户仍可以独立使用 `.env`。
 
 开发安装：
 

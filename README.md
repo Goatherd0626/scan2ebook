@@ -12,7 +12,7 @@
 |---|---|
 | Python 转换器 / Apple Vision OCR | **仅 macOS**；已在 Apple Silicon 上开发和测试，Intel Mac 未持续验证 |
 | DSH Skill | DeepSeek Harness 可加载 Skill 的环境 |
-| DSH sidebar 插件 | **仅 macOS**；依赖系统文件选择器、macOS Keychain 与 `/usr/bin/open` |
+| DSH sidebar 插件 | **仅 macOS**；依赖系统文件选择器与 `/usr/bin/open` |
 | 独立网页阅读器 | 构建后可在现代桌面浏览器运行；阅读器本身不依赖 Apple Vision |
 
 开发与构建要求：

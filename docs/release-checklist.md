@@ -21,8 +21,8 @@
 ## 密钥与隐私
 
 - [x] `.env` 已在 `.gitignore` 中排除，仓库只提供 `.env.example`。
-- [x] DSH sidebar 支持 macOS Keychain、仅本次输入、环境变量/`.env` 三种来源。
-- [x] 钥匙串明文不返回浏览器，不写入 `localStorage`、日志或仓库。
+- [x] DSH sidebar 仅在当前 sidebar 内存中保留 API Key，关闭 sidebar 或 DSH 后自动清除。
+- [x] API Key 不写入钥匙串、`.env`、`localStorage`、日志或仓库。
 - [ ] 发布前运行秘密扫描（例如 Gitleaks）并检查完整 Git 历史。
 - [ ] 删除截图、测试日志和示例数据中的用户名、绝对路径、书名及其他个人信息。
 

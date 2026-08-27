@@ -13,7 +13,7 @@ description: 将扫描版书籍 PDF 转换为带原始 PDF 页码锚点的结构
 当 `scan2ebook_open` 工具存在时，优先调用它打开 DSH 的 Scan2Ebook sidebar：
 
 1. 让用户通过系统文件选择器选择 PDF。
-2. 由用户确认两端闭区间页码、视觉模型、API Key 来源和费用估算。
+2. 由用户确认两端闭区间页码、视觉模型、当前 sidebar 的临时 API Key 和费用估算。
 3. 用户点击“开始转换”后，由 sidebar 展示进度、费用和取消按钮。
 4. 不要同时从命令行启动第二份转换任务。
 
@@ -30,8 +30,10 @@ description: 将扫描版书籍 PDF 转换为带原始 PDF 页码锚点的结构
 - `--vision-model MODEL`：覆盖视觉模型。
 - `--serve`：转换后启动网页阅读器。
 
-不要在消息、日志或命令行参数中输出 API Key。API Key 应来自插件的 macOS Keychain、
-仅本次输入，或进程环境中的 `DEEPSEEK_API_KEY`。
+不要在消息、日志或命令行参数中输出 API Key。插件模式下，API Key 只能由用户在
+当前 sidebar 中临时输入；不使用钥匙串、`.env`、DSH Provider 或宿主环境变量。
+关闭 sidebar 或 DSH 后，该 Key 应自动清除。CLI 模式仍可独立使用
+进程环境中的 `DEEPSEEK_API_KEY`。
 
 ## 输出约束
 

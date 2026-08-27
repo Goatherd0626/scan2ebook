@@ -40,7 +40,7 @@ test('validates editable reader port', () => {
 test('registers one unified sidebar instead of separate conversion and reader tabs', () => {
   assert.match(source, /const SIDEBAR_TAB = 'scan2ebook:tools'/)
   assert.doesNotMatch(source, /scan2ebook:convert|scan2ebook:reader/)
-  assert.match(source, /h\(ConversionView, \{ scope \}\)/)
+  assert.match(source, /h\(ConversionView, \{ scope, visible \}\)/)
   assert.match(source, /h\(ReaderView\)/)
   assert.doesNotMatch(source, /data-dsh-scan2ebook-reader-entry', label:/)
 })
@@ -51,10 +51,12 @@ test('opens the reader through host RPC instead of an intercepted sidebar link',
   assert.doesNotMatch(source, /target: '_blank'/)
 })
 
-test('offers explicit API key sources without persisting key material in the browser', () => {
-  assert.match(source, /macOS 钥匙串（已配置）/)
-  assert.match(source, /仅本次转换输入/)
-  assert.match(source, /环境变量 \/ 项目 \.env/)
-  assert.match(source, /rpc\('api-key-save'/)
+test('keeps one API key only in sidebar memory and clears it when hidden', () => {
+  assert.match(source, /function ConversionView\(\{ scope, visible \}\)/)
+  assert.match(source, /if \(!visible\) setApiKey\(''\)/)
+  assert.match(source, /scan2ebook:host-unavailable/)
+  assert.match(source, /pagehide/)
+  assert.match(source, /关闭 sidebar 或 DSH 后自动清除/)
+  assert.doesNotMatch(source, /keychain|api-key-save|api-key-clear|API_KEY_SOURCE_KEY/i)
   assert.doesNotMatch(source, /localStorage\.setItem\([^\n]*apiKey/)
 })

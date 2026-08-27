@@ -14,7 +14,6 @@ const MAX_LOG_LINES = 200
 const DEFAULT_PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 const DEFAULT_MODEL = 'deepseek-v4-flash-vision-exp'
 const DEFAULT_PORT = 8765
-const KEYCHAIN_SERVICE = 'org.scan2ebook.dsh'
 
 /** @param {unknown} value */
 function messageOf(value) {
@@ -168,52 +167,11 @@ function openInDefaultBrowser(url) {
   })
 }
 
-/** @param {string[]} args @param {string | undefined} stdin */
-function runSecurity(args, stdin) {
-  return new Promise((done, reject) => {
-    // 新 session 避免 security 在 DSH 的交互式控制终端上等待密码确认。
-    const child = spawn('/usr/bin/security', args, { detached: true, stdio: ['pipe', 'pipe', 'pipe'] })
-    let stdout = ''
-    let stderr = ''
-    child.stdout.setEncoding('utf8').on('data', (chunk) => { stdout += chunk })
-    child.stderr.setEncoding('utf8').on('data', (chunk) => { stderr += chunk })
-    child.once('error', reject)
-    child.once('exit', (code) => code === 0
-      ? done(stdout.trim())
-      : reject(new Error(stderr.trim() || `security 退出码 ${code}`)))
-    if (stdin === undefined) child.stdin.end()
-    else child.stdin.end(`${stdin}\n`)
-  })
-}
-
-/** 使用 macOS Keychain 持久化密钥，宿主只向浏览器暴露“是否已配置”。 */
-function createKeychainStore() {
-  const account = process.env.USER || 'scan2ebook-user'
-  const baseArgs = ['-a', account, '-s', KEYCHAIN_SERVICE]
-  return {
-    async get() {
-      if (process.platform !== 'darwin') return null
-      try {
-        return await runSecurity(['find-generic-password', ...baseArgs, '-w'])
-      } catch (error) {
-        if (/could not be found|item not found/i.test(messageOf(error))) return null
-        throw error
-      }
-    },
-    async set(value) {
-      if (process.platform !== 'darwin') throw new Error('当前系统暂不支持 macOS 钥匙串')
-      // 把 -w 放在末尾并从 stdin 输入两次（创建/确认），避免 API Key 出现在进程参数中。
-      await runSecurity(['add-generic-password', '-U', ...baseArgs, '-w'], `${value}\n${value}`)
-    },
-    async clear() {
-      if (process.platform !== 'darwin') throw new Error('当前系统暂不支持 macOS 钥匙串')
-      try {
-        await runSecurity(['delete-generic-password', ...baseArgs])
-      } catch (error) {
-        if (!/could not be found|item not found/i.test(messageOf(error))) throw error
-      }
-    },
-  }
+/** API Key 必须由当前 sidebar 显式传入，不回退到宿主环境或持久化存储。 */
+export function requireApiKey(value) {
+  const apiKey = typeof value === 'string' ? value.trim() : ''
+  if (apiKey === '') throw new Error('请先填写 API Key')
+  return apiKey
 }
 
 /** @param {import('@deepseek-ai/cordis').Context} ctx @param {any} config */
@@ -224,7 +182,6 @@ export function apply(ctx, config = {}) {
   const defaultPort = Number(config.defaultPort || DEFAULT_PORT)
   const defaultPrice = Number(config.estimatedPricePerRequest || 0.001)
   const openExternalUrl = config.openExternalUrl || openInDefaultBrowser
-  const credentialStore = config.credentialStore || createKeychainStore()
   const jobs = new Map()
   const readers = new Map()
   const selectedPdfs = new Set()
@@ -282,18 +239,10 @@ export function apply(ctx, config = {}) {
       '--page-start', String(pageStart), '--page-end', String(pageEnd),
       '--vision-model', model, '--progress-json',
     ]
-    const env = { ...process.env, PYTHONUNBUFFERED: '1' }
-    const apiKeySource = String(args.apiKeySource || 'environment')
-    if (apiKeySource === 'session') {
-      const apiKey = typeof args.apiKey === 'string' ? args.apiKey.trim() : ''
-      if (apiKey === '') throw new Error('请选择“仅本次输入”时填写 API Key')
-      env.DEEPSEEK_API_KEY = apiKey
-    } else if (apiKeySource === 'keychain') {
-      const apiKey = await credentialStore.get()
-      if (!apiKey) throw new Error('macOS 钥匙串中尚未保存 API Key')
-      env.DEEPSEEK_API_KEY = apiKey
-    } else if (apiKeySource !== 'environment') {
-      throw new Error('未知 API Key 来源')
+    const env = {
+      ...process.env,
+      PYTHONUNBUFFERED: '1',
+      DEEPSEEK_API_KEY: requireApiKey(args.apiKey),
     }
     const child = spawn(python, commandArgs, { cwd: projectRoot, env, stdio: ['ignore', 'pipe', 'pipe'] })
     const job = {
@@ -382,22 +331,8 @@ export function apply(ctx, config = {}) {
           const cwd = sessionCwd(args.sessionId)
           return { ok: true, value: {
             cwd, pdfs: listPdfs(cwd), defaultModel, defaultPort, defaultPrice,
-            apiKeyConfigured: Boolean(await credentialStore.get()),
             latestJob: publicJob(latestJobId ? jobs.get(latestJobId) : undefined),
           } }
-        }
-        if (endpoint === 'api-key-status') {
-          return { ok: true, value: { configured: Boolean(await credentialStore.get()) } }
-        }
-        if (endpoint === 'api-key-save') {
-          const apiKey = typeof args.apiKey === 'string' ? args.apiKey.trim() : ''
-          if (apiKey === '') throw new Error('API Key 不能为空')
-          await credentialStore.set(apiKey)
-          return { ok: true, value: { configured: true } }
-        }
-        if (endpoint === 'api-key-clear') {
-          await credentialStore.clear()
-          return { ok: true, value: { configured: false } }
         }
         if (endpoint === 'choose-pdf') {
           const chosen = await choosePdfWithSystemDialog()
