@@ -1,5 +1,6 @@
 /* 阅读器入口：初始化 pdf.js worker、注册插件、启动核心 */
 import './style.css';
+import './liquid-glass.css';
 import * as pdfjsLib from 'pdfjs-dist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();

@@ -1,0 +1,309 @@
+/* ============================================================
+   Scan2Ebook · Liquid Glass visual layer
+   功能结构保留在 style.css；本文件只负责材质、层级与交互状态。
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+  --lg-canvas: #f5f5f7;
+  --lg-canvas-deep: #e9e9ed;
+  --lg-paper: #ffffff;
+  --lg-label: #1d1d1f;
+  --lg-label-secondary: #6e6e73;
+  --lg-label-tertiary: #8e8e93;
+  --lg-accent: #007aff;
+  --lg-accent-hover: #0071e3;
+  --lg-danger: #ff3b30;
+  --lg-separator: rgba(60, 60, 67, .18);
+  --lg-separator-soft: rgba(60, 60, 67, .1);
+  --lg-fill: rgba(120, 120, 128, .12);
+  --lg-fill-hover: rgba(120, 120, 128, .18);
+  --lg-glass: rgba(246, 246, 248, .7);
+  --lg-glass-heavy: rgba(250, 250, 252, .86);
+  --lg-glass-clear: rgba(255, 255, 255, .46);
+  --lg-glass-stroke: rgba(255, 255, 255, .76);
+  --lg-glass-inner: inset 0 1px 0 rgba(255, 255, 255, .72), inset 0 -1px 0 rgba(255, 255, 255, .2);
+  --lg-shadow-1: 0 1px 2px rgba(0, 0, 0, .06), 0 4px 16px rgba(0, 0, 0, .06);
+  --lg-shadow-2: 0 8px 32px rgba(0, 0, 0, .12), 0 2px 8px rgba(0, 0, 0, .08);
+  --lg-shadow-3: 0 22px 70px rgba(0, 0, 0, .2), 0 6px 20px rgba(0, 0, 0, .1);
+  --lg-radius-control: 10px;
+  --lg-radius-group: 13px;
+  --lg-radius-popover: 18px;
+  --lg-radius-sheet: 24px;
+  --lg-motion-fast: 140ms;
+  --lg-motion: 220ms;
+  --lg-spring: cubic-bezier(.2, .82, .25, 1);
+
+  /* 兼容现有功能样式读取的语义变量。 */
+  --bg: var(--lg-canvas);
+  --paper: var(--lg-paper);
+  --panel: rgba(242, 242, 247, .78);
+  --panel-2: var(--lg-fill-hover);
+  --surface: rgba(255, 255, 255, .92);
+  --ink: var(--lg-label);
+  --ink-2: var(--lg-label-secondary);
+  --ink-3: var(--lg-label-tertiary);
+  --accent: var(--lg-accent);
+  --accent-2: var(--lg-accent);
+  --line: var(--lg-separator);
+  --line-soft: var(--lg-separator-soft);
+  --danger: var(--lg-danger);
+  --pdf-bg: #27272a;
+  --source-page-hover: rgba(0, 122, 255, .055);
+  --source-item-hover: rgba(0, 122, 255, .1);
+  --source-label: rgba(60, 60, 67, .58);
+  --r-sm: var(--lg-radius-control);
+  --r-md: var(--lg-radius-group);
+  --r-lg: var(--lg-radius-popover);
+  --shadow-card: var(--lg-shadow-1);
+  --shadow-float: var(--lg-shadow-2);
+  --shadow-modal: var(--lg-shadow-3);
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+  --tbar-h: 64px;
+}
+
+body.dark {
+  color-scheme: dark;
+  --lg-canvas: #1c1c1e;
+  --lg-canvas-deep: #111113;
+  --lg-paper: #2c2c2e;
+  --lg-label: #f5f5f7;
+  --lg-label-secondary: #aeaeb2;
+  --lg-label-tertiary: #8e8e93;
+  --lg-accent: #0a84ff;
+  --lg-accent-hover: #409cff;
+  --lg-danger: #ff453a;
+  --lg-separator: rgba(235, 235, 245, .2);
+  --lg-separator-soft: rgba(235, 235, 245, .1);
+  --lg-fill: rgba(120, 120, 128, .2);
+  --lg-fill-hover: rgba(120, 120, 128, .28);
+  --lg-glass: rgba(38, 38, 42, .72);
+  --lg-glass-heavy: rgba(44, 44, 48, .88);
+  --lg-glass-clear: rgba(44, 44, 48, .5);
+  --lg-glass-stroke: rgba(255, 255, 255, .16);
+  --lg-glass-inner: inset 0 1px 0 rgba(255, 255, 255, .12), inset 0 -1px 0 rgba(0, 0, 0, .16);
+  --lg-shadow-1: 0 1px 2px rgba(0, 0, 0, .22), 0 6px 18px rgba(0, 0, 0, .18);
+  --lg-shadow-2: 0 12px 38px rgba(0, 0, 0, .36), 0 2px 10px rgba(0, 0, 0, .24);
+  --lg-shadow-3: 0 26px 80px rgba(0, 0, 0, .56), 0 8px 24px rgba(0, 0, 0, .3);
+  --bg: var(--lg-canvas);
+  --paper: var(--lg-paper);
+  --panel: rgba(36, 36, 40, .8);
+  --panel-2: var(--lg-fill-hover);
+  --surface: rgba(44, 44, 48, .92);
+  --ink: var(--lg-label);
+  --ink-2: var(--lg-label-secondary);
+  --ink-3: var(--lg-label-tertiary);
+  --accent: var(--lg-accent);
+  --accent-2: var(--lg-accent);
+  --line: var(--lg-separator);
+  --line-soft: var(--lg-separator-soft);
+  --danger: var(--lg-danger);
+  --pdf-bg: #111113;
+}
+
+html { background: var(--lg-canvas-deep); }
+body {
+  background:
+    radial-gradient(circle at 18% -20%, rgba(90, 200, 250, .12), transparent 36rem),
+    radial-gradient(circle at 88% 115%, rgba(175, 82, 222, .08), transparent 32rem),
+    var(--lg-canvas);
+  color: var(--lg-label);
+  font-family: var(--sans);
+  letter-spacing: 0;
+}
+
+button, input, textarea, select { font: inherit; }
+button { touch-action: manipulation; }
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--lg-accent) 48%, transparent);
+  outline-offset: 2px;
+}
+button:disabled, [aria-disabled="true"] { cursor: default; opacity: .42; }
+::selection { background: color-mix(in srgb, var(--lg-accent) 25%, transparent); }
+
+/* Supplied SF Symbols */
+.sf.i-search { --sf: url("./assets/icons/magnifyingglass.svg"); }
+.sf.i-plus { --sf: url("./assets/icons/plus.svg"); }
+.sf.i-spread { --sf: url("./assets/icons/rectangle.split.2x1.svg"); }
+.sf.i-sidebar-right { --sf: url("./assets/icons/sidebar.right.svg"); }
+.sf.i-xmark { --sf: url("./assets/icons/xmark.svg"); }
+.sf.i-sync { --sf: url("./assets/icons/arrow.up.arrow.down.svg"); }
+
+/* Shared regular-glass material. */
+#topbar,
+#sidebar,
+#detail-panel,
+.annotations-sidebar,
+#find-strip,
+#eyecare-panel,
+#ctxbar,
+.annotations-card-popover,
+#settings-dialog,
+#fn-tooltip {
+  background: var(--lg-glass);
+  border: 1px solid var(--lg-glass-stroke);
+  box-shadow: var(--lg-glass-inner), var(--lg-shadow-1);
+  -webkit-backdrop-filter: saturate(1.65) blur(24px);
+  backdrop-filter: saturate(1.65) blur(24px);
+}
+
+/* Buttons use a stable hit box and a quiet state layer. */
+.icon-btn,
+.mini,
+.fb-btn,
+.vs-ctl,
+.ht-act,
+.annotations-export,
+.annotations-toggle,
+.page-editor-close {
+  border: 1px solid transparent;
+  color: var(--lg-label-secondary);
+  background: transparent;
+  box-shadow: none;
+  transition:
+    color var(--lg-motion-fast) ease,
+    background var(--lg-motion-fast) ease,
+    border-color var(--lg-motion-fast) ease,
+    box-shadow var(--lg-motion-fast) ease,
+    transform var(--lg-motion-fast) var(--lg-spring);
+}
+.icon-btn:hover,
+.mini:hover,
+.fb-btn:hover,
+.vs-ctl:hover,
+.ht-act:hover,
+.annotations-export:hover,
+.annotations-toggle:hover,
+.page-editor-close:hover {
+  color: var(--lg-label);
+  background: var(--lg-fill-hover);
+  border-color: color-mix(in srgb, var(--lg-glass-stroke) 65%, transparent);
+}
+.icon-btn:active,
+.mini:active,
+.fb-btn:active,
+.vs-ctl:active,
+.ht-act:active,
+.annotations-export:active,
+.annotations-toggle:active,
+.page-editor-close:active { transform: scale(.94); }
+.icon-btn.active,
+.mini.primary,
+.vs-ctl.active,
+.annotations-toggle.active,
+#btn-library.active {
+  color: #fff;
+  background: var(--lg-accent);
+  border-color: color-mix(in srgb, var(--lg-accent) 76%, #fff);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28), 0 3px 10px color-mix(in srgb, var(--lg-accent) 28%, transparent);
+}
+
+.seg,
+#toc-tabs,
+.ec-mode-group,
+.annotations-tabs {
+  padding: 3px;
+  gap: 2px;
+  overflow: visible;
+  border: 1px solid var(--lg-separator-soft);
+  border-radius: var(--lg-radius-group);
+  background: var(--lg-fill);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, .03);
+}
+.seg button,
+#toc-tabs button,
+.ec-mode-group button,
+.annotations-tabs button {
+  min-height: 30px;
+  padding: 5px 11px;
+  border: 0;
+  border-radius: calc(var(--lg-radius-group) - 3px) !important;
+  color: var(--lg-label-secondary);
+  background: transparent;
+}
+.seg button:hover,
+#toc-tabs button:hover,
+.ec-mode-group button:hover,
+.annotations-tabs button:hover { color: var(--lg-label); background: var(--lg-fill); }
+.seg button.active,
+#toc-tabs button.active,
+.ec-mode-group button.active,
+.annotations-tabs button.active {
+  color: var(--lg-label);
+  background: var(--lg-glass-heavy);
+  box-shadow: var(--lg-glass-inner), 0 1px 4px rgba(0, 0, 0, .1);
+}
+
+/* Delayed, compact help bubble. */
+[data-tip]::after,
+[data-tip]::before { transition: opacity 110ms ease 500ms, transform 110ms ease 500ms; }
+[data-tip]::after {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(28, 28, 30, .88);
+  color: #fff;
+  font: 500 12px/1.35 var(--sans);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+[data-tip]::before { background: rgba(28, 28, 30, .88); }
+[data-tip]:focus-visible::after,
+[data-tip]:focus-visible::before { opacity: 1; transition-delay: 0ms; }
+
+/* Scrollbars recede until hovered. */
+* { scrollbar-color: color-mix(in srgb, var(--lg-label-tertiary) 34%, transparent) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  min-height: 36px;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lg-label-tertiary) 38%, transparent);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--lg-label-secondary) 58%, transparent); }
+
+@supports not ((-webkit-backdrop-filter: blur(2px)) or (backdrop-filter: blur(2px))) {
+  #topbar,
+  #sidebar,
+  #detail-panel,
+  .annotations-sidebar,
+  #find-strip,
+  #eyecare-panel,
+  #ctxbar,
+  .annotations-card-popover,
+  #settings-dialog,
+  #fn-tooltip { background: color-mix(in srgb, var(--lg-paper) 96%, var(--lg-canvas)); }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  #topbar,
+  #sidebar,
+  #detail-panel,
+  .annotations-sidebar,
+  #find-strip,
+  #eyecare-panel,
+  #ctxbar,
+  .annotations-card-popover,
+  #settings-dialog,
+  #fn-tooltip {
+    background: color-mix(in srgb, var(--lg-paper) 96%, var(--lg-canvas));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    transition-delay: 0ms !important;
+  }
+}
