@@ -579,6 +579,29 @@ button:disabled, [aria-disabled="true"] { cursor: default; opacity: .42; }
   #topbar-context { max-width: 48vw; }
   #btn-import { width: 36px; padding: 0; font-size: 0; }
   #btn-import .sf { width: 17px; height: 17px; }
+  /* 窄桌面:内容优先,侧栏与详情/标注 Inspector 悬浮覆盖,不再挤压阅读区。 */
+  #sidebar,
+  #detail-panel,
+  .annotations-sidebar {
+    position: fixed;
+    top: calc(var(--tbar-h) + 12px);
+    bottom: 12px;
+    z-index: 640;
+    box-shadow: var(--lg-glass-inner), var(--lg-shadow-2);
+  }
+  #sidebar { left: 10px; width: min(var(--sbar-w), calc(100vw - 20px)); }
+  #detail-panel {
+    right: 10px;
+    flex: none;
+    width: min(286px, calc(100vw - 20px));
+  }
+  .annotations-sidebar {
+    right: 10px;
+    margin: 0;
+    width: min(320px, calc(100vw - 20px));
+  }
+  .annotations-resizer { display: none; }
+  #detail-panel .dp-close { display: inline-flex; }
 }
 
 /* ============================================================
@@ -630,6 +653,8 @@ body.sidebar-hidden #sidebar { display: none; }
   font: 650 13px/1 var(--sans);
   letter-spacing: -.005em;
 }
+/* 窄桌面详情面板覆盖显示时才出现的关闭按钮(见 @media max-width 920px)。 */
+.dp-close { display: none; }
 .panel-actions { gap: 5px; }
 .mini.act {
   width: 32px;
@@ -987,12 +1012,14 @@ body.sidebar-hidden #sidebar { display: none; }
   left: 0;
   width: 38px;
   height: 34px;
+  margin-left: 0; /* 与下方 translateX(-50%) 搭配,保证胶囊中心真正骑跨在交界线上 */
   border: 0;
   border-radius: 0;
   color: var(--lg-label-secondary);
   background: transparent;
   box-shadow: none;
   transform: translateX(-50%);
+  transition: background var(--lg-motion-fast) ease, color var(--lg-motion-fast) ease, z-index 0s;
 }
 .divider button:first-of-type { top: calc(50% - 34px); border-radius: 12px 12px 5px 5px; }
 .divider button:last-of-type { top: 50%; border-radius: 5px 5px 12px 12px; }

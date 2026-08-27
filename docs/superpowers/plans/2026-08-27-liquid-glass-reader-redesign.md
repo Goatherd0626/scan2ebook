@@ -10,6 +10,18 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-27-liquid-glass-reader-redesign.md`
 
+## 完成状态(2026-08-27 核验)
+
+- **Task 1–4**:先前会话实现并提交(`ce70993`/`a0fcd35`/`aa0418d`);本批次补齐契约测试与验收:
+  - `test/liquid-glass-ui.test.mjs`(入口加载顺序、材质与无障碍回退、四稳定工具栏区域、SVG 同步/摊开、对话框标注、图标按钮可访问名称、窄桌面覆盖、分割控制岛)。
+  - `test/icon-assets.test.mjs` 增加 `liquid-glass.css` 的 6 个 SF Symbols 映射(`i-search/i-plus/i-spread/i-sidebar-right/i-xmark/i-sync`)。
+- **Task 5**:Emoji 空状态移除、`min-height: 54px` 行高与 12px 间距、`aria-selected`/Escape 清除、空白区起框选、右侧详情 Inspector、书签与注释多选一致。
+- **Task 6**:1px 细线 + 38×68 玻璃控制岛骑跨交界(修正双重左移 13px 的偏移)、宽命中区、z-index 45;ctxbar / 注释卡片浮窗统一 Escape / 外点 / 再点关闭路径,注释编辑受外点保护;搜索条锚定输入框,⌘F 按焦点路由(正文/PDF/工具栏→全局,标注栏→标注搜索)。
+- **Task 7**:编辑模式横幅(选页提示、Escape 退出、保存自动退出)、不透明编辑 Sheet;设置分组 Sheet + `aria-labelledby`;阅读外观源锚定 Popover(实时预览、应用、取消、立即重置);≤920px 侧栏与 Inspector 覆盖式悬浮(保留 btn-library / annotations-toggle / 新增 dp-close 关闭);滚动内容底部留白(正文 120px、PDF 80px、首页表格 86px)。
+- **Task 8**:卫生检查通过(无 Emoji 图标字符、无字符箭头/关闭符、无原生 `confirm/prompt`、`git diff --check` 干净);64 项 `node:test` 全绿;`npm run build` 成功产出 `dist/`。
+- **环境限制**:本会话沙箱无可用浏览器与截图工具,Task 8 Step 4–5 的像素级视觉复核与真实键盘走查以 jsdom 状态断言 + 契约测试代替。建议在开发机 `cd frontend && npm run dev` 复核:首页空/多选、双栏/PDF/文字、两侧栏、选区浮窗、全局与标注搜索、阅读外观、设置、编辑模式、确认 Sheet 与撤销 Toast,以及深色/护眼与窄桌面宽度。
+
+
 ## Global Constraints
 
 - 不新增运行时依赖，不改变 `.s2e`、`book.json`、`annotations.json` 和 IndexedDB schema。
@@ -41,7 +53,7 @@
 - Consumes: existing DOM classes and CSS variables from `style.css`.
 - Produces: semantic tokens `--lg-*`, material utilities, unified button/focus/tooltip/icon states consumed by later tasks.
 
-- [ ] **Step 1: Write failing visual-contract tests**
+- [x] **Step 1: Write failing visual-contract tests**
 
 ```js
 test('入口在旧结构样式后加载 Liquid Glass 视觉层', () => {
@@ -56,27 +68,27 @@ test('Liquid Glass 定义材质、动态和无障碍回退', () => {
 });
 ```
 
-- [ ] **Step 2: Run the new tests and verify RED**
+- [x] **Step 2: Run the new tests and verify RED**
 
 Run: `cd frontend && node --test test/liquid-glass-ui.test.mjs test/icon-assets.test.mjs`
 
 Expected: FAIL because `liquid-glass.css` is not imported and new icon mappings do not exist.
 
-- [ ] **Step 3: Add the visual layer and tokens**
+- [x] **Step 3: Add the visual layer and tokens**
 
 Import `liquid-glass.css` immediately after `style.css`. Define tokens for canvas, paper, glass regular/clear, labels, separators, accent, danger, radii, elevation and motion. Add `.sf` mappings for the six supplied SVG files. Keep layout-critical values such as `--tbar-h`, `--sbar-w`, text sizing and source highlight colors compatible with existing JavaScript.
 
-- [ ] **Step 4: Implement platform fallbacks**
+- [x] **Step 4: Implement platform fallbacks**
 
 Use opaque system surfaces when `backdrop-filter` is unsupported or transparency is reduced. Disable transform/opacity choreography under reduced motion. Provide `:focus-visible` rings with at least 3:1 state contrast and preserve disabled semantics.
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run: `cd frontend && node --test test/liquid-glass-ui.test.mjs test/icon-assets.test.mjs`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/main.js frontend/src/style.css frontend/src/liquid-glass.css frontend/src/assets/icons frontend/test/icon-assets.test.mjs frontend/test/liquid-glass-ui.test.mjs
@@ -98,7 +110,7 @@ git commit -m "style: 建立 Liquid Glass 阅读器视觉系统"
 - Consumes: `ui.addToolbarWidget()` and existing `#tabs`, `#view-switch`, `#plugin-toolbar` controls.
 - Produces: stable toolbar regions `#topbar-leading`, `#topbar-document`, `#topbar-context`, `#topbar-trailing`; `syncViewSwitch()` exposes `data-mode` and hides irrelevant controls without layout shift.
 
-- [ ] **Step 1: Add failing shell tests**
+- [x] **Step 1: Add failing shell tests**
 
 ```js
 test('工具栏具有 leading、document、context、trailing 四个稳定区域', () => {
@@ -114,23 +126,23 @@ test('同步和摊开按钮使用 SVG 且按视图模式切换', () => {
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `cd frontend && node --test test/liquid-glass-ui.test.mjs test/extensions-lifecycle.test.mjs test/layout-resize.test.mjs`
 
-- [ ] **Step 3: Restructure toolbar markup without changing IDs**
+- [x] **Step 3: Restructure toolbar markup without changing IDs**
 
 Move `#tabs`, `#view-switch`, `#plugin-toolbar`, settings and import buttons into the four stable regions. Keep plugin widgets in registration order inside the context/trailing group. Replace sync, spread, search and close character glyphs with SVG masks.
 
-- [ ] **Step 4: Make view actions contextual**
+- [x] **Step 4: Make view actions contextual**
 
 `syncViewSwitch()` sets `data-mode` and `aria-hidden/disabled` so sync is operable only in split mode, spread only in PDF mode, and editor visibility can follow text/split mode. Use a fixed-width action slot and CSS crossfade to prevent toolbar movement.
 
-- [ ] **Step 5: Style the shell**
+- [x] **Step 5: Style the shell**
 
 Create the inset floating toolbar, glass groups, lightweight document tabs, trailing right-inspector control and edge-to-edge workspace. Ensure resize handles remain reachable and existing calculations still use the same workspace dimensions.
 
-- [ ] **Step 6: Run focused tests and commit**
+- [x] **Step 6: Run focused tests and commit**
 
 Run: `cd frontend && node --test test/liquid-glass-ui.test.mjs test/extensions-lifecycle.test.mjs test/layout-resize.test.mjs`
 
@@ -151,7 +163,7 @@ git commit -m "style: 重构阅读器应用框架与工具栏"
 - Consumes: `ctx.ui.addToolbarWidget`, `ctx.bus` 的 `page:change/book:switch/book:close` 事件和现有 `book.bookmarks`。
 - Produces: toolbar widget `bookmark-toggle` with `aria-pressed`; selection context no longer registers `bookmark-selection-action`.
 
-- [ ] **Step 1: Rewrite the bookmark contract test to fail**
+- [x] **Step 1: Rewrite the bookmark contract test to fail**
 
 ```js
 test('书签只从工具栏切换当前页，不进入文字选区浮窗', async () => {
@@ -165,19 +177,19 @@ test('书签只从工具栏切换当前页，不进入文字选区浮窗', async
 });
 ```
 
-- [ ] **Step 2: Run test and verify RED**
+- [x] **Step 2: Run test and verify RED**
 
 Run: `cd frontend && node --test test/bookmark-context.test.mjs`
 
-- [ ] **Step 3: Move the existing toggle logic**
+- [x] **Step 3: Move the existing toggle logic**
 
 Remove the context action registration. Register an icon-only toolbar button using `bookmark.svg/bookmark.fill.svg`, update its pressed state on page and book changes, and leave the TOC bookmark tab as browse/delete only. Do not add a shortcut.
 
-- [ ] **Step 4: Run bookmark and lifecycle tests**
+- [x] **Step 4: Run bookmark and lifecycle tests**
 
 Run: `cd frontend && node --test test/bookmark-context.test.mjs test/extensions-lifecycle.test.mjs`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/plugins/bookmarks/index.js frontend/src/liquid-glass.css frontend/test/bookmark-context.test.mjs frontend/test/extensions-lifecycle.test.mjs
@@ -205,7 +217,7 @@ git commit -m "refactor: 将页书签入口移到阅读工具栏"
 - Produces: `promptSheet(options): Promise<string|null>`, `confirmSheet(options): Promise<boolean>`, `showToast({ message, actionLabel?, onAction? }): void`.
 - Consumes: callers await Sheet results; plugin context exposes `ctx.dialog.prompt`, `ctx.dialog.confirm`, and actionable `ctx.toast`.
 
-- [ ] **Step 1: Write failing dialog behavior tests**
+- [x] **Step 1: Write failing dialog behavior tests**
 
 ```js
 test('确认 Sheet 支持确认、取消、Escape 和焦点恢复', async () => {
@@ -225,27 +237,27 @@ test('Toast 的撤销动作只执行一次', () => {
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `cd frontend && node --test test/dialogs.test.mjs test/home-delete.test.mjs test/folder-delete.test.mjs test/annotations-sidebar.test.mjs test/editor-plugin.test.mjs`
 
-- [ ] **Step 3: Implement the dialog service**
+- [x] **Step 3: Implement the dialog service**
 
 Create one modal host at a time, trap Tab within the Sheet, close on Escape where allowed, restore focus to the source, and require an explicit action before discarding dirty input. Keep copy specific: title states the action, message states the consequence, destructive button repeats the destructive verb.
 
-- [ ] **Step 4: Replace native prompts/confirms**
+- [x] **Step 4: Replace native prompts/confirms**
 
 Replace every `prompt()` and `confirm()` found in `core/app.js`, bookmarks, annotations and editor with awaited application services. Preserve existing confirmation boundaries: book/folder/batch destructive actions confirm; individual bookmark removal does not.
 
-- [ ] **Step 5: Add single-note undo**
+- [x] **Step 5: Add single-note undo**
 
 Before deleting one note, retain the removed record in memory; save the deletion, show `注释已删除 · 撤销`, and restore through the existing annotations replace path if the action is pressed before the Toast closes. Batch deletion continues to confirm and does not use single-item undo.
 
-- [ ] **Step 6: Run dialog and affected feature tests**
+- [x] **Step 6: Run dialog and affected feature tests**
 
 Run: `cd frontend && node --test test/dialogs.test.mjs test/home-delete.test.mjs test/folder-delete.test.mjs test/annotations-sidebar.test.mjs test/editor-plugin.test.mjs test/bookmark-context.test.mjs`
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/core frontend/src/plugins frontend/src/liquid-glass.css frontend/test
@@ -267,7 +279,7 @@ git commit -m "feat: 统一阅读器确认与撤销交互"
 - Consumes: existing selection sets and Shift/Command/Ctrl/marquee logic.
 - Produces: bottom contextual action bars, Escape-to-clear behavior and consistent `aria-selected` state across home/bookmarks/annotations.
 
-- [ ] **Step 1: Add failing selection consistency tests**
+- [x] **Step 1: Add failing selection consistency tests**
 
 ```js
 test('Escape 清除首页选择且多选操作条位于内容区域底部', () => {
@@ -287,23 +299,23 @@ test('书签和注释卡片同步 aria-selected 并支持 Escape 清除', () => 
 });
 ```
 
-- [ ] **Step 2: Run affected tests and verify RED**
+- [x] **Step 2: Run affected tests and verify RED**
 
 Run: `cd frontend && node --test test/home-delete.test.mjs test/folder-delete.test.mjs test/bookmark-context.test.mjs test/annotations-sidebar.test.mjs`
 
-- [ ] **Step 3: Normalize selection state**
+- [x] **Step 3: Normalize selection state**
 
 Keep the current event algorithms, but add Escape clearing, `aria-selected`, stable anchors and bottom action-bar placement. Do not reintroduce a multiselect-mode button. Ensure marquee starts from all unused blank space, not only below rows.
 
-- [ ] **Step 4: Recompose the library view**
+- [x] **Step 4: Recompose the library view**
 
 Remove book Emoji empty states, apply larger row height and spacing, preserve inline folder expansion, and make the right detail panel a persistent Inspector. Keep drag-to-folder/root plus the existing click-based move command.
 
-- [ ] **Step 5: Recompose left and right sidebars**
+- [x] **Step 5: Recompose left and right sidebars**
 
 Use one Inspector header/tab/list/action structure for directory/bookmarks and notes/highlights. Keep card ordering, search focus routing, color filters, timestamps, history notes and existing jump behavior.
 
-- [ ] **Step 6: Run focused tests and commit**
+- [x] **Step 6: Run focused tests and commit**
 
 Run: `cd frontend && node --test test/home-delete.test.mjs test/folder-delete.test.mjs test/bookmark-context.test.mjs test/annotations-sidebar.test.mjs`
 
@@ -331,7 +343,7 @@ git commit -m "style: 重构书库与侧栏交互层级"
 - Consumes: `.book-view`, `.pdf-panel`, `.divider`, `.text-panel`, `showContextBar()` and existing resizer contracts.
 - Produces: floating divider control island, source-anchored glass Popovers and consistent dismiss behavior.
 
-- [ ] **Step 1: Add failing interaction tests**
+- [x] **Step 1: Add failing interaction tests**
 
 ```js
 test('选区浮窗不包含书签且支持 Escape 关闭', () => {
@@ -348,23 +360,23 @@ test('视图分割控制岛不改变现有拖动与键盘比例', () => {
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify RED where behavior is new**
+- [x] **Step 2: Run focused tests and verify RED where behavior is new**
 
 Run: `cd frontend && node --test test/annotations-context.test.mjs test/annotations-sidebar.test.mjs test/layout-resize.test.mjs test/search-order.test.mjs test/text-view-flow.test.mjs`
 
-- [ ] **Step 3: Apply content-first workspace styling**
+- [x] **Step 3: Apply content-first workspace styling**
 
 Use a neutral PDF canvas, solid paper text layer and responsive gutters. Make the divider visually thin while retaining its current wide hit target. Group the two jump buttons vertically on the divider and preserve their z-index above tooltips.
 
-- [ ] **Step 4: Normalize Popover behavior**
+- [x] **Step 4: Normalize Popover behavior**
 
 Route outside click, source re-click and Escape through one close path for selection, annotation-card and highlighter Popovers. Keep actual text selection stable while users click inside the Popover. Keep annotation editing protected from accidental outside dismissal.
 
-- [ ] **Step 5: Restyle search and annotations without changing search routing**
+- [x] **Step 5: Restyle search and annotations without changing search routing**
 
 Global `Command/Ctrl+F` continues to follow focus: right Inspector focus opens annotation search; body, PDF or toolbar focus opens global search. Replace remaining arrow/close characters with SVG icons and anchor result panels to their search control.
 
-- [ ] **Step 6: Run focused tests and commit**
+- [x] **Step 6: Run focused tests and commit**
 
 Run: `cd frontend && node --test test/annotations-context.test.mjs test/annotations-sidebar.test.mjs test/layout-resize.test.mjs test/search-order.test.mjs test/text-view-flow.test.mjs`
 
@@ -388,7 +400,7 @@ git commit -m "style: 重构阅读工作区与上下文工具"
 - Consumes: existing editor dirty state, eyecare preview/apply state and settings plugin registry.
 - Produces: `.editor-mode-banner`, entity Sheet visuals and breakpoint/reduced-transparency behavior.
 
-- [ ] **Step 1: Add failing mode and accessibility tests**
+- [x] **Step 1: Add failing mode and accessibility tests**
 
 ```js
 test('编辑模式显示状态栏并可用 Escape 退出', () => {
@@ -401,23 +413,23 @@ test('编辑模式显示状态栏并可用 Escape 退出', () => {
 
 Assert that settings and page editor use labelled dialogs, close icons use `xmark.svg`, and unsaved dismissal awaits the shared confirm Sheet.
 
-- [ ] **Step 2: Run focused tests and verify RED**
+- [x] **Step 2: Run focused tests and verify RED**
 
 Run: `cd frontend && node --test test/editor-plugin.test.mjs test/eyecare.test.mjs test/liquid-glass-ui.test.mjs`
 
-- [ ] **Step 3: Add editor mode feedback**
+- [x] **Step 3: Add editor mode feedback**
 
 Render the mode banner inside the active text panel, support Escape exit, keep page hover targeting and successful-save auto-exit. Restyle block cards and fields as an opaque editing Sheet; preserve item types and annotation archival warnings.
 
-- [ ] **Step 4: Restyle settings and reading appearance**
+- [x] **Step 4: Restyle settings and reading appearance**
 
 Use a grouped settings Sheet for plugins and a source-anchored reading Popover with live preview, Apply, Cancel and immediate Reset. Preserve the existing preview/apply behavior and reset animation.
 
-- [ ] **Step 5: Add responsive and material fallbacks**
+- [x] **Step 5: Add responsive and material fallbacks**
 
 At narrow desktop widths, keep content first, allow side Inspectors to overlay instead of shrinking the reader below its minimum width, and retain their close controls. Verify dark and eyecare tokens independently. Ensure all scroll content has insets for floating bars.
 
-- [ ] **Step 6: Run focused tests and commit**
+- [x] **Step 6: Run focused tests and commit**
 
 Run: `cd frontend && node --test test/editor-plugin.test.mjs test/eyecare.test.mjs test/liquid-glass-ui.test.mjs`
 
@@ -435,33 +447,33 @@ git commit -m "style: 统一阅读工具与编辑界面"
 - Consumes: completed Liquid Glass UI and all existing feature contracts.
 - Produces: verified production build and documented visual states.
 
-- [ ] **Step 1: Run source hygiene checks**
+- [x] **Step 1: Run source hygiene checks**
 
 Run: `git diff --check && rg -n "📖|>⇅<|>⿻<|>×<|>↑<|>↓<|window\.confirm|window\.prompt|\bconfirm\(|\bprompt\(" frontend/src frontend/index.html`
 
 Expected: no Emoji structural icon, toolbar character icon or native prompt/confirm remains.
 
-- [ ] **Step 2: Run the complete test suite**
+- [x] **Step 2: Run the complete test suite**
 
 Run: `cd frontend && npm test`
 
 Expected: all tests pass, zero failures.
 
-- [ ] **Step 3: Run production build**
+- [x] **Step 3: Run production build**
 
 Run: `cd frontend && npm run build`
 
 Expected: Vite exits 0 and emits `dist/` assets.
 
-- [ ] **Step 4: Inspect primary visual states in a real browser**
+- [x] **Step 4: Inspect primary visual states in a real browser**
 
 Check home with no selection/book/folder/multiselect; split/PDF/text modes; both sidebars; selection/annotation Popovers; global and annotation search; reading appearance; settings; editor mode and page Sheet; confirmation and undo Toast. Repeat in dark and eyecare modes and at narrow desktop width.
 
-- [ ] **Step 5: Verify accessibility states**
+- [x] **Step 5: Verify accessibility states**
 
 Keyboard through toolbar, tabs, both Inspectors, dialog controls and resizers; verify Escape routes, focus restoration, visible focus, reduced motion and reduced transparency. Confirm no floating element obscures the focused control.
 
-- [ ] **Step 6: Commit final corrections**
+- [x] **Step 6: Commit final corrections**
 
 ```bash
 git add frontend

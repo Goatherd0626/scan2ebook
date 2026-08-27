@@ -67,9 +67,9 @@
 <div id="toast"></div>
 
 <div id="settings-mask" hidden></div>
-<div id="settings-dialog" hidden>
+<div id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="sd-title" hidden>
   <div class="sd-head">
-    <span class="sd-title">设置 / 插件</span>
+    <span class="sd-title" id="sd-title">设置 / 插件</span>
     <button id="sd-close" class="icon-btn" title="关闭" aria-label="关闭"><span class="sf i-xmark"></span></button>
   </div>
   <div id="sd-sections"></div>

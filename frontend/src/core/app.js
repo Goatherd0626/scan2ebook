@@ -57,6 +57,12 @@ export async function init() {
   });
 
   bindTopbar();
+  $('detail-panel')?.addEventListener('click', (event) => {
+    if (event.target.closest('.dp-close')) {
+      event.stopPropagation();
+      $('detail-panel').hidden = true;
+    }
+  });
   initSidebarResizer({
     handle: $('sidebar-resizer'),
     onCommit: () => {
@@ -1181,7 +1187,7 @@ function renderDetail() {
       const bookCount = state.books.filter((book) => treeSet.has(book.folderId)).length;
       const parent = state.folders.find((item) => item.id === folder.parentId);
       panel.innerHTML = `
-        <div class="dp-head"><span class="dp-title">详细信息</span></div>
+        <div class="dp-head"><span class="dp-title">详细信息</span><button type="button" class="dp-close icon-btn" title="关闭详细信息" aria-label="关闭详细信息"><span class="sf i-xmark"></span></button></div>
         <div class="dp-body">
           <div class="dp-object-icon folder"><span class="sf i-folder-plain"></span></div>
           <h3 class="dp-object-name dp-edit-title dp-folder-name" data-folder-key="name" title="单击修改文件夹名称">${escapeHtml(folder.name)}</h3>
@@ -1221,6 +1227,7 @@ function renderDetail() {
   panel.innerHTML = `
     <div class="dp-head">
       <span class="dp-title">详细信息</span>
+      <button type="button" class="dp-close icon-btn" title="关闭详细信息" aria-label="关闭详细信息"><span class="sf i-xmark"></span></button>
     </div>
     <div class="dp-body">
       <div class="dp-cover c${ci}">${escapeHtml((book.meta.title || book.s2eName || '书').slice(0, 1))}</div>

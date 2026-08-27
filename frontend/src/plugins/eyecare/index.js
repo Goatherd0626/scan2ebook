@@ -93,12 +93,28 @@ registerExtension({
     const removeToolbar = ctx.ui.addToolbarWidget({ id: 'eyecare', el: toolbarButton });
     const resetIcon = panel.querySelector('.i-reset-clockwise');
 
+    const anchorPanel = () => {
+      const pw = panel.offsetWidth || 312;
+      const ph = panel.offsetHeight || 520;
+      const r = toolbarButton.getBoundingClientRect();
+      let left = Math.min(r.right - pw, window.innerWidth - pw - 12);
+      left = Math.max(12, left);
+      let top = r.bottom + 8;
+      if (top + ph > window.innerHeight - 12) top = Math.max(12, r.top - ph - 8);
+      panel.style.right = 'auto';
+      panel.style.left = left + 'px';
+      panel.style.top = top + 'px';
+    };
+
     const setPanelOpen = (open) => {
       draft = { ...committed };
       panel.hidden = !open;
       toolbarButton.classList.toggle('active', open);
       toolbarButton.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (open) syncControls();
+      if (open) {
+        anchorPanel();
+        syncControls();
+      }
     };
 
     listen(toolbarButton, 'click', () => setPanelOpen(panel.hidden));
