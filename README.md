@@ -90,24 +90,47 @@ cp .env.example .env   # 填入 DEEPSEEK_API_KEY
 editable 安装后会提供 `.venv/bin/scan2ebook` 命令。也可以先激活虚拟环境，
 再直接使用 `scan2ebook`。
 
+Python 发布包的本地构建与审计：
+
+```bash
+.venv/bin/pip install -e ".[dev]"
+.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m build --outdir dist
+.venv/bin/python scripts/verify_python_package.py dist
+.venv/bin/python -m twine check dist/*
+```
+
+`scripts/verify_python_package.py` 会检查版本、MIT 许可证、CLI 入口与依赖元数据，
+并拒绝包含 `reader/`、DSH 组件、`.env`、PDF 或 `.s2e` 的产物。
+正式发布前还应在全新虚拟环境中安装 wheel，运行 `scan2ebook --help`、
+`scan2ebook inspect <PDF>` 和 reader 缺失/存在两条路径的冒烟测试。
+
 ### 2. 独立网页阅读器
 
 ```bash
 cd reader
 npm ci
 npm run build
-cd ..
+npm link
 ```
 
-构建后的静态网页位于 `reader/dist/`。使用 Python 转换器启动：
+这会在本机注册 `scan2ebook-reader` 命令。回到仓库根目录后，可以直接启动：
 
 ```bash
+scan2ebook-reader --port 8765
+```
+
+Python 转换器也保留了兼容入口；它只负责调用 PATH 中的独立 reader，
+不会从 Python wheel 或本仓库读取前端文件：
+
+```bash
+cd ..
 .venv/bin/scan2ebook serve
 ```
 
 `reader/dist/` 不提交到 Git，因此 GitHub 自动生成的 Source code zip/tar.gz
-也不包含它。从源码安装的用户必须先执行上述构建命令。
-`npm pack` 和 `npm publish` 会在打包前自动构建，并将 `dist/` 放入 reader npm 发布包。
+不包含它。`npm pack` 和 `npm publish` 会在打包前自动构建，
+并将 `dist/` 放入 reader npm 发布包。
 
 如果只需要阅读器、不安装 Python 转换器，也可以从 `reader/` 启动
 Vite preview：
@@ -144,8 +167,10 @@ dsh plugin --profile web add dsh-client-ui-scan2ebook
 如果 DSH 运行环境找不到 `scan2ebook`，可在插件配置中将
 `scan2ebookCommand` 指向独立 Python 环境里的可执行文件。
 
-`pyproject.toml` 当前面向 clone 后的源码 editable 安装。网页阅读器资源仍由仓库中的
-`reader/` 提供，因此首个 0.1.0 版本暂不承诺 PyPI wheel 包含完整阅读器资源。
+Python wheel 只包含转换器，不包含 `reader/`、DSH Skill 或 DSH 插件。
+若要使用 `scan2ebook serve` 或转换命令的 `--serve`，还需单独安装
+`scan2ebook-reader`。当前 0.1.0 尚未发布到 PyPI 或 npm registry，
+本 README 中的 registry 安装命令表示正式发布后的用户接口。
 
 ## reader npm 包
 
@@ -203,7 +228,7 @@ DSH 插件已经直接依赖并调用这个 reader npm 包。正式发布顺序�
 #   --force-ocr     PDF 自带文字层时也强制走 OCR（默认检测到文字层直接抽取）
 #   --no-footnotes  丢弃脚注
 #   --no-bundle     不打包 .s2e
-#   --serve         转换完成后自动启动阅读器并打开浏览器
+#   --serve         转换完成后启动已独立安装的阅读器
 #   --split-pages   额外输出 pages/page_NNN.json（抽查单页用）
 #   --page-start N  起始 PDF 页码（1-based，两端闭区间）
 #   --page-end N    结束 PDF 页码（1-based，两端闭区间）
@@ -211,15 +236,19 @@ DSH 插件已经直接依赖并调用这个 reader npm 包。正式发布顺序�
 #   --progress-json 输出供 GUI 消费的 S2E_EVENT 进度行
 ```
 
-### 阅读器启动方式（三种，任选）
+### 阅读器启动方式
 
 | 方式 | 适合 |
 |---|---|
-| `python -m scan2ebook serve` | 命令行，自动开浏览器；端口被占用时自动复用已有实例 |
-| `python -m scan2ebook 书.pdf --serve` | 转换完直接进阅读器 |
-| **双击 `启动阅读器.command`** | Finder 双击即开（零命令行），适合非技术用户 |
+| `scan2ebook-reader` | 独立 reader CLI，不需要 Python 转换器 |
+| `python -m scan2ebook serve` | Python 兼容入口，转发参数给已安装的 `scan2ebook-reader` |
+| `python -m scan2ebook 书.pdf --serve` | 转换完后在后台启动已安装的 reader |
 
 阅读器打开后把 `.s2e` 拖进窗口即可导入书库。
+`scan2ebook serve --no-browser` 会转换为 reader 的 `--no-open`。如果可执行文件
+不在 PATH，可以设置 `SCAN2EBOOK_READER_COMMAND=/absolute/path/to/scan2ebook-reader`，
+或给 `scan2ebook serve` 传入 `--reader-command`。转换后找不到 reader 时，
+转换产物仍然保留，命令只会记录可操作的安装提示。
 
 ### 阅读器程序和电子书存在哪里
 
@@ -277,9 +306,9 @@ scan2ebook/
 │   └── dsh-client-ui-scan2ebook/ # DSH 左侧入口、转换面板、RPC 与阅读器进程管理
 ├── dsh-skill/
 │   └── scan2ebook/SKILL.md     # 可随仓库发布和安装的 DSH Skill
-├── scan2ebook/           # Python：转换 + 阅读器服务
+├── scan2ebook/           # Python：转换器 + 独立 reader 兼容启动器
 │   ├── cli.py            # 转换（产出 .s2e / json）
-│   ├── reader.py         # 本地阅读器服务（python -m scan2ebook serve）
+│   ├── reader.py         # 调用外部 scan2ebook-reader CLI 的兼容层
 │   ├── vision.py         # ds-vision 逐页结构化
 │   ├── toc.py            # 目录装配：TOC 条目 ↔ 正文标题匹配
 │   ├── web_reader.py     # 单文件预览 HTML 生成（轻量预览用）
@@ -342,6 +371,9 @@ scan2ebook/
 - [ ] 查询 npm 包名可用性并正式发布 `scan2ebook-reader@0.1.0`
 - [ ] GitHub Release 附加 reader `.tgz`，并视需要增加不要求 Node.js 的桌面封装
 - [x] 解除 DSH 插件对 Git 仓库根目录、固定 `.venv` 和 Python reader 入口的依赖
+- [x] Python wheel 仅包含转换器，`scan2ebook serve` 改为调用独立 reader CLI
+- [x] 本地构建并审计 Python wheel/sdist，通过 `twine check` 与隔离安装测试
+- [ ] 确认 PyPI 包名、账号和 2FA，再发布 `scan2ebook==0.1.0`
 - [ ] 先发布 reader，再正式发布 `dsh-client-ui-scan2ebook@0.1.0`
 - [ ] 二期：文字高亮（多色）/ 添加注释 + 右侧注释侧边栏
 - [ ] 二期：编辑模式（修正识别错误，写回 JSON）

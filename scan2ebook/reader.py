@@ -1,89 +1,112 @@
-"""本地网页阅读器服务。
+"""独立网页阅读器的 Python 兼容启动器。
 
-用法：
-    python -m scan2ebook serve [--port 8765] [--host 127.0.0.1]
-    python -m scan2ebook.reader [--port 8765]        # 等价
-
-服务 reader/dist/（已构建）。源码依赖 Vite 打包和模块解析，
-因此未构建时不能直接作为普通静态文件服务。
-前端是独立 Vite 项目（reader/），开发用 `cd reader && npm run dev`。
-
-启动后自动打开浏览器；若端口已被占用（阅读器可能已在运行），
-直接打开已有实例而不报错。--no-browser 可关闭自动开浏览器。
+网页阅读器从 0.1.0 起由 npm 包 ``scan2ebook-reader`` 独立发布。这里保留
+``scan2ebook serve`` 和 ``python -m scan2ebook.reader`` 两个入口，负责查找并
+调用 reader CLI，避免 Python wheel 再携带一份前端静态资源。
 """
 from __future__ import annotations
 
 import argparse
-import functools
-import http.server
+import os
+import shutil
+import subprocess
 import sys
-import time
-import urllib.request
-import webbrowser
-from pathlib import Path
+from collections.abc import Sequence
 
-ROOT = Path(__file__).resolve().parent.parent
-READER = ROOT / "reader"
+DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+DEFAULT_READER_COMMAND = "scan2ebook-reader"
+READER_COMMAND_ENV = "SCAN2EBOOK_READER_COMMAND"
 
 
-def _web_dir() -> Path:
-    dist = READER / "dist"
-    if dist.exists() and (dist / "index.html").exists():
-        return dist
-    # 源码中包含 Vite 的 bare imports，SimpleHTTPRequestHandler 无法直接提供可用阅读器。
-    raise FileNotFoundError(f"未找到已构建的阅读器 {dist}，请先运行：cd reader && npm ci && npm run build")
+class ReaderNotInstalledError(RuntimeError):
+    """没有找到独立 reader CLI。"""
 
 
-def _probe(host: str, port: int, timeout: float = 0.5) -> bool:
-    try:
-        urllib.request.urlopen(f"http://{host}:{port}/", timeout=timeout)
-        return True
-    except Exception:  # noqa: BLE001
-        return False
+def reader_install_hint() -> str:
+    """返回不包含本机路径的可执行安装提示。"""
+    return (
+        "未找到 scan2ebook-reader。网页阅读器需要单独安装：\n"
+        "  npm install --global scan2ebook-reader\n"
+        "安装后重新运行；也可以设置 SCAN2EBOOK_READER_COMMAND 指向其可执行文件。"
+    )
 
 
-def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="scan2ebook serve", description="scan2ebook 本地网页阅读器")
+def resolve_reader_command(command: str | None = None) -> str:
+    """按显式参数、环境变量、PATH 的顺序寻找 reader 可执行文件。"""
+    candidate = (command or os.getenv(READER_COMMAND_ENV) or DEFAULT_READER_COMMAND).strip()
+    if not candidate:
+        raise ReaderNotInstalledError(reader_install_hint())
+    resolved = shutil.which(candidate)
+    if resolved is None:
+        raise ReaderNotInstalledError(reader_install_hint())
+    return resolved
+
+
+def reader_argv(
+    *,
+    host: str = DEFAULT_HOST,
+    port: int = DEFAULT_PORT,
+    open_browser: bool = True,
+    command: str | None = None,
+) -> list[str]:
+    """生成不经过 shell 的 reader 命令参数。"""
+    executable = resolve_reader_command(command)
+    args = [executable, "--host", host, "--port", str(port)]
+    if not open_browser:
+        args.append("--no-open")
+    return args
+
+
+def start_reader_detached(
+    *,
+    host: str = DEFAULT_HOST,
+    port: int = DEFAULT_PORT,
+    open_browser: bool = True,
+    command: str | None = None,
+) -> subprocess.Popen[bytes]:
+    """后台启动独立 reader，供转换完成后的 ``--serve`` 使用。"""
+    return subprocess.Popen(
+        reader_argv(host=host, port=port, open_browser=open_browser, command=command),
+        start_new_session=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(
+        prog="scan2ebook serve",
+        description="启动独立安装的 scan2ebook 网页阅读器",
+    )
     ap.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"监听端口（默认 {DEFAULT_PORT}）")
-    ap.add_argument("--host", default="127.0.0.1", help="监听地址（默认 127.0.0.1）")
-    ap.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
+    ap.add_argument("--host", default=DEFAULT_HOST, help=f"监听地址（默认 {DEFAULT_HOST}）")
+    ap.add_argument("--no-browser", action="store_true", help="启动后不自动打开浏览器")
+    ap.add_argument(
+        "--reader-command",
+        help=f"reader 可执行文件；默认读取 {READER_COMMAND_ENV} 或在 PATH 中查找 {DEFAULT_READER_COMMAND}",
+    )
     args = ap.parse_args(argv)
 
     try:
-        web_dir = _web_dir()
-    except FileNotFoundError as e:
-        print(e, file=sys.stderr)
+        command = reader_argv(
+            host=args.host,
+            port=args.port,
+            open_browser=not args.no_browser,
+            command=args.reader_command,
+        )
+    except ReaderNotInstalledError as error:
+        print(error, file=sys.stderr)
         return 1
 
-    url = f"http://{args.host}:{args.port}"
-    if _probe(args.host, args.port):
-        print(f"检测到 {url} 已有服务（阅读器可能已在运行），直接打开浏览器…")
-        if not args.no_browser:
-            webbrowser.open(url)
-        return 0
-
-    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(web_dir))
     try:
-        server = http.server.ThreadingHTTPServer((args.host, args.port), handler)
-    except OSError as e:
-        print(f"端口 {args.port} 启动失败：{e}", file=sys.stderr)
-        return 1
-
-    print(f"📖 scan2ebook 阅读器：{url}  （Ctrl+C 退出）")
-    if not args.no_browser:
-        for _ in range(20):
-            if _probe(args.host, args.port, 0.3):
-                break
-            time.sleep(0.15)
-        webbrowser.open(url)
-    try:
-        server.serve_forever()
+        return subprocess.run(command, check=False).returncode
     except KeyboardInterrupt:
-        pass
-    finally:
-        server.server_close()
-    return 0
+        return 130
+    except OSError as error:
+        print(f"无法启动 scan2ebook-reader：{error}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

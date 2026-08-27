@@ -224,7 +224,7 @@ def main(argv=None) -> int:
             (pages_dir / f"page_{pg['pdf_page']:03d}.json").write_text(
                 json.dumps(pg, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # 5) 网页阅读器（自包含单文件，快速预览用；完整阅读器见 python -m scan2ebook.reader）
+    # 5) 单文件 HTML 只用于快速预览；完整阅读器由 npm 包独立提供。
     html_path = out_dir / f"{stem}.html"
     html_path.write_text(build_reader_html(structured, meta, stem), encoding="utf-8")
     log.info("网页阅读器已生成：%s", html_path)
@@ -292,28 +292,15 @@ def _inspect_pdf(argv: list[str]) -> int:
 
 
 def _launch_reader(port: int = 8765, host: str = "127.0.0.1") -> None:
-    """转换完成后后台启动阅读器服务并打开浏览器。"""
-    import subprocess
-    import time
-    import urllib.request
-    import webbrowser
+    """转换完成后调用独立 reader；缺失 reader 不影响已完成的转换产物。"""
+    from .reader import ReaderNotInstalledError, start_reader_detached
 
-    log.info("启动阅读器：python -m scan2ebook serve …")
-    py = sys.executable
-    subprocess.Popen(
-        [py, "-m", "scan2ebook.reader", "--port", str(port), "--host", host],
-        start_new_session=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    url = f"http://{host}:{port}"
-    for _ in range(30):
-        try:
-            urllib.request.urlopen(url, timeout=0.5)
-            break
-        except Exception:  # noqa: BLE001
-            time.sleep(0.2)
-    webbrowser.open(url)
+    try:
+        start_reader_detached(host=host, port=port)
+    except ReaderNotInstalledError as error:
+        log.warning("转换已完成，但无法启动网页阅读器：%s", error)
+    except OSError as error:
+        log.warning("转换已完成，但启动网页阅读器失败：%s", error)
 
 
 def _bundle_s2e(s2e_path: Path, src: Path, book_json: dict) -> None:

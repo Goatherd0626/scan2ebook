@@ -31,7 +31,8 @@ scan2ebook "<输入.pdf>" -o "<输入 PDF 所在目录>"
 - `--page-start N`：1-based 起始页，闭区间。
 - `--page-end N`：1-based 结束页，闭区间。
 - `--vision-model MODEL`：覆盖视觉模型。
-- `--serve`：转换后启动网页阅读器。
+- `--serve`：转换后启动网页阅读器；需要另行安装
+  `scan2ebook-reader` npm 包，或设置 `SCAN2EBOOK_READER_COMMAND`。
 
 不要在消息、日志或命令行参数中输出 API Key。插件模式下，API Key 只能由用户在
 当前 sidebar 中临时输入；不使用钥匙串、`.env`、DSH Provider 或宿主环境变量。

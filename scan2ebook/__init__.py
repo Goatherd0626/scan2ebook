@@ -1,3 +1,3 @@
-"""scan2ebook: 扫描版书籍 → 带页码标注的 Markdown / Word 电子书。"""
+"""scan2ebook：将扫描版 PDF 转换为带页码锚点的结构化电子书。"""
 
 __version__ = "0.1.0"
