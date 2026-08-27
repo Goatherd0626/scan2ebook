@@ -41,8 +41,23 @@ registerExtension({
         const active = !!currentView && view.bookId === currentView.bookId && mode;
         view.textView?.setSourcePreviewOnHover?.(active);
         view.wv?.classList.toggle('editor-mode', active);
+        let banner = view.wv?.querySelector('.editor-mode-banner');
+        if (active && !banner) {
+          banner = document.createElement('div');
+          banner.className = 'editor-mode-banner';
+          banner.setAttribute('role', 'status');
+          banner.innerHTML = '<span>选择一页进行编辑</span><span class="editor-mode-hint">Esc 退出</span>'
+            + '<button type="button" aria-label="退出编辑模式"><span class="sf i-xmark" aria-hidden="true"></span></button>';
+          banner.querySelector('button').addEventListener('click', () => {
+            mode = false;
+            updateToggle();
+          });
+          view.wv.querySelector('.text-panel')?.prepend(banner);
+        } else if (!active) {
+          banner?.remove();
+        }
       }
-      toggle.hidden = !currentView;
+      toggle.hidden = !currentView || currentView.prefs?.viewMode === 'pdf';
       toggle.classList.toggle('active', mode);
       toggle.setAttribute('aria-pressed', mode ? 'true' : 'false');
       toggle.textContent = mode ? '编辑中' : '编辑';
@@ -67,6 +82,13 @@ registerExtension({
       updateToggle();
       ctx.toast(mode ? '编辑模式已开启：点击文字页内容开始编辑' : '编辑模式已关闭');
     });
+    const onEditorKeydown = (event) => {
+      if (event.key !== 'Escape' || !mode || activeEditor) return;
+      mode = false;
+      updateToggle();
+    };
+    document.addEventListener('keydown', onEditorKeydown);
+    cleanups.push(() => document.removeEventListener('keydown', onEditorKeydown));
 
     async function savePage({ book, view, page, items }) {
       const normalizedItems = normalizePageItems(items);

@@ -68,9 +68,9 @@ export function createAnnotationsSidebar({
     <div class="annotations-search" hidden>
       <input class="annotations-search-input" placeholder="搜索标注…" aria-label="搜索标注">
       <span class="annotations-search-count">0 / 0</span>
-      <button type="button" data-search="prev" aria-label="上一个">↑</button>
-      <button type="button" data-search="next" aria-label="下一个">↓</button>
-      <button type="button" data-search="close" aria-label="关闭">×</button>
+      <button type="button" data-search="prev" aria-label="上一个"><span class="sf i-up" aria-hidden="true"></span></button>
+      <button type="button" data-search="next" aria-label="下一个"><span class="sf i-down" aria-hidden="true"></span></button>
+      <button type="button" data-search="close" aria-label="关闭"><span class="sf i-xmark" aria-hidden="true"></span></button>
     </div>
     <div class="annotations-colors" hidden></div>
     <div class="annotations-multi" hidden>
@@ -185,7 +185,9 @@ export function createAnnotationsSidebar({
 
   function updateSelection() {
     list.querySelectorAll('.annotations-card').forEach((card) => {
-      card.classList.toggle('selected', selected.has(card.dataset.id));
+      const active = selected.has(card.dataset.id);
+      card.classList.toggle('selected', active);
+      card.setAttribute('aria-selected', active ? 'true' : 'false');
     });
     const count = selected.size;
     multi.hidden = count < 2;
@@ -314,6 +316,7 @@ export function createAnnotationsSidebar({
     const card = document.createElement('article');
     card.className = 'annotations-card ' + (record.type === 'highlight' ? 'is-highlight c-' + record.color : 'is-note');
     card.dataset.id = record.id;
+    card.setAttribute('aria-selected', selected.has(record.id) ? 'true' : 'false');
     card.tabIndex = 0;
     const quote = document.createElement('div');
     quote.className = 'annotations-quote';
@@ -453,7 +456,15 @@ export function createAnnotationsSidebar({
     if (!editable && ['Delete', 'Backspace'].includes(event.key) && selected.size) {
       event.preventDefault(); deleteSelected();
     }
-    if (event.key === 'Escape' && !search.hidden) closeSearch();
+    if (event.key === 'Escape') {
+      if (!search.hidden) closeSearch();
+      else {
+        selected.clear();
+        lastSelected = null;
+        hideCardPopover();
+        updateSelection();
+      }
+    }
   });
 
   listen(resizer, 'pointerdown', (event) => {

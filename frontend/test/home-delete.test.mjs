@@ -74,6 +74,13 @@ test('首页和侧边栏无需模式按钮即可连续、增减和框选，并�
   assert.match(document.getElementById('detail-panel').textContent, /已选择 3 本电子书/);
   rows[1].dispatchEvent(new window.MouseEvent('click', { bubbles: true, metaKey: true }));
   assert.equal(document.querySelectorAll('#home-table .ht-row.selected').length, 2);
+  assert.equal([...document.querySelectorAll('#home-table .ht-row.selected')]
+    .every((row) => row.getAttribute('aria-selected') === 'true'), true);
+  document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.equal(document.querySelectorAll('#home-table .ht-row.selected').length, 0);
+  assert.equal(document.getElementById('home-delete').disabled, true);
+  rows[0].click();
+  rows[1].dispatchEvent(new window.MouseEvent('click', { bubbles: true, metaKey: true }));
 
   rows.forEach((row, index) => {
     row.getBoundingClientRect = () => ({ left: 10, right: 210, top: 10 + index * 40, bottom: 35 + index * 40 });

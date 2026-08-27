@@ -25,7 +25,11 @@ registerExtension({
     input.placeholder = '搜索书库…';
     input.autocomplete = 'off';
     input.spellcheck = false;
-    wrap.appendChild(input);
+    input.setAttribute('aria-label', '搜索书库或正文');
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'sf i-search';
+    searchIcon.setAttribute('aria-hidden', 'true');
+    wrap.append(searchIcon, input);
     const removeToolbar = ctx.ui.addToolbarWidget({ id: 'search', el: wrap });
 
     /* ---------- 浮动控件条（VS Code 布局，输入框下方右上角） ---------- */
@@ -36,8 +40,8 @@ registerExtension({
       <span id="find-count"></span>
       <button class="fb-btn" data-act="prev" title="上一个 (Shift+Enter)" aria-label="上一个"><span class="sf i-up"></span></button>
       <button class="fb-btn" data-act="next" title="下一个 (Enter)" aria-label="下一个"><span class="sf i-down"></span></button>
-      <button class="fb-btn" data-act="list" title="结果列表" aria-label="结果列表">≡</button>
-      <button class="fb-btn" data-act="close" title="清除并关闭 (Esc)" aria-label="清除并关闭"><span class="sf i-x"></span></button>`;
+      <button class="fb-btn" data-act="list" title="结果列表" aria-label="结果列表"><span class="sf i-list" aria-hidden="true"></span></button>
+      <button class="fb-btn" data-act="close" title="清除并关闭 (Esc)" aria-label="清除并关闭"><span class="sf i-xmark" aria-hidden="true"></span></button>`;
     document.body.appendChild(strip);
 
     /* ---------- 结果列表弹窗（≡ 展开） ---------- */

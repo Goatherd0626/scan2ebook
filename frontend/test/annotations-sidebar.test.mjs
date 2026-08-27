@@ -80,6 +80,14 @@ test('注释按正文顺序排列，支持连续多选并异步确认批量删�
   cards[0].dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
   cards[2].dispatchEvent(new window.MouseEvent('click', { bubbles: true, shiftKey: true }));
   assert.equal(view.wv.querySelectorAll('.annotations-card.selected').length, 3);
+  assert.equal([...view.wv.querySelectorAll('.annotations-card.selected')]
+    .every((card) => card.getAttribute('aria-selected') === 'true'), true);
+  view.wv.querySelector('.annotations-sidebar').dispatchEvent(new window.KeyboardEvent('keydown', {
+    key: 'Escape', bubbles: true,
+  }));
+  assert.equal(view.wv.querySelectorAll('.annotations-card.selected').length, 0);
+  cards[0].dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  cards[2].dispatchEvent(new window.MouseEvent('click', { bubbles: true, shiftKey: true }));
   const multi = view.wv.querySelector('.annotations-multi');
   assert.ok(multi.querySelector('[data-action="delete-selected"] .i-popover-trash'));
   assert.ok(multi.querySelector('[data-action="remove-highlights"] .i-popover-eraser'));

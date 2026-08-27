@@ -135,7 +135,11 @@ registerExtension({
       body.appendChild(multi);
 
       const updateSelection = () => {
-        body.querySelectorAll('.bm-item').forEach((row) => row.classList.toggle('selected', selectedIds.has(row.dataset.id)));
+        body.querySelectorAll('.bm-item').forEach((row) => {
+          const selected = selectedIds.has(row.dataset.id);
+          row.classList.toggle('selected', selected);
+          row.setAttribute('aria-selected', selected ? 'true' : 'false');
+        });
         multi.hidden = selectedIds.size < 2;
         multi.querySelector('span').textContent = '已选 ' + selectedIds.size + ' 个';
       };
@@ -161,6 +165,7 @@ registerExtension({
         const row = document.createElement('div');
         row.className = 'bm-item' + (selectedIds.has(bm.id) ? ' selected' : '');
         row.dataset.id = bm.id;
+        row.setAttribute('aria-selected', selectedIds.has(bm.id) ? 'true' : 'false');
         row.tabIndex = 0;
         const txt = document.createElement('span');
         txt.className = 'bm-text';
@@ -196,6 +201,17 @@ registerExtension({
     }
 
     listen(body, 'keydown', (event) => {
+      if (event.key === 'Escape') {
+        selectedIds.clear();
+        selectionAnchorId = null;
+        const multi = body.querySelector('.bm-multi');
+        body.querySelectorAll('.bm-item').forEach((row) => {
+          row.classList.remove('selected');
+          row.setAttribute('aria-selected', 'false');
+        });
+        if (multi) multi.hidden = true;
+        return;
+      }
       if (!['Delete', 'Backspace'].includes(event.key) || !selectedIds.size) return;
       event.preventDefault();
       removeBookmarks([...selectedIds], selectedIds.size > 1);
@@ -224,7 +240,9 @@ registerExtension({
       body.querySelectorAll('.bm-item').forEach((row) => {
         const rect = row.getBoundingClientRect();
         if (rect.left < right && rect.right > left && rect.top < bottom && rect.bottom > top) selectedIds.add(row.dataset.id);
-        row.classList.toggle('selected', selectedIds.has(row.dataset.id));
+        const selected = selectedIds.has(row.dataset.id);
+        row.classList.toggle('selected', selected);
+        row.setAttribute('aria-selected', selected ? 'true' : 'false');
       });
       const multi = body.querySelector('.bm-multi');
       if (multi) {

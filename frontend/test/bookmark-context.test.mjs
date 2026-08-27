@@ -102,6 +102,15 @@ test('工具栏按当前 PDF 页切换唯一书签，文字选区不再提供书
   assert.equal(document.querySelectorAll('.bm-item.selected').length, 3);
   batchRows[1].dispatchEvent(new window.MouseEvent('click', { bubbles: true, metaKey: true }));
   assert.equal(document.querySelectorAll('.bm-item.selected').length, 2);
+  assert.equal([...document.querySelectorAll('.bm-item.selected')]
+    .every((row) => row.getAttribute('aria-selected') === 'true'), true);
+  document.getElementById('tab-body-bookmarks').dispatchEvent(new window.KeyboardEvent('keydown', {
+    key: 'Escape', bubbles: true,
+  }));
+  assert.equal(document.querySelectorAll('.bm-item.selected').length, 0);
+  batchRows[0].click();
+  batchRows[2].dispatchEvent(new window.MouseEvent('click', { bubbles: true, shiftKey: true }));
+  batchRows[1].dispatchEvent(new window.MouseEvent('click', { bubbles: true, metaKey: true }));
 
   batchRows = [...document.querySelectorAll('#tab-body-bookmarks .bm-item')];
   batchRows.forEach((row, index) => {

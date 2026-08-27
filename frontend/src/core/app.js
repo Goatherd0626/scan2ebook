@@ -98,7 +98,7 @@ function renderLibrary() {
 function emptyLib() {
   const d = document.createElement('div');
   d.id = 'empty-hint';
-  d.innerHTML = '<div class="big">📖</div><div>书库为空</div>';
+  d.innerHTML = '<div class="big"><span class="sf i-home-library" aria-hidden="true"></span></div><div>书库为空</div>';
   const btn = document.createElement('button');
   btn.className = 'import-big';
   btn.textContent = '选择 .s2e 文件导入';
@@ -688,6 +688,10 @@ function bindTopbar() {
     if (e.key === 'Escape') {
       $('settings-dialog').hidden = true; $('settings-mask').hidden = true;
       $('fn-tooltip').style.display = 'none'; hideContextBar();
+      selectedBookIds.clear();
+      selectedHomeFolderId = null;
+      selectionAnchorId = null;
+      syncBookSelectionUI();
     }
     if (['Delete', 'Backspace'].includes(e.key) && (selectedBookIds.size || selectedHomeFolderId)
         && (state.activeBookId === null || e.target.closest?.('#library-panel'))
@@ -792,7 +796,7 @@ function createHomeView() {
           <span class="home-count"></span>
         </div>
         <div class="home-actions">
-          <div id="home-batch-bar" class="batch-bar" hidden>
+          <div id="home-batch-bar" class="batch-bar home-selection-bar" hidden>
             <button class="mini" data-action="move">移动到…</button>
             <button class="mini danger" data-action="delete">删除</button>
           </div>
@@ -816,7 +820,7 @@ function createHomeView() {
         </div>
         <div id="home-table"></div>
         <div id="home-empty" hidden>
-          <div class="big">📖</div>
+          <div class="big"><span class="sf i-home-library" aria-hidden="true"></span></div>
           <p>书库还是空的</p>
           <button id="home-empty-import" class="import-big">选择 .s2e 文件导入</button>
           <div class="drop-hint">也可以把 .s2e 文件拖到窗口任意位置</div>
@@ -1027,10 +1031,13 @@ function syncBookSelectionUI() {
   document.querySelectorAll('.book-row, .ht-row').forEach((row) => {
     const selected = selectedBookIds.has(row.dataset.id);
     row.classList.toggle('selected', selected);
+    row.setAttribute('aria-selected', selected ? 'true' : 'false');
     row.draggable = selected;
   });
   document.querySelectorAll('.ht-folder-row').forEach((row) => {
-    row.classList.toggle('selected', row.dataset.folderId === selectedHomeFolderId);
+    const selected = row.dataset.folderId === selectedHomeFolderId;
+    row.classList.toggle('selected', selected);
+    row.setAttribute('aria-selected', selected ? 'true' : 'false');
   });
   selectedBookId = selectedBookIds.size === 1 ? [...selectedBookIds][0] : null;
   const homeDelete = $('home-delete');

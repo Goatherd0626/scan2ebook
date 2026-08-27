@@ -66,6 +66,12 @@ test('编辑模式按页增删 item，确认后原子保存并归档受影响注
   toggle.click();
   assert.equal(toggle.getAttribute('aria-pressed'), 'true');
   assert.equal(hoverModes.at(-1), true);
+  assert.match(document.querySelector('.editor-mode-banner')?.textContent || '', /选择一页进行编辑/);
+  document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(toggle.getAttribute('aria-pressed'), 'false');
+  assert.equal(document.querySelector('.editor-mode-banner'), null);
+  toggle.click();
   extensions.bus.emit('page:select', { bookId: 'book-a', page: 1 });
   await new Promise((resolve) => setTimeout(resolve, 0));
 
