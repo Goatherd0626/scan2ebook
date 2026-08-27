@@ -19,7 +19,11 @@
 - **Task 6**:1px 细线 + 38×68 玻璃控制岛骑跨交界(修正双重左移 13px 的偏移)、宽命中区、z-index 45;ctxbar / 注释卡片浮窗统一 Escape / 外点 / 再点关闭路径,注释编辑受外点保护;搜索条锚定输入框,⌘F 按焦点路由(正文/PDF/工具栏→全局,标注栏→标注搜索)。
 - **Task 7**:编辑模式横幅(选页提示、Escape 退出、保存自动退出)、不透明编辑 Sheet;设置分组 Sheet + `aria-labelledby`;阅读外观源锚定 Popover(实时预览、应用、取消、立即重置);≤920px 侧栏与 Inspector 覆盖式悬浮(保留 btn-library / annotations-toggle / 新增 dp-close 关闭);滚动内容底部留白(正文 120px、PDF 80px、首页表格 86px)。
 - **Task 8**:卫生检查通过(无 Emoji 图标字符、无字符箭头/关闭符、无原生 `confirm/prompt`、`git diff --check` 干净);64 项 `node:test` 全绿;`npm run build` 成功产出 `dist/`。
-- **环境限制**:本会话沙箱无可用浏览器与截图工具,Task 8 Step 4–5 的像素级视觉复核与真实键盘走查以 jsdom 状态断言 + 契约测试代替。建议在开发机 `cd frontend && npm run dev` 复核:首页空/多选、双栏/PDF/文字、两侧栏、选区浮窗、全局与标注搜索、阅读外观、设置、编辑模式、确认 Sheet 与撤销 Toast,以及深色/护眼与窄桌面宽度。
+- **环境限制与真实浏览器复核(2026-08-27 追加)**:系统 Chrome 在本沙箱内 headless 挂起(`sandbox init`/无 GPU),改用 **Playwright 下载的 Chromium headless shell**(安装至 `/tmp/pw-browsers`,驱动脚本 `/tmp/pw/driver.mjs`)对 `npm run build` 产物执行状态走查,共 **19/19 通过**,截图存于 `docs/superpowers/visual-check/`(首页空/选中/批量、双栏/PDF/文字、选区浮窗、书签开关、标注栏与标注搜索路由、外观预览/深色/护眼、设置、窄桌面覆盖、焦点可见性)。浏览器走查中确认:
+  - 窄屏覆盖式 Inspector 初始规则位置被同优先级基础规则覆盖 → 已把该媒体块移到 `liquid-glass.css` 文件末尾修复;
+  - 标注搜索路由由标注栏 capture 处理器承担(焦点在栏内时 `stopImmediatePropagation`),搜索插件补充了同等保险逻辑 + `search-order.test.mjs` 契约测试;
+  - 深色模式正文保持纸面为有意设计(`applyCommitted` 对 dark 仅置 `body.dark`,不覆盖正文 `--paper/--ink`);
+  - 样例书无脚注,脚注悬浮弹窗以 jsdom footnotes 契约测试覆盖。
 
 
 ## Global Constraints

@@ -579,29 +579,6 @@ button:disabled, [aria-disabled="true"] { cursor: default; opacity: .42; }
   #topbar-context { max-width: 48vw; }
   #btn-import { width: 36px; padding: 0; font-size: 0; }
   #btn-import .sf { width: 17px; height: 17px; }
-  /* 窄桌面:内容优先,侧栏与详情/标注 Inspector 悬浮覆盖,不再挤压阅读区。 */
-  #sidebar,
-  #detail-panel,
-  .annotations-sidebar {
-    position: fixed;
-    top: calc(var(--tbar-h) + 12px);
-    bottom: 12px;
-    z-index: 640;
-    box-shadow: var(--lg-glass-inner), var(--lg-shadow-2);
-  }
-  #sidebar { left: 10px; width: min(var(--sbar-w), calc(100vw - 20px)); }
-  #detail-panel {
-    right: 10px;
-    flex: none;
-    width: min(286px, calc(100vw - 20px));
-  }
-  .annotations-sidebar {
-    right: 10px;
-    margin: 0;
-    width: min(320px, calc(100vw - 20px));
-  }
-  .annotations-resizer { display: none; }
-  #detail-panel .dp-close { display: inline-flex; }
 }
 
 /* ============================================================
@@ -1200,4 +1177,33 @@ body.sidebar-hidden #sidebar { display: none; }
     transition-duration: .001ms !important;
     transition-delay: 0ms !important;
   }
+}
+
+/* ============================================================
+   Narrow desktop: content-first overlay Inspectors
+   (置于文件末尾,确保覆盖前面同优先级的基础布局规则)
+   ============================================================ */
+@media (max-width: 920px) {
+  #sidebar,
+  #detail-panel,
+  .annotations-sidebar {
+    position: fixed;
+    top: calc(var(--tbar-h) + 12px);
+    bottom: 12px;
+    z-index: 640;
+    box-shadow: var(--lg-glass-inner), var(--lg-shadow-2);
+  }
+  #sidebar { left: 10px; width: min(var(--sbar-w), calc(100vw - 20px)); }
+  #detail-panel {
+    right: 10px;
+    flex: none;
+    width: min(286px, calc(100vw - 20px));
+  }
+  .annotations-sidebar {
+    right: 10px;
+    margin: 0;
+    width: min(320px, calc(100vw - 20px));
+  }
+  .annotations-resizer { display: none; }
+  #detail-panel .dp-close { display: inline-flex; }
 }

@@ -46,3 +46,35 @@ test('正文搜索按正文顺序保留同一段内的全部命中', () => {
   assert.equal(holder.querySelector('mark.hit.current'), hits[1]);
   extensions.deactivateExtension('search');
 });
+
+test('⌘F 按焦点路由:标注栏内打开标注搜索,其余位置打开全局搜索', () => {
+  extensions.ui.reset();
+  extensions.setEnabled('search', true);
+  const holder = document.querySelector('.text-content');
+  const ctx = {
+    bus: extensions.bus,
+    ui: extensions.ui,
+    state: { activeBookId: 'book-a', books: [], folders: [] },
+    getView: () => ({ textView: { holder } }),
+    openBook: () => {},
+  };
+  extensions.activateExtension('search', ctx);
+  const input = document.getElementById('search-input');
+
+  const sidebar = document.createElement('div');
+  sidebar.className = 'annotations-sidebar';
+  sidebar.innerHTML = '<input class="annotations-search-input" aria-label="搜索标注">';
+  document.body.append(sidebar);
+  const annInput = sidebar.querySelector('.annotations-search-input');
+  annInput.focus();
+
+  document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'f', metaKey: true, bubbles: true }));
+  assert.equal(document.activeElement, annInput, '标注栏聚焦时 ⌘F 应保持标注搜索');
+
+  annInput.blur();
+  document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'f', metaKey: true, bubbles: true }));
+  assert.equal(document.activeElement, input, '其他位置 ⌘F 应打开全局搜索');
+
+  sidebar.remove();
+  extensions.deactivateExtension('search');
+});

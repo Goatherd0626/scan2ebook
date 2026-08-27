@@ -268,7 +268,15 @@ registerExtension({
     listen(document, 'keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
         e.preventDefault();
-        input.focus(); input.select();
+        // 焦点在右侧标注栏内时打开标注搜索,其余位置打开全局搜索。
+        const annInput = document.querySelector('.annotations-sidebar:not([hidden]) .annotations-search-input');
+        if (annInput && document.activeElement?.closest('.annotations-sidebar')) {
+          annInput.focus();
+          annInput.select?.();
+        } else {
+          input.focus();
+          input.select();
+        }
       } else if (e.key === 'F3' && query && !strip.hidden) {
         e.preventDefault();
         if (e.shiftKey) prev(); else next();
