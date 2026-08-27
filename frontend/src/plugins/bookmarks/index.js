@@ -44,6 +44,33 @@ registerExtension({
       return normalizeBookmarks(book).find((bookmark) => bookmark.page === page);
     }
 
+    function currentPage(view = ctx.getView && ctx.getView()) {
+      if (!view) return 1;
+      return view.prefs?.viewMode === 'pdf'
+        ? (view.pdfView.currentPage || view.textView.currentPage || 1)
+        : (view.textView.currentPage || view.pdfView.currentPage || 1);
+    }
+
+    const toolbarToggle = document.createElement('button');
+    toolbarToggle.type = 'button';
+    toolbarToggle.className = 'icon-btn bookmark-toolbar-toggle';
+    toolbarToggle.setAttribute('aria-label', '添加当前页书签');
+    toolbarToggle.setAttribute('aria-pressed', 'false');
+    const removeToolbar = ctx.ui.addToolbarWidget({ id: 'bookmark-toggle', el: toolbarToggle });
+
+    function updateToolbar(page = null) {
+      const book = currentBook();
+      const view = ctx.getView && ctx.getView();
+      toolbarToggle.hidden = !book || !view;
+      const active = !!book && !!bookmarkAt(book, page || currentPage(view));
+      const label = active ? '取消当前页书签' : '添加当前页书签';
+      toolbarToggle.setAttribute('aria-label', label);
+      toolbarToggle.setAttribute('aria-pressed', active ? 'true' : 'false');
+      toolbarToggle.dataset.tip = label;
+      toolbarToggle.innerHTML = '<span class="bookmark-context-icon '
+        + (active ? 'i-bookmark-context-filled' : 'i-bookmark-context') + '" aria-hidden="true"></span>';
+    }
+
     function formatTime(timestamp) {
       const date = new Date(timestamp || Date.now());
       const pad = (value) => String(value).padStart(2, '0');
@@ -60,13 +87,14 @@ registerExtension({
       ids.forEach((id) => selectedIds.delete(id));
       await ctx.db.updateBook(book);
       renderList();
+      updateToolbar();
     }
 
     async function toggleBookmark(source = null) {
       const book = currentBook();
       const view = ctx.getView && ctx.getView();
       if (!book || !view) return;
-      const page = source?.page || view.textView.currentPage || view.pdfView.currentPage || 1;
+      const page = source?.page || currentPage(view);
       const anchor = view.textView.pageAnchors.get(page);
       const snippet = source?.snippet || (anchor ? (anchor.textContent || '').trim().slice(0, 40) : '');
       book.bookmarks = book.bookmarks || [];
@@ -75,29 +103,12 @@ registerExtension({
       else book.bookmarks.push({ id: crypto.randomUUID(), page, snippet, at: Date.now() });
       await ctx.db.updateBook(book);
       renderList();
+      updateToolbar(page);
       ctx.toast((existing ? '已取消书签：PDF 第 ' : '已添加书签：PDF 第 ') + page + ' 页');
     }
 
-    const removeContextAction = ctx.ui.addContextAction({
-      id: 'bookmark-selection-action',
-      render({ selection, close }) {
-        if (selection?.kind !== 'text') return null;
-        const book = currentBook();
-        const existing = book && bookmarkAt(book, selection.page);
-        const add = document.createElement('button');
-        add.type = 'button';
-        add.className = 'bookmark-context-action';
-        add.title = existing ? '取消书签' : '添加书签';
-        add.setAttribute('aria-label', add.title);
-        add.innerHTML = '<span class="bookmark-context-icon '
-          + (existing ? 'i-bookmark-context-filled' : 'i-bookmark-context') + '"></span>';
-        add.addEventListener('click', async () => {
-          await toggleBookmark({ page: selection.page });
-          close();
-        });
-        return add;
-      },
-    });
+    listen(toolbarToggle, 'click', () => toggleBookmark());
+    updateToolbar();
 
     function renderList() {
       const book = currentBook();
@@ -226,17 +237,23 @@ registerExtension({
       selectedIds.clear();
       selectionAnchorId = null;
       if (!body.hidden) renderList();
+      updateToolbar();
+    });
+    const offPageChange = ctx.bus.on('page:change', ({ bookId, page }) => {
+      if (bookId === ctx.state.activeBookId) updateToolbar(page);
     });
     const offContentChange = ctx.bus.on('book:content-change', () => {
       if (!body.hidden) renderList();
+      updateToolbar();
     });
 
     return () => {
       controller.abort();
       offSwitch();
+      offPageChange();
       offContentChange();
       marquee?.box.remove();
-      removeContextAction();
+      removeToolbar();
       removeTab();
       body.remove();
     };

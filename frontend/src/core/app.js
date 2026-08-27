@@ -317,7 +317,9 @@ function renderTabs() {
     title.style.overflow = 'hidden'; title.style.textOverflow = 'ellipsis';
     title.style.maxWidth = '130px';
     const x = document.createElement('span');
-    x.className = 'tab-x'; x.textContent = '×';
+    x.className = 'tab-x';
+    x.setAttribute('aria-label', '关闭标签');
+    x.innerHTML = '<span class="sf i-xmark" aria-hidden="true"></span>';
     x.addEventListener('click', (e) => { e.stopPropagation(); closeTab(t.bookId); });
     btn.append(title, x);
     btn.addEventListener('click', () => switchTab(t.bookId));
@@ -342,6 +344,7 @@ function createBookView(book) {
 
   let model = buildRenderModel(book.bookJson);
   const pdfView = new PdfView(wv.querySelector('.pdf-panel'));
+  pdfView.onPageChange = (n) => bus.emit('page:change', { bookId: book.id, page: n, source: 'pdf' });
   let view = null;
   const textView = new TextView(wv.querySelector('.text-panel'), {
     onItemRender: (p) => bus.emit('item:render', Object.assign(p, { bookId: book.id })),
@@ -566,8 +569,10 @@ function createTopbarViewSwitch() {
       <button data-mode="pdf" title="仅 PDF 视图" aria-label="仅 PDF 视图"><span class="sf vm-pdf"></span></button>
       <button data-mode="text" title="仅文字视图" aria-label="仅文字视图"><span class="sf i-t"></span></button>
     </div>
-    <button class="vs-ctl vs-sync" data-act="sync" title="同步滚动（双栏视图）" aria-label="同步滚动">⇅</button>
-    <button class="vs-ctl vs-spread" data-act="spread" title="PDF 双页摊开（仅 PDF 视图）" aria-label="PDF 双页摊开">⿻</button>`;
+    <span class="view-context-actions">
+      <button class="vs-ctl vs-sync" data-act="sync" title="同步滚动（双栏视图）" aria-label="同步滚动"><span class="sf i-sync" aria-hidden="true"></span></button>
+      <button class="vs-ctl vs-spread" data-act="spread" title="PDF 双页摊开（仅 PDF 视图）" aria-label="PDF 双页摊开"><span class="sf i-spread" aria-hidden="true"></span></button>
+    </span>`;
   const tool = document.getElementById('plugin-toolbar');
   const searchEl = tool.querySelector('#search-wrap');
   tool.insertBefore(sw, searchEl ? searchEl.nextSibling : tool.firstChild);
@@ -598,8 +603,14 @@ function syncViewSwitch() {
   if (!prefs) return;
   viewSwitchEl.dataset.mode = prefs.viewMode;
   viewSwitchEl.querySelectorAll('[data-role="view-modes"] button').forEach((b) => b.classList.toggle('active', b.dataset.mode === prefs.viewMode));
-  viewSwitchEl.querySelector('[data-act="spread"]').classList.toggle('active', prefs.spread);
-  viewSwitchEl.querySelector('[data-act="sync"]').classList.toggle('active', prefs.sync);
+  const spread = viewSwitchEl.querySelector('[data-act="spread"]');
+  const sync = viewSwitchEl.querySelector('[data-act="sync"]');
+  spread.classList.toggle('active', prefs.spread);
+  sync.classList.toggle('active', prefs.sync);
+  spread.disabled = prefs.viewMode !== 'pdf';
+  sync.disabled = prefs.viewMode !== 'split';
+  spread.setAttribute('aria-hidden', prefs.viewMode === 'pdf' ? 'false' : 'true');
+  sync.setAttribute('aria-hidden', prefs.viewMode === 'split' ? 'false' : 'true');
 }
 
 function bindSettingsDialog() {

@@ -14,7 +14,7 @@ globalThis.localStorage = window.localStorage;
 const extensions = await import('../src/core/extensions.js');
 await import('../src/plugins/bookmarks/index.js');
 
-test('书签页签按当前 PDF 页切换唯一书签的空心和填充状态', async () => {
+test('工具栏按当前 PDF 页切换唯一书签，文字选区不再提供书签入口', async () => {
   extensions.ui.reset();
   extensions.setEnabled('bookmarks', true);
   const book = { id: 'book-a', bookmarks: [] };
@@ -41,30 +41,28 @@ test('书签页签按当前 PDF 页切换唯一书签的空心和填充状态', 
   };
   extensions.activateExtension('bookmarks', ctx);
   const action = extensions.ui.registry.contextActions.find((item) => item.id === 'bookmark-selection-action');
-  assert.ok(action);
+  assert.equal(action, undefined);
+  const toolbar = extensions.ui.registry.toolbarWidgets.find((item) => item.id === 'bookmark-toggle');
+  assert.ok(toolbar);
+  const toggle = toolbar.el;
+  assert.equal(toggle.getAttribute('aria-pressed'), 'false');
+  assert.ok(toggle.querySelector('.i-bookmark-context'));
 
   const bookmarkTab = extensions.ui.registry.tocTabs.find((item) => item.id === 'bookmarks');
   bookmarkTab.onShow();
   assert.equal(document.querySelector('#tab-body-bookmarks .add-bm'), null);
-  let toggle = action.render({
-    selection: { kind: 'text', page: 7, quote: '第七页的一段选中文字' },
-    close: () => {},
-  });
-  assert.ok(toggle.querySelector('.i-bookmark-context'));
   toggle.click();
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(updates, 1);
   assert.deepEqual(book.bookmarks.map((bookmark) => bookmark.page), [7]);
   assert.equal(book.bookmarks[0].snippet, '第七页正文内容');
-
-  toggle = action.render({
-    selection: { kind: 'text', page: 7, quote: '第七页另一段文字' },
-    close: () => {},
-  });
+  assert.equal(toggle.getAttribute('aria-pressed'), 'true');
   assert.ok(toggle.querySelector('.i-bookmark-context-filled'));
+
   toggle.click();
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(book.bookmarks.length, 0);
+  assert.equal(toggle.getAttribute('aria-pressed'), 'false');
 
   book.bookmarks = [
     { id: 'late', page: 9, snippet: '后面的书签', at: 2 },

@@ -8,13 +8,19 @@
 <body data-mode="split">
 
 <header id="topbar">
-  <button id="btn-library" class="icon-btn" title="书库 (1)" aria-label="书库"><span class="sf i-sidebar-left"></span></button>
-  <div id="tabs">
-    <span id="tabs-empty">未打开书籍</span>
+  <div id="topbar-leading" class="toolbar-group">
+    <button id="btn-library" class="icon-btn" title="显示或隐藏左侧栏" aria-label="显示或隐藏左侧栏" aria-pressed="true"><span class="sf i-sidebar-left"></span></button>
+  </div>
+  <div id="topbar-document" class="toolbar-group">
+    <div id="tabs">
+      <span id="tabs-empty">未打开书籍</span>
+    </div>
   </div>
   <div id="topbar-right">
-    <div class="tb-group" id="plugin-toolbar"></div>
-    <div class="tb-group">
+    <div id="topbar-context" class="toolbar-group">
+      <div id="plugin-toolbar"></div>
+    </div>
+    <div id="topbar-trailing" class="toolbar-group">
       <button id="btn-settings" class="icon-btn" title="设置 / 插件" aria-label="设置 / 插件">
         <span class="sf i-gear"></span>
       </button>
@@ -64,7 +70,7 @@
 <div id="settings-dialog" hidden>
   <div class="sd-head">
     <span class="sd-title">设置 / 插件</span>
-    <button id="sd-close" class="mini" title="关闭">✕</button>
+    <button id="sd-close" class="icon-btn" title="关闭" aria-label="关闭"><span class="sf i-xmark"></span></button>
   </div>
   <div id="sd-sections"></div>
 </div>

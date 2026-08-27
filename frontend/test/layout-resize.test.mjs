@@ -54,6 +54,17 @@ function splitHarness() {
   return { view, divider, button: divider.querySelector('button') };
 }
 
+test('顶栏按导航、文档、上下文和尾部操作形成稳定分组', () => {
+  assert.ok(document.getElementById('topbar-leading'));
+  assert.ok(document.getElementById('topbar-document'));
+  assert.ok(document.getElementById('topbar-context'));
+  assert.ok(document.getElementById('topbar-trailing'));
+  assert.equal(document.getElementById('btn-library').closest('.toolbar-group')?.id, 'topbar-leading');
+  assert.equal(document.getElementById('tabs').closest('.toolbar-group')?.id, 'topbar-document');
+  assert.equal(document.getElementById('plugin-toolbar').closest('.toolbar-group')?.id, 'topbar-context');
+  assert.equal(document.getElementById('btn-settings').closest('.toolbar-group')?.id, 'topbar-trailing');
+});
+
 test('侧边栏拖动时限制宽度、松手后保存，双击恢复默认宽度', async () => {
   localStorage.setItem('s2e-sidebar-width', '320');
   await import('../src/plugins/index.js');
