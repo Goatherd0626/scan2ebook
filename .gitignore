@@ -23,6 +23,7 @@ vendor/*.zip
 # 前端构建产物与依赖
 reader/node_modules/
 reader/dist/
+dsh-plugin/*/node_modules/
 
 # 隔离开发工作区
 .worktrees/

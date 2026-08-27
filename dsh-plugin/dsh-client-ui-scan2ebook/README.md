@@ -17,14 +17,59 @@ API Key 直接在 sidebar 中输入，只保留在当前 sidebar 的浏览器内
 
 插件不使用 macOS 钥匙串、`.env`、DSH Provider API Key、`localStorage` 或其他持久化存储，也不会把 API Key 写入日志。CLI 用户仍可以独立使用 `.env`。
 
-开发安装：
+## 运行依赖
+
+- macOS（当前原生 PDF 选择器和 OCR 流程仅支持 macOS）；
+- DeepSeek Harness `>=0.1.1-rc.1`；
+- Node.js `>=20.19`；
+- 独立安装的 Python `scan2ebook` 转换器；
+- npm 依赖 `scan2ebook-reader@^0.1.0`，安装插件时自动安装。
+
+插件不再从源码位置推导仓库根目录，也不读取仓库中的 `.venv` 或
+`reader/dist/`。默认调用 DSH 宿主 `PATH` 中的 `scan2ebook`。如果 DSH
+不是从终端启动，建议在 `cordis.patch.yml` 中写明转换器绝对路径：
+
+```yaml
+scan2ebookCommand: '/absolute/path/to/venv/bin/scan2ebook'
+```
+
+这只是选择已安装的程序，不要求转换器和插件位于同一个仓库。
+如果需要通过 Python 模块入口启动，也可以配置为：
+
+```yaml
+scan2ebookCommand: '/absolute/path/to/python'
+scan2ebookArgs:
+  - '-m'
+  - 'scan2ebook'
+```
+
+## npm 发布后的安装
+
+正式发布后，DSH 安装插件时会一并解析 reader 依赖：
 
 ```bash
+dsh plugin --profile web add dsh-client-ui-scan2ebook
+```
+
+reader 包必须先于插件发布。安装后重启 `dsh web`。
+
+## 当前仓库源码联调
+
+在 reader 尚未发布到 npm registry 时，先构建 reader 并把本地包安装到
+插件目录，然后使用 link 安装：
+
+```bash
+cd reader
+npm ci
+npm run build
+
+cd ../dsh-plugin/dsh-client-ui-scan2ebook
+npm install --no-save --package-lock=false ../../reader
+
 dsh plugin --profile web add link:/absolute/path/to/scan2ebook/dsh-plugin/dsh-client-ui-scan2ebook
 ```
 
-当前 `0.1.0` 为源码 link 开发安装：插件会从完整 scan2ebook 仓库定位
-`.venv/bin/python` 和 `reader/`，因此还不能把该子目录单独发布为可独立工作的
-npm 包。发布 npm 版前需要改为调用 `PATH` 中的 `scan2ebook` 命令和独立阅读器包。
+本地安装 reader 只是尚未发布阶段的联调方式；插件运行代码使用的仍是正式包名
+`scan2ebook-reader`，没有源码相对路径回退。
 
 Host 代码更新后重启 `dsh web`；Client 代码更新后硬刷新页面。

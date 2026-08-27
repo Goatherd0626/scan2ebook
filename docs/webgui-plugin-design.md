@@ -12,7 +12,7 @@
 | 形态 | 位置 | 状态 |
 |---|---|---|
 | **Skill** | `~/.dsh/skills/scan2ebook/SKILL.md` | ✅ 已注册 |
-| **本地网页阅读器** | `reader/` + `python -m scan2ebook serve` | ✅ 已实现 |
+| **本地网页阅读器** | `scan2ebook-reader` npm 包 | ✅ 已实现 |
 | **Web GUI 客户端插件** | `dsh-plugin/dsh-client-ui-scan2ebook/`（link 安装） | ✅ 已实现 |
 
 调研结论（来自已装插件 `dsh-client-ui-file-mention` 与 `dsh-better-sidebar`）：
@@ -33,7 +33,7 @@ DSH Web GUI 左侧「Scan2Ebook」入口 → 单个右侧 sidebar
   ├─ 通过系统文件选择器选择任意目录中的扫描 PDF
   ├─ 选择 PDF 起止页（1-based、两端闭区间）
   ├─ 配置多模态模型与当次 API Key
-  ├─ 点击「转换」→ 宿主半 spawn Python 流水线（.venv + DEEPSEEK_API_KEY）
+  ├─ 点击「转换」→ 宿主半调用独立安装的 scan2ebook 命令（临时 DEEPSEEK_API_KEY）
   ├─ 实时回传进度（阶段日志：渲染/OCR/ds-vision 结构化）
   ├─ 按视觉请求次数显示 token 与费用估算
   ├─ 输出 JSON、HTML 和 .s2e 到所选 PDF 的同级目录
@@ -70,7 +70,10 @@ export function apply(ctx) {
 ```
 
 ### 打包依赖
-前端插件无需构建（参考 file-mention 的「手写 bundle」），宿主半可用纯 Node。
+前端插件无需构建（参考 file-mention 的「手写 bundle」）；宿主半依赖
+`scan2ebook-reader@^0.1.0`，通过其 Node API 启动、识别和关闭阅读器。
+Python 转换器通过 `PATH` 中的 `scan2ebook` 或配置项 `scan2ebookCommand`
+发现，不再从插件源码位置推导 Git 仓库与 `.venv`。
 
 ## 四、实现步骤（立项后）
 

@@ -4,16 +4,15 @@ import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { readdirSync, realpathSync, statSync } from 'node:fs'
 import { dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 export const name = 'scan2ebook'
 export const inject = ['tools']
 
 const EVENT_PREFIX = 'S2E_EVENT '
 const MAX_LOG_LINES = 200
-const DEFAULT_PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 const DEFAULT_MODEL = 'deepseek-v4-flash-vision-exp'
 const DEFAULT_PORT = 8765
+const DEFAULT_CONVERTER_COMMAND = 'scan2ebook'
 
 /** @param {unknown} value */
 function messageOf(value) {
@@ -101,20 +100,6 @@ function readLines(child, streamName, onLine) {
   })
 }
 
-/** @param {string} url @param {number} timeoutMs */
-async function probe(url, timeoutMs = 500) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    const response = await fetch(url, { signal: controller.signal })
-    return response.ok
-  } catch {
-    return false
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
 /** @param {import('node:child_process').ChildProcess} child */
 async function terminateChild(child) {
   if (child.exitCode !== null || child.killed) return
@@ -174,10 +159,20 @@ export function requireApiKey(value) {
   return apiKey
 }
 
+/** 把找不到独立转换器的底层 spawn 错误改成用户可执行的安装提示。 */
+function converterError(error, command) {
+  if (error && typeof error === 'object' && error.code === 'ENOENT') {
+    return new Error(`未找到 scan2ebook 转换器命令“${command}”。请先安装 Python 转换器，或在插件配置中设置 scan2ebookCommand`)
+  }
+  return error instanceof Error ? error : new Error(String(error))
+}
+
 /** @param {import('@deepseek-ai/cordis').Context} ctx @param {any} config */
 export function apply(ctx, config = {}) {
-  const projectRoot = resolve(config.projectRoot || DEFAULT_PROJECT_ROOT)
-  const python = join(projectRoot, '.venv', 'bin', 'python')
+  const scan2ebookCommand = String(config.scan2ebookCommand || DEFAULT_CONVERTER_COMMAND).trim()
+  if (scan2ebookCommand === '') throw new Error('scan2ebookCommand 不能为空')
+  const scan2ebookArgs = Array.isArray(config.scan2ebookArgs) ? config.scan2ebookArgs.map(String) : []
+  const spawnProcess = config.spawnProcess || spawn
   const defaultModel = String(config.defaultVisionModel || DEFAULT_MODEL)
   const defaultPort = Number(config.defaultPort || DEFAULT_PORT)
   const defaultPrice = Number(config.estimatedPricePerRequest || 0.001)
@@ -185,8 +180,24 @@ export function apply(ctx, config = {}) {
   const jobs = new Map()
   const readers = new Map()
   const selectedPdfs = new Set()
+  let readerApiPromise
   let latestJobId
   let uiRequest = null
+
+  const readerApi = () => {
+    if (!readerApiPromise) readerApiPromise = config.readerApi
+      ? Promise.resolve(config.readerApi)
+      : import('scan2ebook-reader').catch((error) => {
+        throw new Error(`无法加载 scan2ebook-reader。请重新安装 DSH 插件及其 npm 依赖：${messageOf(error)}`)
+      })
+    return readerApiPromise
+  }
+
+  const spawnConverter = (args, options) => spawnProcess(
+    scan2ebookCommand,
+    [...scan2ebookArgs, ...args],
+    options,
+  )
 
   const sessionCwd = (sessionId) => {
     const session = typeof sessionId === 'string' ? ctx.get('sessions')?.get(sessionId) : undefined
@@ -235,7 +246,7 @@ export function apply(ctx, config = {}) {
       ? Number(args.pricePerRequest) : defaultPrice
     const id = randomUUID()
     const commandArgs = [
-      '-m', 'scan2ebook', pdf, '-o', outputDir,
+      pdf, '-o', outputDir,
       '--page-start', String(pageStart), '--page-end', String(pageEnd),
       '--vision-model', model, '--progress-json',
     ]
@@ -244,7 +255,7 @@ export function apply(ctx, config = {}) {
       PYTHONUNBUFFERED: '1',
       DEEPSEEK_API_KEY: requireApiKey(args.apiKey),
     }
-    const child = spawn(python, commandArgs, { cwd: projectRoot, env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawnConverter(commandArgs, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] })
     const job = {
       id, child, status: 'running', pdf, outputDir, model, pageStart, pageEnd,
       progress: 0, stage: 'start', message: '正在启动转换任务',
@@ -278,11 +289,13 @@ export function apply(ctx, config = {}) {
     readLines(child, 'stderr', (line) => pushLog(job, line))
     child.once('error', (error) => {
       job.status = 'failed'
-      job.error = messageOf(error)
+      job.error = messageOf(converterError(error, scan2ebookCommand))
+      job.message = '转换器启动失败'
       job.finishedAt = Date.now()
     })
     child.once('exit', (code, signal) => {
       if (job.status === 'cancelled') return
+      if (job.status === 'failed' && job.message === '转换器启动失败') return
       job.finishedAt = Date.now()
       if (code === 0) {
         job.status = 'completed'
@@ -346,12 +359,12 @@ export function apply(ctx, config = {}) {
           const cwd = sessionCwd(args.sessionId)
           const pdf = resolveAuthorizedPdf(cwd, String(args.pdf || ''), selectedPdfs)
           const result = await new Promise((done, reject) => {
-            const child = spawn(python, ['-m', 'scan2ebook', 'inspect', pdf], { cwd: projectRoot, stdio: ['ignore', 'pipe', 'pipe'] })
+            const child = spawnConverter(['inspect', pdf], { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
             let stdout = ''
             let stderr = ''
             child.stdout.setEncoding('utf8').on('data', (chunk) => { stdout += chunk })
             child.stderr.setEncoding('utf8').on('data', (chunk) => { stderr += chunk })
-            child.once('error', reject)
+            child.once('error', (error) => reject(converterError(error, scan2ebookCommand)))
             child.once('exit', (code) => code === 0 ? done(JSON.parse(stdout)) : reject(new Error(stderr || stdout || `inspect 退出码 ${code}`)))
           })
           return { ok: true, value: result }
@@ -379,46 +392,48 @@ export function apply(ctx, config = {}) {
         }
         if (endpoint === 'reader-start') {
           const port = validatePort(Number(args.port || defaultPort))
-          const url = `http://127.0.0.1:${port}`
-          const known = readers.get(port)
-          if (known?.child?.exitCode === null) return { ok: true, value: { running: true, managed: true, port, url } }
-          if (await probe(url)) return { ok: true, value: { running: true, managed: false, port, url } }
-          const child = spawn(python, ['-m', 'scan2ebook.reader', '--host', '127.0.0.1', '--port', String(port), '--no-browser'], {
-            cwd: projectRoot, stdio: ['ignore', 'ignore', 'pipe'],
-          })
-          const record = { child, port, url, error: null }
-          readers.set(port, record)
-          child.stderr.setEncoding('utf8').on('data', (chunk) => { record.error = String(chunk).trim() })
-          child.once('exit', () => {})
-          for (let index = 0; index < 25 && !await probe(url); index += 1) {
-            await new Promise((done) => setTimeout(done, 120))
-          }
-          if (!await probe(url)) {
-            await terminateChild(child)
-            readers.delete(port)
-            throw new Error(record.error || `阅读器未能在端口 ${port} 启动`)
-          }
-          return { ok: true, value: { running: true, managed: true, port, url } }
+          const api = await readerApi()
+          const instance = await api.startReader({ host: '127.0.0.1', port, openBrowser: false })
+          if (!instance.reused) readers.set(port, instance)
+          return { ok: true, value: {
+            running: true, managed: readers.has(port), occupied: false,
+            version: instance.version, port, url: instance.url,
+          } }
         }
         if (endpoint === 'reader-status') {
           const port = validatePort(Number(args.port || defaultPort))
-          const url = `http://127.0.0.1:${port}`
+          const api = await readerApi()
+          const result = await api.probeReader({ host: '127.0.0.1', port })
           const record = readers.get(port)
-          return { ok: true, value: { running: await probe(url), managed: record?.child?.exitCode === null, port, url } }
+          const managed = result.status === 'reader' && record?.server?.listening === true
+          if (!managed) readers.delete(port)
+          return { ok: true, value: {
+            running: result.status === 'reader', managed,
+            occupied: result.status === 'occupied', version: result.version || null,
+            port, url: result.url,
+          } }
         }
         if (endpoint === 'reader-open') {
           const port = validatePort(Number(args.port || defaultPort))
-          const url = `http://127.0.0.1:${port}`
-          if (!await probe(url)) throw new Error(`端口 ${port} 上没有正在运行的阅读器`)
-          await openExternalUrl(url)
-          return { ok: true, value: { opened: true, port, url } }
+          const api = await readerApi()
+          const result = await api.probeReader({ host: '127.0.0.1', port })
+          if (result.status !== 'reader') throw new Error(
+            result.status === 'occupied'
+              ? `端口 ${port} 已被其他程序占用，不是 scan2ebook 阅读器`
+              : `端口 ${port} 上没有正在运行的阅读器`,
+          )
+          await openExternalUrl(result.url)
+          return { ok: true, value: { opened: true, port, url: result.url } }
         }
         if (endpoint === 'reader-stop') {
           const port = validatePort(Number(args.port || defaultPort))
           const record = readers.get(port)
-          if (!record || record.child.exitCode !== null) throw new Error('该端口的服务不是由本插件启动，不能安全终止')
-          await terminateChild(record.child)
-          readers.delete(port)
+          if (!record) throw new Error('该端口的阅读器不是由本插件启动，不能安全终止')
+          try {
+            await record.close()
+          } finally {
+            readers.delete(port)
+          }
           return { ok: true, value: { running: false, managed: false, port, url: record.url } }
         }
         return { ok: false, error: { code: 'BAD_ENDPOINT', message: `未知 scan2ebook 端点：${String(endpoint)}` } }
@@ -428,8 +443,9 @@ export function apply(ctx, config = {}) {
     }, {})
   })
 
-  ctx.effect(() => () => {
+  ctx.effect(() => async () => {
     for (const job of jobs.values()) if (job.status === 'running') terminateChild(job.child)
-    for (const reader of readers.values()) terminateChild(reader.child)
-  }, 'scan2ebook: terminate managed child processes')
+    await Promise.allSettled([...readers.values()].map((reader) => reader.close()))
+    readers.clear()
+  }, 'scan2ebook: terminate managed conversion and reader processes')
 }

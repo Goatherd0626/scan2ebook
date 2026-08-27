@@ -131,13 +131,18 @@ Skill 单独安装时，请确保 `scan2ebook` 命令在 DSH 运行环境的 `PA
 
 ### 4. DSH sidebar 插件（可选）
 
+插件现在依赖独立的 `scan2ebook-reader@^0.1.0`，并调用 `PATH` 中的
+`scan2ebook` 转换器，不再依赖本仓库根目录、固定 `.venv` 或 `reader/dist/`。
+正式 npm 发布后的安装接口为：
+
 ```bash
-dsh plugin --profile web add link:/absolute/path/to/scan2ebook/dsh-plugin/dsh-client-ui-scan2ebook
+dsh plugin --profile web add dsh-client-ui-scan2ebook
 ```
 
-安装后重启 `dsh web`。当前 `0.1.0` 插件仍是源码联调形态：它会从整个
-scan2ebook 仓库定位 `.venv/bin/python` 和阅读器资源，因此不能只复制
-`dsh-plugin/` 目录。真正的独立 npm 插件发布需要先解除这个仓库路径依赖。
+当前尚未发布到 npm registry。源码 link 联调和转换器路径配置见
+[`dsh-plugin/dsh-client-ui-scan2ebook/README.md`](dsh-plugin/dsh-client-ui-scan2ebook/README.md)。
+如果 DSH 运行环境找不到 `scan2ebook`，可在插件配置中将
+`scan2ebookCommand` 指向独立 Python 环境里的可执行文件。
 
 `pyproject.toml` 当前面向 clone 后的源码 editable 安装。网页阅读器资源仍由仓库中的
 `reader/` 提供，因此首个 0.1.0 版本暂不承诺 PyPI wheel 包含完整阅读器资源。
@@ -179,8 +184,8 @@ npm pack
 npm install --global ./scan2ebook-reader-0.1.0.tgz
 ```
 
-DSH 插件目前仍使用 Python reader 兼容入口，且转换功能仍依赖仓库根目录
-`.venv`。后续再让 DSH 插件直接依赖并调用这个 reader npm 包。
+DSH 插件已经直接依赖并调用这个 reader npm 包。正式发布顺序必须是：
+先发布 `scan2ebook-reader@0.1.0`，再发布 `dsh-client-ui-scan2ebook@0.1.0`。
 
 ## 使用
 
@@ -221,7 +226,7 @@ DSH 插件目前仍使用 Python reader 兼容入口，且转换功能仍依赖�
 - **程序文件**：当前没有系统级安装器。用户 clone 仓库或下载 GitHub Release
   压缩包后，阅读器就位于用户自己选择的仓库/解压目录 `reader/`，
   构建产物位于 `reader/dist/`。npm 安装时则位于对应
-  `node_modules/scan2ebook-reader/`或 npm 全局安装目录。
+  `node_modules/scan2ebook-reader/` 或 npm 全局安装目录。
 - **导入的电子书**：存在浏览器 IndexedDB 数据库 `scan2ebook-reader` 中，
   包含 PDF Blob、`book.json`、元数据、文件夹、阅读进度、书签和标注。
 - **物理磁盘路径**：由 Chrome / Safari / Edge 等浏览器管理，位于该浏览器的
@@ -336,7 +341,8 @@ scan2ebook/
 - [x] 打包独立 `scan2ebook-reader` npm 包（包含 `dist/`、CLI 和 Node.js API）
 - [ ] 查询 npm 包名可用性并正式发布 `scan2ebook-reader@0.1.0`
 - [ ] GitHub Release 附加 reader `.tgz`，并视需要增加不要求 Node.js 的桌面封装
-- [ ] 解除 DSH 插件对 Git 仓库根目录和 `.venv` 固定路径的依赖，再发布 npm 包
+- [x] 解除 DSH 插件对 Git 仓库根目录、固定 `.venv` 和 Python reader 入口的依赖
+- [ ] 先发布 reader，再正式发布 `dsh-client-ui-scan2ebook@0.1.0`
 - [ ] 二期：文字高亮（多色）/ 添加注释 + 右侧注释侧边栏
 - [ ] 二期：编辑模式（修正识别错误，写回 JSON）
 - [ ] 二期：复制引文（GB/T 7714 模板）、标注导出

@@ -12,8 +12,15 @@
   "files": [
     "lib",
     "README.md",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "LICENSE"
   ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "dsh": {
     "engines": {
       "dsh": ">=0.1.1-rc.1"
@@ -30,7 +37,12 @@
     }
   },
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "test:package": "node scripts/verify-package.mjs",
+    "prepublishOnly": "npm test && npm run test:package"
+  },
+  "dependencies": {
+    "scan2ebook-reader": "^0.1.0"
   },
   "license": "MIT"
 }
