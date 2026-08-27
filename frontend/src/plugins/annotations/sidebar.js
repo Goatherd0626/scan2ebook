@@ -32,7 +32,7 @@ export function createAnnotationsSidebar({
   onClearHistory = () => {},
   onExport = () => {},
   onLayoutChange = () => {},
-  confirmDelete = (count) => window.confirm('删除选中的 ' + count + ' 条注释？'),
+  confirmDelete = async () => true,
   storage = localStorage,
 }) {
   const controller = new window.AbortController();
@@ -192,10 +192,10 @@ export function createAnnotationsSidebar({
     multi.querySelector('.annotations-multi-count').textContent = '已选 ' + count + ' 条';
   }
 
-  function deleteSelected() {
+  async function deleteSelected() {
     if (!selected.size) return;
     const orderedIds = visibleRecords().filter((record) => selected.has(record.id)).map((record) => record.id);
-    if (orderedIds.length > 1 && !confirmDelete(orderedIds.length)) return;
+    if (orderedIds.length > 1 && !await confirmDelete(orderedIds.length)) return;
     onDelete(orderedIds);
     selected.clear();
     render();

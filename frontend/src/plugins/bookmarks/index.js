@@ -81,7 +81,12 @@ registerExtension({
     async function removeBookmarks(ids, confirmMultiple = true) {
       const book = currentBook();
       if (!book || !ids.length) return;
-      if (confirmMultiple && ids.length > 1 && !confirm('取消选中的 ' + ids.length + ' 个书签？')) return;
+      if (confirmMultiple && ids.length > 1 && !await ctx.dialog.confirm({
+        title: '取消 ' + ids.length + ' 个书签？',
+        message: '所选页面书签将被移除。',
+        confirmLabel: '取消书签',
+        danger: true,
+      })) return;
       const idSet = new Set(ids);
       book.bookmarks = (book.bookmarks || []).filter((bookmark) => !idSet.has(bookmark.id));
       ids.forEach((id) => selectedIds.delete(id));

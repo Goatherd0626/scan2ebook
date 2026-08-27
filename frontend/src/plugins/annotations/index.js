@@ -148,7 +148,21 @@ registerExtension({
 
     async function deleteRecords(view, ids) {
       const idSet = new Set(ids);
-      await persist(view, recordsFor(view.bookId).filter((record) => !idSet.has(record.id)));
+      const before = recordsFor(view.bookId);
+      const removed = before.filter((record) => idSet.has(record.id));
+      await persist(view, before.filter((record) => !idSet.has(record.id)));
+      if (removed.length === 1 && removed[0].type === 'note') {
+        const note = structuredClone(removed[0]);
+        ctx.toast({
+          message: '注释已删除',
+          actionLabel: '撤销',
+          onAction: async () => {
+            const current = recordsFor(view.bookId);
+            if (current.some((record) => record.id === note.id)) return;
+            await persist(view, [...current, note]);
+          },
+        });
+      }
     }
 
     async function editNote(view, id, text) {
@@ -200,7 +214,12 @@ registerExtension({
 
     async function clearHistory(view) {
       const histories = recordsFor(view.bookId).filter((record) => record.type === 'history-note');
-      if (!histories.length || !confirm('清空全部 ' + histories.length + ' 条历史注释？此操作无法撤销。')) return;
+      if (!histories.length || !await ctx.dialog.confirm({
+        title: '清空历史注释？',
+        message: '将永久删除全部 ' + histories.length + ' 条因正文编辑而归档的注释。',
+        confirmLabel: '清空',
+        danger: true,
+      })) return;
       await persist(view, recordsFor(view.bookId).filter((record) => record.type !== 'history-note'));
     }
 
@@ -228,6 +247,12 @@ registerExtension({
         onSetHighlights: (selectedRecords, color) => setHighlights(view, selectedRecords, color),
         onRemoveHighlights: (selectedRecords) => removeSelectedHighlights(view, selectedRecords),
         onClearHistory: () => clearHistory(view),
+        confirmDelete: (count) => ctx.dialog.confirm({
+          title: '删除 ' + count + ' 条注释？',
+          message: '批量删除无法通过单条撤销恢复。',
+          confirmLabel: '删除',
+          danger: true,
+        }),
         onExport: () => exportBook(view),
         onLayoutChange: () => view.refreshLayout?.(),
       });

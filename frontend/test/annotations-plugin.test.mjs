@@ -33,6 +33,7 @@ test('插件从选区创建高亮和注释，渲染段末标记并在停用时�
   extensions.ui.reset();
   extensions.setEnabled('annotations', true);
   let stored = [];
+  let toastPayload = null;
   const wv = document.querySelector('.book-view');
   const textView = new TextView(wv.querySelector('.text-panel'));
   textView.load({
@@ -53,7 +54,8 @@ test('插件从选区创建高亮和注释，渲染段末标记并在停用时�
     },
     state: { activeBookId: 'book-a', tabs: [view], books: [{ id: 'book-a' }] },
     getView: () => view,
-    toast: () => {},
+    toast: (payload) => { toastPayload = payload; },
+    dialog: { confirm: async () => true },
     storage: { get: () => null, set: () => {} },
   };
 
@@ -106,6 +108,14 @@ test('插件从选区创建高亮和注释，渲染段末标记并在停用时�
   assert.equal(sidebar.querySelectorAll('.annotations-card').length, 1);
   marker.click();
   assert.equal(sidebar.querySelector('.annotations-card').classList.contains('selected'), true);
+  sidebar.querySelector('[data-action="delete"]').click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(stored.some((item) => item.type === 'note'), false);
+  assert.equal(toastPayload.message, '注释已删除');
+  assert.equal(toastPayload.actionLabel, '撤销');
+  await toastPayload.onAction();
+  assert.equal(stored.filter((item) => item.type === 'note').length, 1);
+  assert.equal(stored.find((item) => item.type === 'note').text, '重点概念');
 
   extensions.deactivateExtension('annotations');
   assert.equal(wv.querySelectorAll('.annotations-marker').length, 0);

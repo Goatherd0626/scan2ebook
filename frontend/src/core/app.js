@@ -3,6 +3,7 @@
 import JSZip from 'jszip';
 import * as db from './db.js';
 import { parseAnnotationSidecar } from './annotation_format.js';
+import { confirmSheet, promptSheet, showToast } from './dialogs.js';
 import { buildRenderModel, PdfView, TextView, pdfjsLib } from './views.js';
 import { initSidebarResizer, initSplitResizer, layoutDefaults } from './layout_resize.js';
 import {
@@ -51,6 +52,7 @@ export async function init() {
     state,
     getView: () => activeView(),
     toast,
+    dialog: { confirm: confirmSheet, prompt: promptSheet },
     openBook: (id) => openBook(id),
   });
 
@@ -677,7 +679,7 @@ function bindTopbar() {
     e.target.value = '';
   });
   $('btn-new-folder').addEventListener('click', async () => {
-    const name = prompt('文件夹名称：');
+    const name = await promptSheet({ title: '新建文件夹', label: '文件夹名称', confirmLabel: '创建' });
     if (!name || !name.trim()) return;
     await db.addFolder(state.db, { id: crypto.randomUUID(), name: name.trim(), parentId: null });
     await loadLibrary(); renderLibrary();
@@ -720,8 +722,15 @@ function bindTopbar() {
 
 async function selectFolder() {
   const names = [{ id: null, name: '（书库根目录）' }, ...state.folders].map((f) => f.name).join('\n');
-  const pick = prompt('输入目标文件夹名称（回车移动到书库根目录）：\n现有文件夹：\n' + names);
+  const pick = await promptSheet({
+    title: '移动电子书',
+    message: '现有位置：\n' + names,
+    label: '目标文件夹（留空为书库根目录）',
+    confirmLabel: '移动',
+    allowEmpty: true,
+  });
   if (pick === null) return undefined;
+  if (!pick.trim() || pick.trim() === '（书库根目录）') return null;
   const f = state.folders.find((x) => x.name === pick.trim());
   return f ? f.id : null;
 }
@@ -746,7 +755,12 @@ async function deleteSelectedFolder(folder) {
   const folderIdSet = new Set(folderIds);
   const bookIds = state.books.filter((book) => folderIdSet.has(book.folderId)).map((book) => book.id);
   const detail = bookIds.length ? '及其中 ' + bookIds.length + ' 本电子书' : '';
-  if (!confirm('删除文件夹「' + folder.name + '」' + detail + '？此操作无法撤销。')) return;
+  if (!await confirmSheet({
+    title: '删除文件夹“' + folder.name + '”？',
+    message: (detail ? '将同时删除' + detail + '。' : '') + '此操作无法撤销。',
+    confirmLabel: '删除',
+    danger: true,
+  })) return;
   if (bookIds.length) {
     await db.deleteBooks(state.db, bookIds);
     bookIds.forEach((id) => {
@@ -815,7 +829,7 @@ function createHomeView() {
   $('home-import').addEventListener('click', () => $('import-input').click());
   $('home-empty-import').addEventListener('click', () => $('import-input').click());
   $('home-new-folder').addEventListener('click', async () => {
-    const name = prompt('文件夹名称：');
+    const name = await promptSheet({ title: '新建文件夹', label: '文件夹名称', confirmLabel: '创建' });
     if (!name || !name.trim()) return;
     await db.addFolder(state.db, { id: crypto.randomUUID(), name: name.trim(), parentId: null });
     await loadLibrary(); renderLibrary(); renderHome();
@@ -1128,7 +1142,12 @@ async function deleteSelectedBooks(requestedIds = [...selectedBookIds]) {
   const promptText = ids.length === 1
     ? '删除「' + (books[0].meta?.title || books[0].s2eName || '未命名电子书') + '」（阅读器存储中的副本）？'
     : '删除选中的 ' + ids.length + ' 本电子书（阅读器存储中的副本）？';
-  if (!confirm(promptText)) return;
+  if (!await confirmSheet({
+    title: ids.length === 1 ? '删除电子书？' : '删除 ' + ids.length + ' 本电子书？',
+    message: promptText,
+    confirmLabel: '删除',
+    danger: true,
+  })) return;
   await db.deleteBooks(state.db, ids);
   ids.forEach((id) => {
     selectedBookIds.delete(id);
@@ -1322,9 +1341,5 @@ export function enableCustomTooltips(root = document) {
   });
 }
 export function toast(msg) {
-  const t = $('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+  return showToast(msg);
 }

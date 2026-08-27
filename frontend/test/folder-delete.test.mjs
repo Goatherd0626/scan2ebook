@@ -37,7 +37,13 @@ const app = await import('../src/core/app.js');
 
 test('首页 trash 检测文件夹后确认并递归删除内部电子书', async () => {
   let confirms = 0;
-  window.confirm = globalThis.confirm = () => { confirms += 1; return true; };
+  const acceptDeleteSheet = async () => {
+    const sheet = document.querySelector('.app-sheet');
+    assert.ok(sheet, '删除文件夹应显示应用内确认 Sheet');
+    confirms += 1;
+    sheet.querySelector('[data-dialog-action="confirm"]').click();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+  };
   await app.init();
   assert.equal(document.querySelectorAll('#library-tree .folder-delete').length, 0);
   assert.equal(document.querySelectorAll('#home-table .ht-folder-row:not([hidden])').length, 2);
@@ -84,13 +90,13 @@ test('首页 trash 检测文件夹后确认并递归删除内部电子书', asyn
   assert.equal(app.state.books.find((book) => book.id === 'book-move').folderId, null);
 
   document.getElementById('home-delete').click();
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await acceptDeleteSheet();
   assert.equal(app.state.folders.some((folder) => folder.id === 'folder-move'), false);
   assert.equal(app.state.books.some((book) => book.id === 'book-move'), true, '移到根目录的书不应随原文件夹删除');
 
   document.querySelector('.ht-folder-row[data-folder-id="folder-delete"]').click();
   document.getElementById('home-delete').click();
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await acceptDeleteSheet();
   assert.equal(app.state.folders.some((folder) => folder.id === 'folder-delete'), false);
   assert.equal(app.state.books.some((book) => book.id === 'book-delete'), false);
   assert.equal(confirms, 2);

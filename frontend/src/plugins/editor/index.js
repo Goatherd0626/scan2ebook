@@ -48,16 +48,21 @@ registerExtension({
       toggle.textContent = mode ? '编辑中' : '编辑';
     }
 
-    function closeEditor(force = false) {
+    async function closeEditor(force = false) {
       if (!activeEditor) return true;
-      if (!force && activeEditor.isDirty() && !confirm('放弃当前页面尚未保存的修改？')) return false;
+      if (!force && activeEditor.isDirty() && !await ctx.dialog.confirm({
+        title: '放弃未保存的修改？',
+        message: '当前页面的内容修改将不会保存。',
+        confirmLabel: '放弃修改',
+        danger: true,
+      })) return false;
       activeEditor.destroy();
       activeEditor = null;
       return true;
     }
 
-    toggle.addEventListener('click', () => {
-      if (mode && !closeEditor()) return;
+    toggle.addEventListener('click', async () => {
+      if (mode && !await closeEditor()) return;
       mode = !mode;
       updateToggle();
       ctx.toast(mode ? '编辑模式已开启：点击文字页内容开始编辑' : '编辑模式已关闭');
@@ -68,8 +73,13 @@ registerExtension({
       const records = await ctx.db.getAnnotations(book.id);
       const archived = archivePageAnnotations(records, page);
       if ((archived.affectedHighlights || archived.affectedNotes)
-          && !confirm('保存后将移除本页涉及的 ' + archived.affectedHighlights + ' 处高亮和 '
-            + archived.affectedNotes + ' 条注释。注释内容会移到历史注释，是否继续？')) {
+          && !await ctx.dialog.confirm({
+            title: '保存本页修改？',
+            message: '保存后将移除本页涉及的 ' + archived.affectedHighlights + ' 处高亮和 '
+              + archived.affectedNotes + ' 条注释；注释内容会移到历史注释。',
+            confirmLabel: '保存并继续',
+            danger: true,
+          })) {
         return false;
       }
 
@@ -108,7 +118,7 @@ registerExtension({
       const book = ctx.state.books.find((item) => item.id === bookId);
       const sourcePage = book?.bookJson?.pages?.find((item) => item.pdf_page === page);
       if (!view || !book || !sourcePage) return;
-      if (!closeEditor()) return;
+      if (!await closeEditor()) return;
       const records = await ctx.db.getAnnotations(bookId);
       if (!mode || ctx.state.activeBookId !== bookId) return;
       const impact = archivePageAnnotations(records, page);
@@ -122,7 +132,7 @@ registerExtension({
           try {
             const saved = await savePage({ book, view, page, items });
             if (saved) {
-              closeEditor(true);
+              await closeEditor(true);
               mode = false;
               updateToggle();
             }
@@ -163,7 +173,7 @@ function createPageEditor({ view, page, items, impact, onCancel, onSave }) {
     <section class="page-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="page-editor-title" tabindex="-1">
       <header class="page-editor-head">
         <div><span class="page-editor-eyebrow">结构化正文</span><h2 id="page-editor-title">PDF 第 ${page} 页</h2></div>
-        <button type="button" class="page-editor-close" data-action="cancel" aria-label="关闭编辑器">×</button>
+        <button type="button" class="page-editor-close" data-action="cancel" aria-label="关闭编辑器"><span class="sf i-xmark" aria-hidden="true"></span></button>
       </header>
       <div class="page-editor-impact" role="status"></div>
       <div class="page-editor-items"></div>

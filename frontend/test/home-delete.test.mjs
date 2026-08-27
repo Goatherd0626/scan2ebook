@@ -43,7 +43,14 @@ const app = await import('../src/core/app.js');
 
 test('首页和侧边栏无需模式按钮即可连续、增减和框选，并确认删除', async () => {
   let confirms = 0;
-  window.confirm = globalThis.confirm = () => { confirms += 1; return true; };
+  const acceptDeleteSheet = async () => {
+    const sheet = document.querySelector('.app-sheet');
+    assert.ok(sheet, '删除操作应显示应用内确认 Sheet');
+    assert.match(sheet.textContent, /删除/);
+    confirms += 1;
+    sheet.querySelector('[data-dialog-action="confirm"]').click();
+    await new Promise((resolve) => setTimeout(resolve, 40));
+  };
   await app.init();
   assert.equal(document.getElementById('detail-panel').hidden, false);
   assert.match(document.getElementById('detail-panel').textContent, /未选择对象/);
@@ -107,7 +114,7 @@ test('首页和侧边栏无需模式按钮即可连续、增减和框选，并�
   assert.equal(document.getElementById('home-batch-bar').hidden, false);
 
   document.getElementById('home-delete').click();
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await acceptDeleteSheet();
 
   assert.equal(confirms, 1);
   assert.equal(app.state.books.length, 1);
@@ -119,7 +126,7 @@ test('首页和侧边栏无需模式按钮即可连续、增减和框选，并�
   remainingSidebarRow.dispatchEvent(new window.KeyboardEvent('keydown', {
     key: 'Delete', bubbles: true, cancelable: true,
   }));
-  await new Promise((resolve) => setTimeout(resolve, 40));
+  await acceptDeleteSheet();
   assert.equal(confirms, 2);
   assert.equal(app.state.books.length, 0);
 });

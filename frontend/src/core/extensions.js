@@ -157,6 +157,7 @@ export function makeAppCtx() {
     state: null,            // 核心状态（books/folders/tabs/activeBookId…）
     getView: null,          // 由核心注入：() => 当前活动 bookView
     toast,
+    dialog: null,
     storage: {
       get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
       set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* 忽略 */ } },
@@ -170,6 +171,7 @@ export function injectCore(ctx, fns) {
   if (fns.state !== undefined) ctx.state = fns.state;
   if (fns.getView !== undefined) ctx.getView = fns.getView;
   if (fns.toast !== undefined) toast = fns.toast;
+  if (fns.dialog !== undefined) ctx.dialog = fns.dialog;
   if (fns.openBook !== undefined) openBook = fns.openBook;
 }
 

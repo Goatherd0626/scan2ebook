@@ -29,13 +29,14 @@ const records = [
   { id: 'history-1', type: 'history-note', page: 1, quote: '已修改的原文', text: '历史注释内容', archivedAt: 1 },
 ];
 
-test('注释按正文顺序排列，支持连续多选并确认批量删除', () => {
+test('注释按正文顺序排列，支持连续多选并异步确认批量删除', async () => {
   const view = { wv: document.querySelector('.book-view') };
   let deleted = null;
   let batchHighlighted = null;
   let batchCleared = null;
   let historyCleared = 0;
   let confirms = 0;
+  let resolveConfirm;
   const sidebar = createAnnotationsSidebar({
     view,
     records,
@@ -47,7 +48,11 @@ test('注释按正文顺序排列，支持连续多选并确认批量删除', ()
       batchCleared = selectedRecords.map((record) => record.id);
     },
     onClearHistory() { historyCleared += 1; },
-    confirmDelete(count) { confirms += 1; return count === 3; },
+    confirmDelete(count) {
+      confirms += 1;
+      assert.equal(count, 3);
+      return new Promise((resolve) => { resolveConfirm = resolve; });
+    },
   });
   sidebar.setVisible(true);
 
@@ -87,6 +92,9 @@ test('注释按正文顺序排列，支持连续多选并确认批量删除', ()
     key: 'Delete', bubbles: true,
   }));
   assert.equal(confirms, 1);
+  assert.equal(deleted, null, '异步确认完成前不能删除');
+  resolveConfirm(true);
+  await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual(deleted, ['n1', 'n2', 'n3']);
   sidebar.destroy();
 });

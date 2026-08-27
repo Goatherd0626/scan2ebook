@@ -20,7 +20,6 @@ test('工具栏按当前 PDF 页切换唯一书签，文字选区不再提供书
   const book = { id: 'book-a', bookmarks: [] };
   let updates = 0;
   let confirms = 0;
-  window.confirm = globalThis.confirm = () => { confirms += 1; return true; };
   const jumps = [];
   const view = {
     bookId: 'book-a',
@@ -38,6 +37,7 @@ test('工具栏按当前 PDF 页切换唯一书签，文字选区不再提供书
     db: { updateBook: async () => { updates += 1; } },
     getView: () => view,
     toast: () => {},
+    dialog: { confirm: async () => { confirms += 1; return true; } },
   };
   extensions.activateExtension('bookmarks', ctx);
   const action = extensions.ui.registry.contextActions.find((item) => item.id === 'bookmark-selection-action');

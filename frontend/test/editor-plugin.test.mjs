@@ -37,7 +37,6 @@ test('编辑模式按页增删 item，确认后原子保存并归档受影响注
   let replacements = null;
   let confirms = 0;
   const hoverModes = [];
-  window.confirm = globalThis.confirm = () => { confirms += 1; return true; };
   const panel = document.querySelector('.text-panel');
   panel.getBoundingClientRect = () => ({ left: 400, top: 50, width: 600, height: 700, right: 1000, bottom: 750 });
   const view = {
@@ -57,6 +56,7 @@ test('编辑模式按页增删 item，确认后原子保存并归档受影响注
       },
     },
     toast: () => {},
+    dialog: { confirm: async () => { confirms += 1; return true; } },
   };
   const offReplace = extensions.bus.on('annotations:replace', (payload) => { replacements = payload.records; });
   extensions.activateExtension('editor', ctx);
