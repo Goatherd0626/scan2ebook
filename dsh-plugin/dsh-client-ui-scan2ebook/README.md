@@ -7,6 +7,7 @@
 - macOS；
 - DeepSeek Harness `0.1.1-rc.1` 或更高版本；
 - Node.js 20.19 或更高版本；
+- DSH 插件 `dsh-better-sidebar`；
 - 已安装的 `scan2ebook` Python 转换器；
 - 你自己的 DeepSeek API Key。
 
@@ -20,11 +21,14 @@ pipx install git+https://github.com/Goatherd0626/scan2ebook.git
 
 ## 安装插件
 
+Scan2Ebook 使用 Better Sidebar 显示界面，请按顺序安装：
+
 ```bash
+dsh plugin --profile web add dsh-better-sidebar
 dsh plugin --profile web add dsh-client-ui-scan2ebook
 ```
 
-插件会自动安装 `scan2ebook-reader`，不需要单独安装网页阅读器。安装完成后重启 DSH。
+`dsh-better-sidebar` 是必需依赖。如果没有安装，Scan2Ebook 不会在 DSH 侧边栏中出现。Scan2Ebook 插件会自动安装 `scan2ebook-reader`，不需要单独安装网页阅读器。安装完成后重启 DSH。
 
 如果还希望 DSH 在识别到扫描书转换请求时主动打开面板，可以另外安装仓库中的 [Scan2Ebook Skill](https://github.com/Goatherd0626/scan2ebook/tree/main/dsh-skill/scan2ebook)。手动使用 sidebar 不要求安装 Skill。
 
@@ -77,6 +81,17 @@ pipx ensurepath
 ```
 
 然后重新打开终端和 DSH。
+
+## 看不到 Scan2Ebook 入口
+
+重新执行以下安装命令：
+
+```bash
+dsh plugin --profile web add dsh-better-sidebar
+dsh plugin --profile web add dsh-client-ui-scan2ebook
+```
+
+然后完全退出并重新启动 DSH。
 
 项目主页：[github.com/Goatherd0626/scan2ebook](https://github.com/Goatherd0626/scan2ebook)
 

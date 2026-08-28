@@ -40,6 +40,7 @@
 - [x] 已发布 `scan2ebook-reader@0.1.0`，并设置为 npm `latest`。
 - [x] 已发布 `dsh-client-ui-scan2ebook@0.1.0`，依赖 `scan2ebook-reader@^0.1.0`。
 - [x] DSH 插件 npm tarball 包含 host/client、patch、README 和 MIT License，不包含测试、`.env` 或仓库源码。
+- [x] 用户安装文档明确要求先安装 `dsh-better-sidebar`，再安装 Scan2Ebook 插件。
 - [x] reader 使用独立应用数据目录，不再按 origin/端口隔离书库，并支持旧 IndexedDB 合并迁移。
 - [x] README 说明数据目录结构、跨端口共享、旧库迁移和备份风险。
 

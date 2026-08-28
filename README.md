@@ -57,11 +57,14 @@ scan2ebook --help
 
 ### 第二步：安装 DSH 插件
 
+Scan2Ebook 的界面显示在 Better Sidebar 中，因此需要先安装 `dsh-better-sidebar`，再安装 Scan2Ebook 插件：
+
 ```bash
+dsh plugin --profile web add dsh-better-sidebar
 dsh plugin --profile web add dsh-client-ui-scan2ebook
 ```
 
-插件会自动安装网页阅读器，不需要再单独安装 `scan2ebook-reader`。安装后重启 DSH。
+`dsh-better-sidebar` 是必需的界面依赖；如果没有安装，DSH 中不会出现 Scan2Ebook 入口。Scan2Ebook 插件会自动安装网页阅读器，不需要再单独安装 `scan2ebook-reader`。全部安装完成后重启 DSH。
 
 ### 可选：让 DSH 自动识别转换需求
 
@@ -196,6 +199,17 @@ pipx ensurepath
 ```
 
 然后关闭并重新打开终端和 DSH。
+
+### 安装插件后看不到 Scan2Ebook 入口
+
+确认 Better Sidebar 和 Scan2Ebook 插件都已安装：
+
+```bash
+dsh plugin --profile web add dsh-better-sidebar
+dsh plugin --profile web add dsh-client-ui-scan2ebook
+```
+
+然后完全退出并重新启动 DSH。Scan2Ebook 入口会显示在任务看板、SSH、技能中心等入口的下方。
 
 ### Reader 启动后没有自动打开浏览器
 
