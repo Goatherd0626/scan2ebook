@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { createServer as createHttpServer } from 'node:http'
+import { mkdtempSync } from 'node:fs'
 import { mkdtemp, realpath, writeFile } from 'node:fs/promises'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
@@ -54,7 +55,11 @@ function createHarness(config = {}, sessions) {
       if (typeof cleanup === 'function') cleanups.push(cleanup)
     },
   }
-  apply(ctx, { readerApi, ...config })
+  apply(ctx, {
+    readerApi,
+    readerDataDir: mkdtempSync(join(tmpdir(), 'scan2ebook-plugin-reader-')),
+    ...config,
+  })
   return {
     rpc: (...args) => rpcHandler(...args),
     async cleanup() {

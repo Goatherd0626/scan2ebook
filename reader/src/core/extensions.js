@@ -5,6 +5,12 @@
 const extensions = new Map();
 const enabledCache = new Map();
 const EXTENSION_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+let persistentStorage = globalThis.localStorage;
+
+export function setPersistentStorage(storage) {
+  persistentStorage = storage || globalThis.localStorage;
+  enabledCache.clear();
+}
 
 /* ---------- 插件注册 / 启停 ---------- */
 export function registerExtension(def) {
@@ -26,7 +32,7 @@ export function isEnabled(id) {
   const def = extensions.get(id);
   if (!def) return false;
   if (!enabledCache.has(id)) {
-    const saved = localStorage.getItem('s2e-plugin:' + id);
+    const saved = persistentStorage.getItem('s2e-plugin:' + id);
     enabledCache.set(id, saved === null ? def.enabled !== false : saved === '1');
   }
   return enabledCache.get(id);
@@ -34,7 +40,7 @@ export function isEnabled(id) {
 
 export function setEnabled(id, on) {
   enabledCache.set(id, !!on);
-  localStorage.setItem('s2e-plugin:' + id, on ? '1' : '0');
+  persistentStorage.setItem('s2e-plugin:' + id, on ? '1' : '0');
 }
 
 /* ---------- 事件总线 ---------- */
@@ -159,8 +165,10 @@ export function makeAppCtx() {
     toast,
     dialog: null,
     storage: {
-      get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } },
-      set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* 忽略 */ } },
+      get: (k) => { try { return persistentStorage.getItem(k); } catch (e) { return null; } },
+      set: (k, v) => { try { persistentStorage.setItem(k, v); } catch (e) { /* 忽略 */ } },
+      getItem: (k) => { try { return persistentStorage.getItem(k); } catch (e) { return null; } },
+      setItem: (k, v) => { try { persistentStorage.setItem(k, v); } catch (e) { /* 忽略 */ } },
     },
     openBook,
   };

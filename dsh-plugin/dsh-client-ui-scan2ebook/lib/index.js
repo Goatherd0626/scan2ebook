@@ -176,6 +176,9 @@ export function apply(ctx, config = {}) {
   const defaultModel = String(config.defaultVisionModel || DEFAULT_MODEL)
   const defaultPort = Number(config.defaultPort || DEFAULT_PORT)
   const defaultPrice = Number(config.estimatedPricePerRequest || 0.001)
+  const readerDataDir = typeof config.readerDataDir === 'string' && config.readerDataDir.trim()
+    ? resolve(config.readerDataDir.trim())
+    : undefined
   const openExternalUrl = config.openExternalUrl || openInDefaultBrowser
   const jobs = new Map()
   const readers = new Map()
@@ -393,7 +396,9 @@ export function apply(ctx, config = {}) {
         if (endpoint === 'reader-start') {
           const port = validatePort(Number(args.port || defaultPort))
           const api = await readerApi()
-          const instance = await api.startReader({ host: '127.0.0.1', port, openBrowser: false })
+          const instance = await api.startReader({
+            host: '127.0.0.1', port, openBrowser: false, storageDir: readerDataDir,
+          })
           if (!instance.reused) readers.set(port, instance)
           return { ok: true, value: {
             running: true, managed: readers.has(port), occupied: false,

@@ -15,6 +15,10 @@ test('CLI options parse explicit values', () => {
   });
 });
 
+test('CLI accepts an explicit shared data directory', () => {
+  assert.equal(parseCliArgs(['--data-dir', '/tmp/s2e-data']).storageDir, '/tmp/s2e-data');
+});
+
 test('CLI options reject unsafe host, invalid port and unknown arguments', () => {
   assert.throws(() => validateHost('0.0.0.0'), /只允许/);
   assert.throws(() => validatePort(80), /1024/);

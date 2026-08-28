@@ -21,6 +21,10 @@ async function makeDist() {
   return dist;
 }
 
+async function makeStorage() {
+  return mkdtemp(join(tmpdir(), 'scan2ebook-reader-storage-'));
+}
+
 function rawRequest(port, path, method = 'GET') {
   return new Promise((resolve, reject) => {
     const request = httpRequest({ host: '127.0.0.1', port, path, method }, (response) => {
@@ -39,10 +43,12 @@ function rawRequest(port, path, method = 'GET') {
 }
 
 test('serves health, index and immutable Vite assets', async () => {
-  const instance = await createReaderServer({ port: 0, distDir: await makeDist() });
+  const instance = await createReaderServer({ port: 0, distDir: await makeDist(), storageDir: await makeStorage() });
   try {
     const health = await fetch(`${instance.url}${HEALTH_PATH}`);
-    assert.deepEqual(await health.json(), { app: 'scan2ebook-reader', version: '0.1.0' });
+    assert.deepEqual(await health.json(), {
+      app: 'scan2ebook-reader', version: '0.1.0', storageDir: instance.storageDir,
+    });
     assert.equal(health.headers.get('cache-control'), 'no-store');
 
     const index = await fetch(instance.url);
@@ -64,7 +70,7 @@ test('serves health, index and immutable Vite assets', async () => {
 });
 
 test('rejects path traversal and unsupported methods', async () => {
-  const instance = await createReaderServer({ port: 0, distDir: await makeDist() });
+  const instance = await createReaderServer({ port: 0, distDir: await makeDist(), storageDir: await makeStorage() });
   try {
     const traversal = await rawRequest(instance.port, '/%2e%2e/secret.txt');
     assert.ok([400, 404].includes(traversal.status));
@@ -77,9 +83,10 @@ test('rejects path traversal and unsupported methods', async () => {
 
 test('reuses an existing reader but rejects an unrelated service', async () => {
   const distDir = await makeDist();
-  const first = await createReaderServer({ port: 0, distDir });
+  const storageDir = await makeStorage();
+  const first = await createReaderServer({ port: 0, distDir, storageDir });
   try {
-    const reused = await startReader({ port: first.port, distDir, openBrowser: false });
+    const reused = await startReader({ port: first.port, distDir, storageDir, openBrowser: false });
     assert.equal(reused.reused, true);
   } finally {
     await first.close();
@@ -90,10 +97,47 @@ test('reuses an existing reader but rejects an unrelated service', async () => {
   const address = unrelated.address();
   try {
     await assert.rejects(
-      () => startReader({ port: address.port, distDir, openBrowser: false }),
+      () => startReader({ port: address.port, distDir, storageDir, openBrowser: false }),
       PortInUseError,
     );
   } finally {
     await new Promise((resolve) => unrelated.close(resolve));
+  }
+});
+
+test('不同端口通过同一数据目录共享书库和 PDF', async () => {
+  const distDir = await makeDist();
+  const storageDir = await makeStorage();
+  const first = await createReaderServer({ port: 0, distDir, storageDir });
+  const second = await createReaderServer({ port: 0, distDir, storageDir });
+  try {
+    const origin = first.url;
+    const commandResponse = await fetch(`${first.url}/__scan2ebook__/storage/command`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'putBook', book: { id: 'shared-book', meta: { title: '共享书' } } }),
+    });
+    assert.equal(commandResponse.status, 200);
+    const pdfResponse = await fetch(`${first.url}/__scan2ebook__/storage/books/shared-book/pdf`, {
+      method: 'PUT',
+      headers: { origin, 'content-type': 'application/pdf' },
+      body: Buffer.from('%PDF-shared'),
+    });
+    assert.equal(pdfResponse.status, 200);
+
+    const snapshot = await fetch(`${second.url}/__scan2ebook__/storage`).then((response) => response.json());
+    assert.deepEqual(snapshot.books.map((book) => book.id), ['shared-book']);
+    const pdf = await fetch(`${second.url}/__scan2ebook__/storage/books/shared-book/pdf`);
+    assert.equal(await pdf.text(), '%PDF-shared');
+
+    const crossOrigin = await fetch(`${second.url}/__scan2ebook__/storage/command`, {
+      method: 'POST',
+      headers: { origin: 'http://evil.example', 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'deleteBooks', ids: ['shared-book'] }),
+    });
+    assert.equal(crossOrigin.status, 403);
+  } finally {
+    await first.close();
+    await second.close();
   }
 });

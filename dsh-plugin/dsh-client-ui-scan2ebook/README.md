@@ -31,6 +31,8 @@ API Key 直接在 sidebar 中输入，只保留在当前 sidebar 的浏览器内
 
 ```yaml
 scan2ebookCommand: '/absolute/path/to/venv/bin/scan2ebook'
+# 可选；默认由 reader 使用系统应用数据目录
+readerDataDir: '/absolute/path/to/reader-data'
 ```
 
 这只是选择已安装的程序，不要求转换器和插件位于同一个仓库。

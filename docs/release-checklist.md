@@ -40,7 +40,8 @@
 - [ ] 确认 `scan2ebook-reader` npm 包名可用性、npm 账号与 2FA，然后执行正式发布。
 - [ ] 在 reader 发布成功后检查并发布 `dsh-client-ui-scan2ebook@0.1.0`。
 - [x] DSH 插件 npm tarball 包含 host/client、patch、README 和 MIT License，不包含测试、`.env` 或仓库源码。
-- [x] README 说明阅读器程序位置、IndexedDB 书库、origin/端口隔离和备份风险。
+- [x] reader 使用独立应用数据目录，不再按 origin/端口隔离书库，并支持旧 IndexedDB 合并迁移。
+- [x] README 说明数据目录结构、跨端口共享、旧库迁移和备份风险。
 
 ## 质量保障
 

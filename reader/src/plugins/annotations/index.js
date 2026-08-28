@@ -227,7 +227,7 @@ registerExtension({
       const book = ctx.state.books.find((item) => item.id === view.bookId);
       if (!book) return;
       try {
-        await downloadAnnotatedS2e(book, recordsFor(view.bookId));
+        await downloadAnnotatedS2e(book, recordsFor(view.bookId), () => ctx.db.getBookPdf(book));
         ctx.toast('已导出含标注的电子书');
       } catch (error) {
         ctx.toast('导出失败：' + error.message);
@@ -255,6 +255,10 @@ registerExtension({
         }),
         onExport: () => exportBook(view),
         onLayoutChange: () => view.refreshLayout?.(),
+        storage: {
+          getItem: (key) => ctx.storage.getItem ? ctx.storage.getItem(key) : ctx.storage.get?.(key),
+          setItem: (key, value) => ctx.storage.setItem ? ctx.storage.setItem(key, value) : ctx.storage.set?.(key, value),
+        },
       });
       sidebars.set(view.bookId, sidebar);
       ensureRecords(view.bookId).then((records) => sidebar.render(records));

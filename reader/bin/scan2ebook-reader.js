@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { helpText, parseCliArgs } from '../lib/options.js';
 import { READER_VERSION, startReader } from '../lib/server.js';
+import { defaultStorageDir } from '../lib/storage.js';
 
 async function main() {
   let options;
@@ -24,15 +25,13 @@ async function main() {
 
   try {
     const reader = await startReader(options);
-    if (options.host !== '127.0.0.1' || options.port !== 8765) {
-      console.warn('注意：更换 host 或 port 后，浏览器会使用独立的 IndexedDB 书库。');
-    }
     if (reader.reused) {
       console.log(`📖 scan2ebook 阅读器已在运行：${reader.url}`);
       return;
     }
 
     console.log(`📖 scan2ebook 阅读器：${reader.url}`);
+    console.log(`🗂️  数据目录：${reader.storageDir || options.storageDir || defaultStorageDir()}`);
     console.log('按 Ctrl+C 停止服务。');
     let closing = false;
     const shutdown = async () => {

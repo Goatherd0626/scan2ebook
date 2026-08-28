@@ -12,7 +12,7 @@ const output = execFileSync('npm', ['--cache', cache, 'pack', '--dry-run', '--js
 const report = JSON.parse(output)[0];
 const files = new Set(report.files.map((item) => item.path));
 
-for (const required of ['package.json', 'README.md', 'LICENSE', 'bin/scan2ebook-reader.js', 'lib/server.js', 'dist/index.html']) {
+for (const required of ['package.json', 'README.md', 'LICENSE', 'bin/scan2ebook-reader.js', 'lib/server.js', 'lib/storage.js', 'dist/index.html']) {
   assert.ok(files.has(required), `npm 包缺少 ${required}`);
 }
 for (const forbidden of ['src/', 'test/', 'node_modules/', '.env']) {

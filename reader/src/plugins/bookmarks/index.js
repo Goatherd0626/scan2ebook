@@ -1,4 +1,4 @@
-/* 插件：书签 —— 双栏控制岛 + 目录面板「书签」tab，存于书记录（IndexedDB） */
+/* 插件：书签 —— 双栏控制岛 + 目录面板「书签」tab，存于书记录。 */
 import { registerExtension } from '../../core/extensions.js';
 
 registerExtension({

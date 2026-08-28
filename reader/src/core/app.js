@@ -8,7 +8,7 @@ import { buildRenderModel, PdfView, TextView, pdfjsLib } from './views.js';
 import { initSidebarResizer, initSplitResizer, layoutDefaults } from './layout_resize.js';
 import {
   bus, ui, listExtensions, isEnabled, setEnabled,
-  activateExtension, deactivateExtension, makeAppCtx, injectCore, renderToolbarWidgets,
+  activateExtension, deactivateExtension, makeAppCtx, injectCore, renderToolbarWidgets, setPersistentStorage,
 } from './extensions.js';
 
 const $ = (id) => document.getElementById(id);
@@ -33,16 +33,19 @@ let suppressBookClick = false;
 /* ============================ 初始化 ============================ */
 export async function init() {
   state.db = await db.openDB();
+  const preferenceStorage = db.createPreferenceStorage(state.db);
+  setPersistentStorage(preferenceStorage);
   await loadLibrary();
   renderLibrary();
 
   appCtx = makeAppCtx();
   injectCore(appCtx, {
-    // 绑定好的库 API：插件只需传书对象，不用管 IndexedDB 实例
+    // 绑定好的库 API：插件只需传书对象，不关心底层存储实现。
     db: {
       getBooks: () => db.getBooks(state.db),
       addBook: (book) => db.addBook(state.db, book),
       updateBook: (book) => db.updateBook(state.db, book),
+      getBookPdf: (book) => db.getBookPdf(state.db, book),
       deleteBooks: (ids) => db.deleteBooks(state.db, ids),
       moveBooks: (ids, folderId) => db.moveBooks(state.db, ids, folderId),
       getAnnotations: (bookId) => db.getAnnotations(state.db, bookId),
@@ -65,6 +68,7 @@ export async function init() {
   });
   initSidebarResizer({
     handle: $('sidebar-resizer'),
+    storage: preferenceStorage,
     onCommit: () => {
       const view = activeView();
       if (view) view.pdfView.setSpread(view.prefs.spread && view.prefs.viewMode === 'pdf');
@@ -368,12 +372,14 @@ function createBookView(book) {
   textView.load(model, book.meta);
 
   // pdf.js 的 data 只接受 TypedArray/ArrayBuffer，Blob 需先转
-  const pdfPromise = book.pdfBlob.arrayBuffer().then((data) => pdfjsLib.getDocument({ data }).promise);
+  const pdfPromise = db.getBookPdf(state.db, book)
+    .then((pdfBlob) => pdfBlob.arrayBuffer())
+    .then((data) => pdfjsLib.getDocument({ data }).promise);
   pdfPromise.then((doc) => pdfView.load(doc));
 
   view = { bookId: book.id, wv, pdfView, textView, model, pdfPromise };
   enableCustomTooltips(wv);
-  // ---- 每本书自己的视图配置（记忆并持久化到 IndexedDB） ----
+  // ---- 每本书自己的视图配置（记忆并持久化到统一数据目录） ----
   book.prefs = Object.assign({
     viewMode: 'split', spread: false, sync: false, splitRatio: layoutDefaults.splitRatio,
   }, book.prefs || {});

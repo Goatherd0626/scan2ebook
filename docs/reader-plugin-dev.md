@@ -41,7 +41,8 @@ registerExtension({
 import './hello/index.js';
 ```
 
-重建即生效：`cd reader && npm run build`（正式）或 `npm run dev`（热更新）。
+重建即生效：`cd reader && npm run build && npm start`。`npm run dev` 仅用于
+前端热更新，没有 reader 存储 API 时会暂时回退到当前 origin 的 IndexedDB。
 
 ## 二、注册表 API
 
@@ -57,8 +58,8 @@ import './hello/index.js';
 | `activate(ctx)` | 建议 | 激活回调，收到应用级 ctx；应返回 `cleanup()` 清理函数 |
 | `deactivate(ctx)` | 可选 | 兼容性的额外停用回调；通常使用 `activate` 返回的清理函数即可 |
 
-插件在设置（⚙ → 插件）里可**启停**，状态持久化于 localStorage
-（`s2e-plugin:<id>`）。同一插件不会被重复激活；停用时核心先执行 `activate`
+插件在设置（⚙ → 插件）里可**启停**，状态通过 `ctx.storage` 持久化到
+统一 reader 数据目录（key 为 `s2e-plugin:<id>`）。同一插件不会被重复激活；停用时核心先执行 `activate`
 返回的清理函数，再调用可选的 `deactivate(ctx)`。内置插件支持即时启停，无需刷新。
 
 ### 生命周期约定
@@ -100,7 +101,7 @@ activate(ctx) {
 |---|---|
 | `ctx.bus` | 事件总线：`on(evt, fn)`（返回取消订阅函数）/ `off` / `emit` |
 | `ctx.ui` | UI 扩展点（见下节） |
-| `ctx.db` | **绑定好的库 API**：书库 CRUD，`getAnnotations(bookId) / replaceAnnotations(bookId, records)`，以及同时保存正文与标注的 `updateBookAndAnnotations(book, records)` —— 无需管理 IndexedDB 实例 |
+| `ctx.db` | **绑定好的库 API**：书库 CRUD，`getBookPdf(book)`、`getAnnotations(bookId) / replaceAnnotations(bookId, records)`，以及同时保存正文与标注的 `updateBookAndAnnotations(book, records)` —— 无需管理底层存储 |
 | `ctx.state` | 核心状态：`books / folders / tabs / activeBookId / batchMode`（注意：`loadLibrary()` 刷新后 books 数组元素是新的对象引用） |
 | `ctx.getView()` | 返回当前活动书的视图 `{ bookId, wv, pdfView, textView, model, prefs, applyPrefs, setPrefs }`；首页时可能为 null |
 | `ctx.toast(msg)` | 全局提示 |
@@ -146,7 +147,7 @@ activate(ctx) {
 | `plugins/bookmarks` | `addTocTab`、自有 DOM 清理与 `ctx.db.updateBook` 持久化 |
 | `plugins/eyecare` | 多个 UI 扩展点、CSS 状态回滚与 `ctx.storage` 持久化 |
 | `plugins/progress` | 事件退订，以及停用时取消尚未执行的防抖保存 |
-| `plugins/annotations` | 富选区 UI、CSS Custom Highlight、独立 IndexedDB 数据、右侧栏与 `.s2e` sidecar 导出 |
+| `plugins/annotations` | 富选区 UI、CSS Custom Highlight、统一书库标注数据、右侧栏与 `.s2e` sidecar 导出 |
 | `plugins/editor` | 页面级 items 编辑、保存影响提示、正文/标注原子更新与历史注释归档 |
 
 ### 富选区示例

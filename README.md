@@ -132,14 +132,14 @@ cd ..
 不包含它。`npm pack` 和 `npm publish` 会在打包前自动构建，
 并将 `dist/` 放入 reader npm 发布包。
 
-如果只需要阅读器、不安装 Python 转换器，也可以从 `reader/` 启动
-Vite preview：
+如果只需要阅读器、不安装 Python 转换器，可以直接从 `reader/` 启动
+带统一数据存储的 reader 服务：
 
 ```bash
 cd reader
 npm ci
 npm run build
-npm run preview -- --host 127.0.0.1 --port 8765
+npm start -- --host 127.0.0.1 --port 8765
 ```
 
 ### 3. DSH Skill（可选）
@@ -195,7 +195,7 @@ scan2ebook-reader --port 8765
 ```
 
 npm 包安装后，阅读器程序文件会位于 npm 的 `node_modules` 或全局 npm 前缀中；
-用户导入的电子书仍不应存放在 npm 包目录，而应继续使用浏览器 IndexedDB。
+用户导入的电子书不存放在 npm 包目录，而是使用独立应用数据目录。
 
 本地打包与安装验证：
 
@@ -256,25 +256,24 @@ DSH 插件已经直接依赖并调用这个 reader npm 包。正式发布顺序�
   压缩包后，阅读器就位于用户自己选择的仓库/解压目录 `reader/`，
   构建产物位于 `reader/dist/`。npm 安装时则位于对应
   `node_modules/scan2ebook-reader/` 或 npm 全局安装目录。
-- **导入的电子书**：存在浏览器 IndexedDB 数据库 `scan2ebook-reader` 中，
-  包含 PDF Blob、`book.json`、元数据、文件夹、阅读进度、书签和标注。
-- **物理磁盘路径**：由 Chrome / Safari / Edge 等浏览器管理，位于该浏览器的
-  profile 数据目录，不是 scan2ebook 可直接管理的普通文件夹。
-  开发者可在浏览器 DevTools 的 **Application / Storage → IndexedDB →
-  `scan2ebook-reader`** 中查看逻辑数据，不建议直接修改浏览器的底层数据文件。
-- **书库隔离规则**：IndexedDB 按 `scheme + host + port` 隔离。
-  `127.0.0.1:8765`、`127.0.0.1:9000` 和 `localhost:8765` 是三个不同的书库。
-  为了一直看到同一个书库，建议固定使用默认地址
-  `http://127.0.0.1:8765`。
+- **导入的电子书**：不再以浏览器 IndexedDB 为主库。PDF、`book.json`、
+  元数据、文件夹、阅读进度、书签、标注和界面偏好统一存在 reader 数据目录。
+- **macOS 物理路径**：`~/Library/Application Support/Scan2Ebook Reader/`。
+  `library.json` 保存书库索引和偏好；每本书在 `books/<book-id>/` 中独立保存
+  `book.pdf`、`record.json` 和 `annotations.json`。
+- **端口无关**：`127.0.0.1:8765`、`127.0.0.1:9000` 和 `localhost:8765`
+  默认访问同一数据源，不再出现换端口就换书库的情况。
+- **旧数据迁移**：首次访问新版时，当前 origin 下的旧 IndexedDB 会自动复制到
+  统一目录，但不会自动删除旧库。若过去用过多个端口，分别打开一次即可合并。
 - **删除风险**：把 `.s2e` 导入后，技术上可以删除原文件，因为阅读器已保存一份
-  PDF 和 JSON。但清理浏览器站点数据、删除浏览器 profile 或更换端口都可能让书库
-  不再可见；浏览器配额和存储压力策略也会影响可容纳的 PDF 总量。
-  因此建议保留原 `.s2e` 作为备份；带标注的书可使用阅读器的导出功能另存。
+  PDF 和 JSON。但删除或损坏 `Scan2Ebook Reader` 数据目录仍会丢失书库。
+  因此建议保留原 `.s2e` 作为备份，并在关闭 reader 后定期复制整个数据目录；
+  带标注的书可使用阅读器的导出功能另存。
 
 ## 阅读器功能（插件架构）
 
 阅读器采用**插件架构**（学习 dsh-web-ui 的 cordis 插件思想：核心最小化 + 扩展点 + 插件注册）。
-核心只做：书库/IndexedDB、标签页、双视图渲染（PDF/文字）、事件总线、插件管理器。
+核心只做：书库持久化、标签页、双视图渲染（PDF/文字）、事件总线、插件管理器。
 **全部功能都是插件**（`reader/src/plugins/`），可在 ⚙ 设置里启停：
 
 | 插件 | 功能 |

@@ -41,6 +41,8 @@ export function parseCliArgs(argv) {
     if (arg === '--help' || arg === '-h') options.help = true;
     else if (arg === '--version' || arg === '-v') options.version = true;
     else if (arg === '--no-open') options.openBrowser = false;
+    else if (arg === '--data-dir') options.storageDir = readValue(argv, index++, '--data-dir');
+    else if (arg.startsWith('--data-dir=')) options.storageDir = arg.slice('--data-dir='.length);
     else if (arg === '--host') options.host = readValue(argv, index++, '--host');
     else if (arg.startsWith('--host=')) options.host = arg.slice('--host='.length);
     else if (arg === '--port') options.port = readValue(argv, index++, '--port');
@@ -62,11 +64,11 @@ export function helpText() {
 选项:
   --host <host>   监听地址（默认 127.0.0.1，仅允许回环地址）
   --port <port>   监听端口（默认 8765）
+  --data-dir <dir> 覆盖数据目录（默认使用系统应用数据目录）
   --no-open       启动后不自动打开浏览器
   -h, --help      显示帮助
   -v, --version   显示版本
 
 注意:
-  浏览器书库按 scheme + host + port 隔离。
-  为了始终访问同一书库，建议固定使用 http://127.0.0.1:8765。`;
+  书库保存在独立应用数据目录，host 和 port 不再隔离数据。`;
 }
