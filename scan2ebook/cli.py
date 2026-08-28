@@ -6,8 +6,10 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import logging
+import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -27,6 +29,16 @@ log = logging.getLogger("scan2ebook")
 # OCR 文字极少（<3 字）的页按空白页跳过，不调用视觉模型。
 # 注意阈值不能太高：分册页/扉页常只有几个字（如「第一稿」），应送视觉模型分类。
 BLANK_TEXT_THRESHOLD = 3
+
+
+def _resolve_api_key() -> str:
+    """读取本次进程的临时 Key；交互运行时由用户隐藏输入，不写入磁盘。"""
+    api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    if api_key:
+        return api_key
+    if sys.stdin.isatty():
+        return getpass.getpass("DeepSeek API Key（仅本次转换使用，不会保存）：").strip()
+    return ""
 
 
 def parse_args(argv=None) -> argparse.Namespace:
@@ -145,9 +157,10 @@ def main(argv=None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = src.stem
 
-    vs = VisionStructure(model=args.vision_model)
+    api_key = _resolve_api_key()
+    vs = VisionStructure(api_key=api_key, model=args.vision_model)
     if not vs.enabled:
-        log.error("需要 DEEPSEEK_API_KEY（在 .env 中配置）才能运行")
+        log.error("缺少 API Key；请在交互式终端输入，或通过 DSH sidebar 启动转换")
         return 1
 
     doc = open_pdf(str(src))
@@ -199,7 +212,7 @@ def main(argv=None) -> int:
         "stage": "finalize", "progress": 96, "usage": vs.usage_snapshot(),
         "message": "正在生成元数据与电子书文件",
     })
-    client = DeepSeekClient()
+    client = DeepSeekClient(api_key=api_key)
     metadata: dict = {}
     if client.enabled:
         metadata = client.extract_metadata("\n".join(ocr_texts[:3]))

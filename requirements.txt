@@ -1,6 +1,5 @@
 ocrmac
 pillow
 pymupdf
-python-dotenv
 openai
 tqdm

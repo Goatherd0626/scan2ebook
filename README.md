@@ -84,11 +84,12 @@ cd scan2ebook
 
 python3 -m venv .venv
 .venv/bin/pip install -e .
-cp .env.example .env   # 填入 DEEPSEEK_API_KEY
 ```
 
 editable 安装后会提供 `.venv/bin/scan2ebook` 命令。也可以先激活虚拟环境，
-再直接使用 `scan2ebook`。
+再直接使用 `scan2ebook`。开始转换时，CLI 会在终端中隐藏输入 API Key；Key
+只供本次进程使用，不写入 `.env`、钥匙串、配置文件或日志。使用 DSH 插件时，
+则直接在 sidebar 中输入，关闭 sidebar 或 DSH 后自动清除。
 
 Python 发布包的本地构建与审计：
 

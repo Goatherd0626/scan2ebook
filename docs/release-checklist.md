@@ -20,7 +20,7 @@
 
 ## 密钥与隐私
 
-- [x] `.env` 已在 `.gitignore` 中排除，仓库只提供 `.env.example`。
+- [x] 安装与运行不要求 `.env`；API Key 只由 sidebar 或 CLI 用户在运行时提供。
 - [x] DSH sidebar 仅在当前 sidebar 内存中保留 API Key，关闭 sidebar 或 DSH 后自动清除。
 - [x] API Key 不写入钥匙串、`.env`、`localStorage`、日志或仓库。
 - [ ] 发布前运行秘密扫描（例如 Gitleaks）并检查完整 Git 历史。

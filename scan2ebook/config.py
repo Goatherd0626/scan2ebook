@@ -1,12 +1,7 @@
-"""运行配置：从环境变量 / .env 读取。"""
+"""可公开的模型与 OCR 默认配置；API Key 不在配置模块中持久化。"""
 import os
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 # ---- DeepSeek API ----
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "").strip()
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
 DEEPSEEK_CHAT_MODEL = os.getenv("DEEPSEEK_CHAT_MODEL", "deepseek-chat")
 DEEPSEEK_VISION_MODEL = os.getenv("DEEPSEEK_VISION_MODEL", "deepseek-v4-flash-vision-exp")

@@ -36,8 +36,8 @@ scan2ebook "<输入.pdf>" -o "<输入 PDF 所在目录>"
 
 不要在消息、日志或命令行参数中输出 API Key。插件模式下，API Key 只能由用户在
 当前 sidebar 中临时输入；不使用钥匙串、`.env`、DSH Provider 或宿主环境变量。
-关闭 sidebar 或 DSH 后，该 Key 应自动清除。CLI 模式仍可独立使用
-进程环境中的 `DEEPSEEK_API_KEY`。
+关闭 sidebar 或 DSH 后，该 Key 应自动清除。CLI 模式由用户在终端中隐藏输入，
+也不创建或读取项目 `.env`。
 
 ## 输出约束
 

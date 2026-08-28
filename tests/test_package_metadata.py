@@ -38,6 +38,11 @@ class PackageMetadataTest(unittest.TestCase):
         self.assertIn("scan2ebook-reader", source)
         self.assertNotIn("reader/dist", source)
 
+    def test_api_key_does_not_require_dotenv(self):
+        dependencies = "\n".join(self.metadata["project"]["dependencies"])
+        self.assertNotIn("dotenv", dependencies.lower())
+        self.assertFalse((ROOT / ".env.example").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

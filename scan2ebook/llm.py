@@ -7,14 +7,14 @@ from typing import Optional
 
 from openai import OpenAI
 
-from .config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_CHAT_MODEL
+from .config import DEEPSEEK_BASE_URL, DEEPSEEK_CHAT_MODEL
 
 log = logging.getLogger(__name__)
 
 
 class DeepSeekClient:
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
-        self.api_key = api_key or DEEPSEEK_API_KEY
+        self.api_key = (api_key or "").strip()
         self.model = model or DEEPSEEK_CHAT_MODEL
         self.enabled = bool(self.api_key)
         self._client: Optional[OpenAI] = None

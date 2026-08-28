@@ -1,9 +1,10 @@
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from PIL import Image
 
-from scan2ebook.cli import _resolve_page_indices
+from scan2ebook.cli import _resolve_api_key, _resolve_page_indices
 from scan2ebook.vision import VisionStructure, _normalize_items
 
 
@@ -77,6 +78,27 @@ class PageRangeTest(unittest.TestCase):
             with self.subTest(start=start, end=end):
                 with self.assertRaises(ValueError):
                     _resolve_page_indices(10, start, end)
+
+
+class ApiKeyInputTest(unittest.TestCase):
+    def test_prefers_ephemeral_child_process_environment(self):
+        with patch.dict("os.environ", {"DEEPSEEK_API_KEY": "  temporary-key  "}, clear=True):
+            with patch("scan2ebook.cli.getpass.getpass") as prompt:
+                self.assertEqual(_resolve_api_key(), "temporary-key")
+                prompt.assert_not_called()
+
+    def test_prompts_without_echo_in_interactive_cli(self):
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("scan2ebook.cli.sys.stdin.isatty", return_value=True):
+                with patch("scan2ebook.cli.getpass.getpass", return_value=" entered-key "):
+                    self.assertEqual(_resolve_api_key(), "entered-key")
+
+    def test_noninteractive_cli_does_not_wait_for_input(self):
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("scan2ebook.cli.sys.stdin.isatty", return_value=False):
+                with patch("scan2ebook.cli.getpass.getpass") as prompt:
+                    self.assertEqual(_resolve_api_key(), "")
+                    prompt.assert_not_called()
 
 
 class PageNumberMappingTest(unittest.TestCase):

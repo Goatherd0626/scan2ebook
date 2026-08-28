@@ -31,7 +31,7 @@ from openai import OpenAI
 from PIL import Image
 from tqdm import tqdm
 
-from .config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_VISION_MODEL
+from .config import DEEPSEEK_BASE_URL, DEEPSEEK_VISION_MODEL
 
 log = logging.getLogger(__name__)
 
@@ -170,7 +170,7 @@ class VisionStructure:
     """ds-vision 逐页结构化客户端。"""
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
-        self.api_key = api_key or DEEPSEEK_API_KEY
+        self.api_key = (api_key or "").strip()
         self.model = (model or DEEPSEEK_VISION_MODEL).strip()
         self.enabled = bool(self.api_key)
         self._client = OpenAI(api_key=self.api_key, base_url=DEEPSEEK_BASE_URL) if self.enabled else None
