@@ -37,8 +37,8 @@
 - [x] 本地构建 Python wheel/sdist，审计包内文件，并通过 `twine check` 与隔离安装冒烟测试。
 - [ ] 确认 `scan2ebook` PyPI 包名可用性、发布账号与 2FA；未确认前不上传。
 - [x] reader npm tarball 包含 `dist/`、CLI、Node API、README 和 MIT License，不包含源码、测试、`.env` 或电子书。
-- [ ] 确认 `scan2ebook-reader` npm 包名可用性、npm 账号与 2FA，然后执行正式发布。
-- [ ] 在 reader 发布成功后检查并发布 `dsh-client-ui-scan2ebook@0.1.0`。
+- [x] 已发布 `scan2ebook-reader@0.1.0`，并设置为 npm `latest`。
+- [x] 已发布 `dsh-client-ui-scan2ebook@0.1.0`，依赖 `scan2ebook-reader@^0.1.0`。
 - [x] DSH 插件 npm tarball 包含 host/client、patch、README 和 MIT License，不包含测试、`.env` 或仓库源码。
 - [x] reader 使用独立应用数据目录，不再按 origin/端口隔离书库，并支持旧 IndexedDB 合并迁移。
 - [x] README 说明数据目录结构、跨端口共享、旧库迁移和备份风险。
