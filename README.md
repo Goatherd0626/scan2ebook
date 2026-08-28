@@ -16,157 +16,86 @@ Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时�
 - 在本地书库中按文件夹整理电子书；
 - 只转换 PDF 中指定的页码范围。
 
-## 使用前需要准备
+## 最简单的安装方式：让 AI 帮你安装
 
-如果需要转换扫描版 PDF，目前需要：
+你不需要先学会 Python、npm 或终端命令。把本页面链接和下面这段话发给一个能够操作你电脑终端的 AI 助手，例如 DSH、Codex 或 Claude Code：
 
-- 一台 Mac；
-- Python 3.10 或更高版本；
-- Node.js 20.19 或更高版本；
-- 你自己的 DeepSeek API Key，并确保账户可以使用多模态模型；
-- 如果希望使用图形界面，还需要 DeepSeek Harness。
+```text
+请帮我在这台 Mac 上安装 Scan2Ebook：
+https://github.com/Goatherd0626/scan2ebook
 
-网页阅读器本身也可以在 Windows 和 Linux 上使用，但扫描识别和 DSH 图形转换功能目前主要支持 macOS。
+目标是让我可以在 DeepSeek Harness 的 sidebar 中选择扫描版 PDF、转换电子书并启动网页阅读器。
 
-> 当前 0.1.0 还没有图形化安装器。安装时需要在“终端”中复制几条命令；安装完成后的选书、转换和阅读都可以在图形界面中完成。
+请按以下要求操作：
+1. 先只读检查 macOS、Python、Node.js、Homebrew、pipx 和 DSH 是否可用，不要直接改动系统。
+2. 告诉我缺少什么；需要安装软件、联网下载或修改 PATH 时，先征求我的确认。
+3. 使用 pipx 从 GitHub 安装 scan2ebook Python 转换器。
+4. 按顺序为 DSH web profile 安装 dsh-better-sidebar 和 dsh-client-ui-scan2ebook。
+5. 安装仓库中的 dsh-skill/scan2ebook/SKILL.md，让 DSH 能在识别到扫描书转换请求时唤起面板。
+6. 用 scan2ebook --help 验证转换器，并确认两个 DSH 插件的安装命令成功完成。
+7. 告诉我需要如何重启 DSH，以及之后从哪里打开 Scan2Ebook。
 
-## 推荐安装：在 DSH 中使用
-
-这是最完整、也最适合日常使用的方式。安装后，可以在 DSH sidebar 中选择 PDF、设置页码、输入临时 API Key、查看进度并启动阅读器。
-
-### 第一步：安装转换器
-
-如果尚未安装 `pipx`：
-
-```bash
-brew install pipx
-pipx ensurepath
+安全要求：
+- 不要向我索要、读取或保存 DeepSeek API Key；我会在 Scan2Ebook sidebar 中自己输入。
+- 不要创建 .env，不要使用钥匙串保存 Key。
+- 不要启动真实转换，不要调用任何付费模型 API。
+- 不要修改或删除 ~/Library/Application Support/Scan2Ebook Reader/ 中已有的数据。
+- 完成后列出你安装或修改了什么，以及验证结果。
 ```
 
-完成后重新打开终端，然后安装 Scan2Ebook 转换器：
+安装完成后，完全退出并重新启动 DSH。Scan2Ebook 入口会显示在任务看板、SSH、技能中心等入口的下方。
 
-```bash
-pipx install git+https://github.com/Goatherd0626/scan2ebook.git
-```
+## 怎样转换一本书
 
-检查是否安装成功：
-
-```bash
-scan2ebook --help
-```
-
-### 第二步：安装 DSH 插件
-
-Scan2Ebook 的界面显示在 Better Sidebar 中，因此需要先安装 `dsh-better-sidebar`，再安装 Scan2Ebook 插件：
-
-```bash
-dsh plugin --profile web add dsh-better-sidebar
-dsh plugin --profile web add dsh-client-ui-scan2ebook
-```
-
-`dsh-better-sidebar` 是必需的界面依赖；如果没有安装，DSH 中不会出现 Scan2Ebook 入口。Scan2Ebook 插件会自动安装网页阅读器，不需要再单独安装 `scan2ebook-reader`。全部安装完成后重启 DSH。
-
-### 可选：让 DSH 自动识别转换需求
-
-不安装 Skill 也可以手动打开 Scan2Ebook sidebar。安装 Skill 后，当你向 DSH 提出“把这本扫描 PDF 转成电子书”之类的请求时，它可以主动唤起转换面板。
-
-```bash
-mkdir -p ~/.dsh/skills/scan2ebook
-curl --fail --location \
-  https://raw.githubusercontent.com/Goatherd0626/scan2ebook/main/dsh-skill/scan2ebook/SKILL.md \
-  --output ~/.dsh/skills/scan2ebook/SKILL.md
-```
-
-### 第三步：开始转换
-
-1. 在 DSH 侧边栏中打开 **Scan2Ebook**；入口位于任务看板、SSH、技能中心等入口的下方。
+1. 在 DSH 侧边栏中打开 **Scan2Ebook**。
 2. 点击“选择 PDF”，从 Mac 中选择要转换的文件。
-3. 输入起始页和结束页。页码使用 PDF 中显示的实际页数，并且包含起始页和结束页。
+3. 输入起始页和结束页。两端页码都会包含在转换范围内。
 4. 保留默认模型，或者填写你的账户能够使用的多模态模型。
-5. 输入你自己的 DeepSeek API Key。
+5. 在 sidebar 中输入你自己的 DeepSeek API Key。
 6. 查看预计费用，然后点击“开始转换”。
-7. 等待进度条完成。转换结果会保存在原 PDF 所在的文件夹中。
+7. 等待进度条完成。结果会保存在原 PDF 所在的文件夹中。
 
 API Key 只在当前 sidebar 中临时使用。关闭 sidebar 或退出 DSH 后会自动清除，不会写入 `.env`、钥匙串、浏览器存储或项目文件。
 
 转换过程中，选定页面的图像和识别文字会发送给你选择的多模态模型服务。请不要处理无权使用或不能上传到第三方服务的材料。
 
-## 只安装网页阅读器
+## 怎样打开网页阅读器
 
-如果你已经有 `.s2e` 文件，只想阅读，不需要安装 Python 转换器、DSH 或 DeepSeek API Key。
+在 Scan2Ebook sidebar 的“网页阅读器”区域：
 
-安装：
-
-```bash
-npm install --global scan2ebook-reader
-```
-
-启动：
-
-```bash
-scan2ebook-reader
-```
-
-阅读器会自动在系统默认浏览器中打开。将 `.s2e` 文件拖入窗口或点击导入，即可加入书库。
-
-也可以不安装，直接临时启动：
-
-```bash
-npx scan2ebook-reader
-```
-
-## 在 DSH 中启动阅读器
-
-打开 Scan2Ebook sidebar，在“网页阅读器”区域：
-
-- 点击“启动阅读器”启动服务；
+- 点击“启动阅读器”；
 - 点击“打开阅读器”或阅读器地址，在系统默认浏览器的新页面中打开；
 - 双击端口数字可以修改端口；
 - 点击“终止阅读器”可以关闭由插件启动的阅读器。
 
 不同端口默认使用同一个书库，修改端口不会产生一套新的电子书数据。
 
-## 不使用 DSH，直接转换
+## 只想阅读 `.s2e` 文件
 
-安装转换器后，也可以直接在终端运行：
+只阅读别人提供的 `.s2e` 文件，不需要 Python、DSH 或 DeepSeek API Key。可以把下面这段话发给有终端能力的 AI：
 
-```bash
-scan2ebook "/路径/书籍.pdf" -o "/路径/输出文件夹"
+```text
+请帮我安装并启动 Scan2Ebook Reader。
+
+要求：
+1. 先检查 Node.js 是否满足 20.19 或更高版本；需要安装或升级时先征求我的确认。
+2. 从 npm 安装 scan2ebook-reader。
+3. 运行 scan2ebook-reader --help 验证安装。
+4. 启动阅读器，并告诉我浏览器访问地址。
+5. 不要修改或删除我已有的 Scan2Ebook Reader 书库数据。
 ```
 
-命令会在终端中隐藏输入 API Key。Key 只用于这一次转换，不会保存。
-
-只转换部分页码：
-
-```bash
-scan2ebook "/路径/书籍.pdf" -o "/路径/输出文件夹" \
-  --page-start 10 \
-  --page-end 35
-```
-
-转换完成后直接打开阅读器：
-
-```bash
-scan2ebook "/路径/书籍.pdf" -o "/路径/输出文件夹" --serve
-```
-
-使用 `--serve` 前，需要先安装网页阅读器：
-
-```bash
-npm install --global scan2ebook-reader
-```
+阅读器打开后，将 `.s2e` 文件拖入窗口或点击导入，即可加入书库。
 
 ## 转换后会得到什么
-
-转换结果默认包含：
 
 - `书名.s2e`：导入 Scan2Ebook Reader 的电子书文件；
 - `书名.json`：结构化文字数据；
 - `书名.html`：可以直接打开的轻量预览文件。
 
-在 DSH 插件中转换时，这些文件会放在原 PDF 的同级文件夹中。建议保留 `.s2e` 文件作为备份。
+在 DSH 中转换时，这些文件会放在原 PDF 的同级文件夹中。建议保留 `.s2e` 文件作为备份。
 
-## 阅读器中的数据存在哪里
+## 阅读器数据存在哪里
 
 macOS 上，书库默认保存在：
 
@@ -176,42 +105,19 @@ macOS 上，书库默认保存在：
 
 这里保存导入的书、阅读进度、文件夹、书签、高亮、注释和阅读设置。它不以端口区分书库。
 
-建议：
-
-- 保留原始 PDF 和转换得到的 `.s2e` 文件；
-- 定期备份整个 `Scan2Ebook Reader` 文件夹；
-- 备份或恢复数据前，先关闭正在运行的阅读器。
+建议保留原始 PDF 和 `.s2e` 文件，并定期备份整个 `Scan2Ebook Reader` 文件夹。备份或恢复数据前，请先关闭正在运行的阅读器。
 
 ## 常见问题
 
+### 安装后看不到 Scan2Ebook 入口
+
+让 AI 检查 `dsh-better-sidebar` 和 `dsh-client-ui-scan2ebook` 是否都安装在 DSH 的 `web` profile 中，然后完全退出并重新启动 DSH。
+
 ### DSH 提示找不到 `scan2ebook`
 
-先在终端运行：
+让 AI 检查 `scan2ebook --help` 是否能运行，以及 pipx 的可执行文件目录是否已经加入 DSH 能看到的 PATH。
 
-```bash
-scan2ebook --help
-```
-
-如果找不到命令，请重新执行：
-
-```bash
-pipx ensurepath
-```
-
-然后关闭并重新打开终端和 DSH。
-
-### 安装插件后看不到 Scan2Ebook 入口
-
-确认 Better Sidebar 和 Scan2Ebook 插件都已安装：
-
-```bash
-dsh plugin --profile web add dsh-better-sidebar
-dsh plugin --profile web add dsh-client-ui-scan2ebook
-```
-
-然后完全退出并重新启动 DSH。Scan2Ebook 入口会显示在任务看板、SSH、技能中心等入口的下方。
-
-### Reader 启动后没有自动打开浏览器
+### Reader 没有自动打开浏览器
 
 在浏览器中访问：
 
@@ -227,12 +133,68 @@ http://127.0.0.1:8765
 
 sidebar 中显示的是估算值。模型价格、重试次数和实际计费方式可能变化，请以模型服务商的最终账单为准。
 
+<details>
+<summary><strong>如果你想自己手动安装</strong></summary>
+
+### 安装 Python 转换器
+
+```bash
+brew install pipx
+pipx ensurepath
+pipx install git+https://github.com/Goatherd0626/scan2ebook.git
+scan2ebook --help
+```
+
+### 安装 DSH 插件
+
+Better Sidebar 是必需依赖，请按顺序安装：
+
+```bash
+dsh plugin --profile web add dsh-better-sidebar
+dsh plugin --profile web add dsh-client-ui-scan2ebook
+```
+
+### 安装 DSH Skill（可选）
+
+```bash
+mkdir -p ~/.dsh/skills/scan2ebook
+curl --fail --location \
+  https://raw.githubusercontent.com/Goatherd0626/scan2ebook/main/dsh-skill/scan2ebook/SKILL.md \
+  --output ~/.dsh/skills/scan2ebook/SKILL.md
+```
+
+### 只安装网页阅读器
+
+```bash
+npm install --global scan2ebook-reader
+scan2ebook-reader
+```
+
+### 不使用 DSH，直接转换
+
+```bash
+scan2ebook "/路径/书籍.pdf" -o "/路径/输出文件夹"
+```
+
+只转换部分页码：
+
+```bash
+scan2ebook "/路径/书籍.pdf" -o "/路径/输出文件夹" \
+  --page-start 10 \
+  --page-end 35
+```
+
+命令会在终端中隐藏输入 API Key。Key 只用于这一次转换，不会保存。
+
+</details>
+
 ## 当前限制
 
 - 扫描识别和 DSH 插件当前主要支持 macOS；
+- 网页阅读器可以在 macOS、Windows 和 Linux 的现代桌面浏览器中使用；
 - 默认多模态模型不保证对所有账户长期可用；
 - 识别结果仍可能出错，正式引用前请回到对应 PDF 页核对；
-- 当前没有面向普通用户的一键安装器。
+- 当前没有面向普通用户的一键图形安装器。
 
 ## 更多资料
 

@@ -2,6 +2,19 @@
 
 在 DeepSeek Harness 中使用 Scan2Ebook 的图形界面插件。它把 PDF 选择、页码范围、API Key、转换进度、费用估算和网页阅读器放在同一个 sidebar 中。
 
+## 推荐：让 AI 帮你安装
+
+把本页面链接发给一个能够操作本机终端的 AI，让它完成安装。可以直接使用下面这段请求：
+
+```text
+请帮我安装 Scan2Ebook 的 DSH 插件。
+
+请先检查环境，缺少软件或需要修改系统时先征求我的确认。使用 pipx 从
+https://github.com/Goatherd0626/scan2ebook 安装 scan2ebook 转换器，然后按顺序为 DSH web profile 安装 dsh-better-sidebar 和 dsh-client-ui-scan2ebook。最后用 scan2ebook --help 验证安装，并告诉我如何重启 DSH。
+
+不要向我索要或保存 DeepSeek API Key，不要创建 .env，不要运行真实转换或调用付费 API，也不要修改已有的 Scan2Ebook Reader 书库数据。
+```
+
 ## 使用前需要准备
 
 - macOS；
