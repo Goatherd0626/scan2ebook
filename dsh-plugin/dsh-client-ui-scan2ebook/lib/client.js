@@ -54,7 +54,7 @@ window.__ModuleLoader__.load({
 
     function ConversionView({ sessionId }) {
       const [pdf, setPdf] = useState(null), [pageStart, setPageStart] = useState(1), [pageEnd, setPageEnd] = useState(1)
-      const [model, setModel] = useState('deepseek-v4-flash-vision-exp'), [apiKey, setApiKey] = useState(''), [price, setPrice] = useState(0.001)
+      const [model, setModel] = useState('deepseek-flash'), [apiKey, setApiKey] = useState(''), [price, setPrice] = useState(0.001)
       const [job, setJob] = useState(null), [busy, setBusy] = useState(false), [feedback, setFeedback] = useState('请选择一本 PDF。'), [failed, setFailed] = useState(false)
       useEffect(() => { let alive = true; rpc('bootstrap', { sessionId }).then((value) => { if (!alive) return; setModel(value.defaultModel); setPrice(value.defaultPrice); if (value.latestJob) setJob(value.latestJob) }).catch((error) => { if (alive) { setFeedback(error.message); setFailed(true) } }); return () => { alive = false } }, [sessionId])
       // 关闭 tab（组件卸载）或页面隐藏时立即丢弃内存中的临时 Key。

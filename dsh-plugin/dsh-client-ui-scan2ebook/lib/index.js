@@ -10,7 +10,7 @@ export const inject = ['tools']
 
 const EVENT_PREFIX = 'S2E_EVENT '
 const MAX_LOG_LINES = 200
-const DEFAULT_MODEL = 'deepseek-v4-flash-vision-exp'
+const DEFAULT_MODEL = 'deepseek-flash'
 const DEFAULT_PORT = 8765
 const DEFAULT_CONVERTER_COMMAND = 'scan2ebook'
 
