@@ -76,8 +76,11 @@ window.__ModuleLoader__.load({
         .s2e-error-card>h3{color:var(--dsw-alias-state-error-primary)}
         .s2e-reader-section{border-top:1px solid var(--dsw-alias-border-l1);padding-top:14px}
         .s2e-port{width:96px;text-align:center;font-variant-numeric:tabular-nums}
-        .s2e-reader-url{display:inline-flex;align-items:center;gap:6px;margin:0;padding:0;border:0;background:transparent;color:var(--dsw-alias-brand-primary);font:inherit;font-size:12px;font-weight:500;text-align:left;overflow-wrap:anywhere;cursor:pointer}
-        .s2e-reader-url:hover{text-decoration:underline}
+        .s2e-side button.s2e-reader-url{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;margin:0;padding:8px 10px;border:1px solid var(--dsw-alias-border-l1)!important;border-radius:9px!important;background:var(--dsw-alias-bg-layer-2)!important;color:var(--dsw-alias-label-primary)!important;font:inherit;font-size:12px;text-align:left;cursor:pointer;transition:background .12s ease}
+        .s2e-side button.s2e-reader-url:hover{background:var(--dsw-alias-interactive-bg-hover)!important}
+        .s2e-reader-url-label{font-weight:550}
+        .s2e-reader-url-value{color:var(--dsw-alias-brand-primary);font-size:11.5px;overflow-wrap:anywhere;text-align:right}
+        .s2e-input:disabled{opacity:.55;cursor:default}
         @media(max-width:380px){.s2e-row{grid-template-columns:1fr}}
         @media(prefers-reduced-motion:reduce){.s2e-side *{transition:none!important}}
 
@@ -132,11 +135,45 @@ window.__ModuleLoader__.load({
       const portRef = useRef(null)
       const refresh = useCallback(async (value = port) => { setFailed(false); try { const next = await rpc('reader-status', { port: Number(value) }); setStatus(next); if (next.occupied) { setFeedback('该端口已被其他程序占用，不是 scan2ebook 阅读器。'); setFailed(true) } else setFeedback(next.running ? (next.managed ? '阅读器正在运行，由本插件管理。' : '检测到独立运行的 scan2ebook 阅读器；可以打开，但插件不会终止它。') : '阅读器未运行。') } catch (error) { setFeedback(error.message); setFailed(true) } }, [port])
       useEffect(() => { refresh() }, [])
-      const start = useCallback(async () => { setBusy(true); setFailed(false); setFeedback('正在启动阅读器…'); try { const next = await rpc('reader-start', { port: Number(port) }); setStatus(next); setFeedback('阅读器已启动。') } catch (error) { setFeedback(error.message); setFailed(true) } finally { setBusy(false) } }, [port])
+      // 单一开关：未运行时启动；运行中且由本插件管理时停止。
+      const toggle = useCallback(async () => {
+        if (busy) return
+        const running = !!status?.running
+        setBusy(true); setFailed(false)
+        try {
+          if (running && status?.managed) {
+            setFeedback('正在停止阅读器…')
+            const next = await rpc('reader-stop', { port: Number(port) })
+            setStatus(next); setFeedback('阅读器已停止。')
+          } else {
+            setFeedback('正在启动阅读器…')
+            const next = await rpc('reader-start', { port: Number(port) })
+            setStatus(next); setFeedback(next?.reused ? '该端口上已有阅读器在运行。' : '阅读器已启动。')
+          }
+        } catch (error) { setFeedback(error.message); setFailed(true) } finally { setBusy(false) }
+      }, [busy, status, port])
       const open = useCallback(async () => { setBusy(true); setFailed(false); try { await rpc('reader-open', { port: Number(port) }); setFeedback('已在系统默认浏览器中打开阅读器。') } catch (error) { setFeedback(error.message); setFailed(true) } finally { setBusy(false) } }, [port])
-      const stop = useCallback(async () => { setBusy(true); setFailed(false); setFeedback('正在终止阅读器…'); try { const next = await rpc('reader-stop', { port: Number(port) }); setStatus(next); setFeedback('阅读器已终止。') } catch (error) { setFeedback(error.message); setFailed(true) } finally { setBusy(false) } }, [port])
       const finishPortEdit = () => { setEditing(false); localStorage.setItem(PORT_KEY, String(port)); refresh(port) }
-      return h('div', { className: 's2e-section s2e-reader-section' }, h('div', { className: 's2e-section-title' }, h('span', { dangerouslySetInnerHTML: { __html: readerIcon } }), h('h3', null, '网页阅读器')), h('section', { className: 's2e-card' }, h('h3', null, '服务端口'), h('div', { className: 's2e-actions' }, h('input', { ref: portRef, className: 's2e-input s2e-port', type: 'number', min: 1024, max: 65535, readOnly: !editing, title: '双击修改端口', value: port, onDoubleClick: () => { setEditing(true); setTimeout(() => portRef.current?.select(), 0) }, onChange: (e) => setPort(e.target.value), onBlur: finishPortEdit, onKeyDown: (e) => { if (e.key === 'Enter') e.currentTarget.blur() } }), !status?.running && h('button', { className: 's2e-button s2e-primary', disabled: busy || status?.occupied, onClick: start }, busy ? '正在启动…' : '启动阅读器'), status?.running && h('button', { className: 's2e-button s2e-primary', disabled: busy, onClick: open }, busy ? '正在打开…' : '打开阅读器'), status?.running && status?.managed && h('button', { className: 's2e-button s2e-danger', disabled: busy, onClick: stop }, busy ? '正在终止…' : '终止阅读器')), status?.running && h('button', { className: 's2e-reader-url', disabled: busy, onClick: open }, status.url), h('p', { className: 's2e-hint' }, '双击端口数字可修改。“打开阅读器”会交给系统默认浏览器，不占用 DSH 右栏。')), h('p', { className: `s2e-hint ${failed ? 's2e-error' : status?.running ? 's2e-ok' : ''}` }, feedback))
+      const running = !!status?.running
+      const external = running && !status?.managed
+      const canToggle = !busy && !status?.occupied && !external
+      const toggleLabel = busy ? (running ? '正在停止…' : '正在启动…') : (running ? '停止阅读器' : '启动阅读器')
+      return h('div', { className: 's2e-section s2e-reader-section' },
+        h('div', { className: 's2e-section-title' }, h('span', { dangerouslySetInnerHTML: { __html: readerIcon } }), h('h3', null, '网页阅读器')),
+        h('section', { className: 's2e-card' }, h('h3', null, '服务端口'),
+          h('div', { className: 's2e-actions' },
+            h('input', { ref: portRef, className: 's2e-input s2e-port', type: 'number', min: 1024, max: 65535, readOnly: !editing, disabled: running, title: '双击修改端口', value: port, onDoubleClick: () => { if (running) return; setEditing(true); setTimeout(() => portRef.current?.select(), 0) }, onChange: (e) => setPort(e.target.value), onBlur: finishPortEdit, onKeyDown: (e) => { if (e.key === 'Enter') e.currentTarget.blur() } }),
+            h('button', { className: `s2e-button ${running ? 's2e-danger' : 's2e-primary'}`, disabled: !canToggle, title: external ? '该阅读器不是由本插件启动，不能在此停止' : '', onClick: toggle }, toggleLabel),
+          ),
+          running && h('button', { className: 's2e-reader-url', disabled: busy, onClick: open, title: '在系统默认浏览器中打开' },
+            h('span', { className: 's2e-reader-url-label' }, '在浏览器中打开'),
+            h('span', { className: 's2e-reader-url-value' }, status.url),
+          ),
+          h('p', { className: 's2e-hint' }, running
+            ? '点上面的地址行可在系统默认浏览器中打开阅读器；它不占用 DSH 右栏。'
+            : '双击端口数字可修改。启动后的阅读器由本插件管理，可随时停止。'),
+        ),
+        h('p', { className: `s2e-hint ${failed ? 's2e-error' : running ? 's2e-ok' : ''}` }, feedback))
     }
 
     /** 右栏 tab 正文：官方 sidebar.right.pane.tab 席位，props 由框架注入（含会话标准工具包）。 */
