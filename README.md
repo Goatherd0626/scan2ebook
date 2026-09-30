@@ -29,30 +29,27 @@ Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时�
 
 ## 最简单的安装方式：让 AI 帮你安装
 
-你不需要先学会 Python、npm 或终端命令。把本页面链接和下面这段话发给一个能够操作你电脑终端的 AI 助手，例如 DSH、Codex 或 Claude Code：
+你不需要懂 Python、npm 或终端命令。把下面这段话原样发给一个能操作你电脑终端的 AI 助手（DSH、Codex、Claude Code 都可以），它会自己读完仓库里的安装说明并把一切装好：
 
 ```text
 请帮我在这台 Mac 上安装 Scan2Ebook：
 https://github.com/Goatherd0626/scan2ebook
 
-目标是让我可以在 DeepSeek Harness 的**右侧栏**中选择扫描版 PDF、转换电子书并启动网页阅读器。
-
-请按以下要求操作：
-1. 先只读检查 macOS、Python、Node.js、Homebrew、pipx 和 DSH 是否可用，不要直接改动系统。
-2. 告诉我缺少什么；需要安装软件、联网下载或修改 PATH 时，先征求我的确认。
-3. 使用 pipx 从 GitHub 安装 scan2ebook Python 转换器。
-4. 为 DSH desktop profile 安装 dsh-client-ui-scan2ebook（它使用 DSH 自带的右侧栏，不需要第三方侧栏插件）。
-5. 安装仓库中的 dsh-skill/scan2ebook/SKILL.md，让 DSH 能在识别到扫描书转换请求时唤起面板。
-6. 用 scan2ebook --help 验证转换器，并确认 DSH 插件的安装命令成功完成。
-7. 告诉我需要如何重启 DSH，以及之后从哪里打开 Scan2Ebook（右侧栏）。
+请先读仓库根目录的 AGENTS.md，然后按它执行安装（也可以直接运行仓库里的
+scripts/install-dsh-plugin.sh，它是幂等的一键脚本）。
+需要安装软件、修改 PATH 或写入用户目录时，先征求我的确认。
 
 安全要求：
-- 不要向我索要、读取或保存 DeepSeek API Key；我会在 Scan2Ebook 面板中自己输入。
-- 不要创建 .env，不要使用钥匙串保存 Key。
+- 不要向我索要、读取或保存 DeepSeek API Key；我会自己在面板里输入。
+- 不要创建 .env，不要使用钥匙串保存 Key，不要回显任何密钥。
 - 不要启动真实转换，不要调用任何付费模型 API。
 - 不要修改或删除 ~/Library/Application Support/Scan2Ebook Reader/ 中已有的数据。
-- 完成后列出你安装或修改了什么，以及验证结果。
+
+装好后请用中文、非技术语言告诉我：怎么重启 DSH、从右侧栏哪里打开 Scan2Ebook、第一次怎么用。
 ```
+
+> 给 AI 用的细节都在仓库根目录的 [`AGENTS.md`](./AGENTS.md)：每一步的确切命令、版本校验、npm 版本过旧时的回退方案，以及常见故障处理。
+> [`scripts/install-dsh-plugin.sh`](./scripts/install-dsh-plugin.sh) 是同一套流程的可执行版本（幂等，可重复运行，不接触 API Key）。
 
 安装完成后，完全退出并重新启动 DSH。Scan2Ebook 显示在会话的**右侧栏**：打开右栏后，在引导页（添加菜单）里选择 Scan2Ebook，也可以直接让 DSH 用 `scan2ebook_open` 唤起面板。插件不会在左侧栏新增按钮。
 
@@ -217,6 +214,8 @@ scan2ebook "/路径/书籍.pdf" -o "/路径/输出文件夹" \
 
 ## 更多资料
 
+- [给 AI 助手的安装说明（AGENTS.md）](https://github.com/Goatherd0626/scan2ebook/blob/main/AGENTS.md)
+- [一键安装脚本](https://github.com/Goatherd0626/scan2ebook/blob/main/scripts/install-dsh-plugin.sh)
 - [网页阅读器说明](https://github.com/Goatherd0626/scan2ebook/tree/main/reader)
 - [DSH 插件说明](https://github.com/Goatherd0626/scan2ebook/tree/main/dsh-plugin/dsh-client-ui-scan2ebook)
 - [阅读器插件开发文档](https://github.com/Goatherd0626/scan2ebook/blob/main/docs/reader-plugin-dev.md)
