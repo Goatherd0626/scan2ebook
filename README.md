@@ -6,6 +6,17 @@ Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时�
 
 当前版本：**0.1.0** · [MIT License](https://github.com/Goatherd0626/scan2ebook/blob/main/LICENSE)
 
+## 组件与安装来源
+
+| 组件 | 作用 | 从哪装 | 版本要求 |
+|---|---|---|---|
+| 转换器（Python CLI） | OCR + 视觉结构化，产出 JSON / HTML / `.s2e` | GitHub 仓库（pipx） | 0.1.0 |
+| 网页阅读器 | 双栏对照原文与文字、标注、书库 | npm `scan2ebook-reader`（插件会自动安装） | ≥ 0.1.0 |
+| DSH 插件 | 在 DSH 右侧栏提供转换面板 | npm `dsh-client-ui-scan2ebook`，或仓库路径 | ≥ 0.2.0（DSH Desktop ≥ 0.2.0-rc.2） |
+| DSH Skill（可选） | 让 DSH 主动唤起面板 | 仓库 `dsh-skill/scan2ebook/SKILL.md` | — |
+
+只读 `.s2e` 文件的话，只需要上表第二行的网页阅读器。
+
 ## 你可以用它做什么
 
 - 把扫描版 PDF 转换为 `.s2e` 电子书；
@@ -43,19 +54,19 @@ https://github.com/Goatherd0626/scan2ebook
 - 完成后列出你安装或修改了什么，以及验证结果。
 ```
 
-安装完成后，完全退出并重新启动 DSH。Scan2Ebook 入口会显示在任务看板、SSH、技能中心等入口的下方。
+安装完成后，完全退出并重新启动 DSH。Scan2Ebook 显示在会话的**右侧栏**：打开右栏后，在引导页（添加菜单）里选择 Scan2Ebook，也可以直接让 DSH 用 `scan2ebook_open` 唤起面板。插件不会在左侧栏新增按钮。
 
 ## 怎样转换一本书
 
-1. 在 DSH 侧边栏中打开 **Scan2Ebook**。
+1. 打开 DSH 右侧栏，在引导页里选择 **Scan2Ebook**（或让 DSH 帮你唤起面板）。
 2. 点击“选择 PDF”，从 Mac 中选择要转换的文件。
 3. 输入起始页和结束页。两端页码都会包含在转换范围内。
-4. 保留默认模型，或者填写你的账户能够使用的多模态模型。
-5. 在 sidebar 中输入你自己的 DeepSeek API Key。
+4. 保留默认模型（`deepseek-flash`），或者填写你的账户能够使用的多模态模型。
+5. 在面板中输入你自己的 DeepSeek API Key。
 6. 查看预计费用，然后点击“开始转换”。
 7. 等待进度条完成。结果会保存在原 PDF 所在的文件夹中。
 
-API Key 只在当前 sidebar 中临时使用。关闭 sidebar 或退出 DSH 后会自动清除，不会写入 `.env`、钥匙串、浏览器存储或项目文件。
+API Key 只在当前面板中临时使用。关闭右栏面板或退出 DSH 后会自动清除，不会写入 `.env`、钥匙串、浏览器存储或项目文件。
 
 转换过程中，选定页面的图像和识别文字会发送给你选择的多模态模型服务。请不要处理无权使用或不能上传到第三方服务的材料。
 
@@ -63,10 +74,10 @@ API Key 只在当前 sidebar 中临时使用。关闭 sidebar 或退出 DSH 后�
 
 在 Scan2Ebook sidebar 的“网页阅读器”区域：
 
-- 点击“启动阅读器”；
-- 点击“打开阅读器”或阅读器地址，在系统默认浏览器的新页面中打开；
-- 双击端口数字可以修改端口；
-- 点击“终止阅读器”可以关闭由插件启动的阅读器。
+- 点一下「启动阅读器」开始，按钮会就地变成「停止阅读器」（同一个按钮切换启停）；
+- 启动后下方出现一条可点击的地址行，点它在系统默认浏览器中打开阅读器；
+- 端口可以在未运行时双击数字修改；运行中端口会锁定，避免状态与实际不一致；
+- 运行状态行会显示实际运行的 reader 版本（例如 `阅读器正在运行（reader v0.1.0）`）。
 
 不同端口默认使用同一个书库，修改端口不会产生一套新的电子书数据。
 
@@ -147,11 +158,20 @@ scan2ebook --help
 
 ### 安装 DSH 插件
 
-Scan2Ebook 使用 DSH Desktop 自带的右侧栏，不需要第三方侧栏插件：
+Scan2Ebook 使用 DSH Desktop 自带的右侧栏，不需要第三方侧栏插件（要求 DSH Desktop `0.2.0-rc.2` 或更高）：
 
 ```bash
 dsh plugin --profile desktop add dsh-client-ui-scan2ebook
 ```
+
+如果 npm 上还没有对应的插件版本，或者你想用仓库里的开发版：
+
+```bash
+git clone https://github.com/Goatherd0626/scan2ebook.git
+dsh plugin --profile desktop add "file:$PWD/scan2ebook/dsh-plugin/dsh-client-ui-scan2ebook"
+```
+
+两种方式安装后都需要完全退出并重启 DSH 才会生效。
 
 ### 安装 DSH Skill（可选）
 

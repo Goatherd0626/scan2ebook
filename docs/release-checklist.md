@@ -38,7 +38,10 @@
 - [ ] 确认 `scan2ebook` PyPI 包名可用性、发布账号与 2FA；未确认前不上传。
 - [x] reader npm tarball 包含 `dist/`、CLI、Node API、README 和 MIT License，不包含源码、测试、`.env` 或电子书。
 - [x] 已发布 `scan2ebook-reader@0.1.0`，并设置为 npm `latest`。
-- [x] 已发布 `dsh-client-ui-scan2ebook@0.1.0`，依赖 `scan2ebook-reader@^0.1.0`。
+- [x] 已发布 `dsh-client-ui-scan2ebook@0.1.0`（旧版：依赖第三方 `dsh-better-sidebar`，仅适用于 DSH 0.1.x）。
+- [ ] **发布 `dsh-client-ui-scan2ebook@0.2.0`**：改用 DSH Desktop 0.2 原生右栏，README 中的按名安装命令需要该版本才可用（否则请用仓库路径安装）。
+- [ ] **把本地提交推送到 GitHub**：远端仍是 0.1.0 的旧插件，未推送的提交包含 0.2 移植、路由修复、面板重做与默认模型变更。
+- [x] 插件在 DSH Desktop `0.2.0-rc.2` 实机验证：右侧栏出现 Scan2Ebook 入口，宿主工具可唤起面板。
 - [x] DSH 插件 npm tarball 包含 host/client、patch、README 和 MIT License，不包含测试、`.env` 或仓库源码。
 - [x] 用户安装文档不要求任何第三方侧栏插件：插件使用 DSH Desktop 0.2.x 自带的右侧栏（`--profile desktop`）。
 - [x] reader 使用独立应用数据目录，不再按 origin/端口隔离书库，并支持旧 IndexedDB 合并迁移。
