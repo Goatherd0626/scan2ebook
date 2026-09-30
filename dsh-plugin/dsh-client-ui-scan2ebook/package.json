@@ -1,7 +1,7 @@
 {
   "name": "dsh-client-ui-scan2ebook",
-  "version": "0.1.0",
-  "description": "DeepSeek Harness sidebar workflow for scan2ebook conversion, progress, cost estimation, and reader lifecycle management.",
+  "version": "0.2.0",
+  "description": "DeepSeek Harness right-sidebar workflow for scan2ebook conversion, progress, cost estimation, and reader lifecycle management.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -23,15 +23,17 @@
   },
   "dsh": {
     "engines": {
-      "dsh": ">=0.1.1-rc.1"
+      "dsh": ">=0.2.0-rc.2"
     },
+    "manifestVersion": 1,
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-client-runtime",
-        "dsh-better-sidebar"
+        "@deepseek-ai/dsh-client-modules",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
       ],
       "platform": "web"
     }

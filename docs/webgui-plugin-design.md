@@ -1,9 +1,14 @@
 # DSH Web GUI 插件设计与实现
 
-> 状态：**已实现并以本地 link 包安装到 DSH web profile**。
+> 状态：**已实现并以本地 file 包安装到 DSH desktop profile**。
 > 源码：`dsh-plugin/dsh-client-ui-scan2ebook/`。
-> 目的：给 DSH Web 界面加一个「Scan2Ebook」侧边栏入口，
+> 目的：给 DSH 界面加一个「Scan2Ebook」右栏入口，
 > 让非技术用户（不经命令行）也能导入 PDF → 转换 → 打开阅读器。
+>
+> **2026-09-30 更新（DSH Desktop 0.2.0-rc.2）**：插件已从第三方 `dsh-better-sidebar`
+> 迁移到官方右栏 API（`@deepseek-ai/dsh-client-ui-sidebar-right` +
+> `@deepseek-ai/dsh-client-ui-slots`）；`@deepseek-ai/dsh-client-runtime` 在新版已移除。
+> 本文档下文关于 better-sidebar 的调研段落保留为历史记录，不再代表当前实现。
 
 ## 一、背景：DSH 的插件机制（已调研确认）
 

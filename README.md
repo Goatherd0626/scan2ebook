@@ -24,19 +24,19 @@ Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时�
 请帮我在这台 Mac 上安装 Scan2Ebook：
 https://github.com/Goatherd0626/scan2ebook
 
-目标是让我可以在 DeepSeek Harness 的 sidebar 中选择扫描版 PDF、转换电子书并启动网页阅读器。
+目标是让我可以在 DeepSeek Harness 的**右侧栏**中选择扫描版 PDF、转换电子书并启动网页阅读器。
 
 请按以下要求操作：
 1. 先只读检查 macOS、Python、Node.js、Homebrew、pipx 和 DSH 是否可用，不要直接改动系统。
 2. 告诉我缺少什么；需要安装软件、联网下载或修改 PATH 时，先征求我的确认。
 3. 使用 pipx 从 GitHub 安装 scan2ebook Python 转换器。
-4. 按顺序为 DSH web profile 安装 dsh-better-sidebar 和 dsh-client-ui-scan2ebook。
+4. 为 DSH desktop profile 安装 dsh-client-ui-scan2ebook（它使用 DSH 自带的右侧栏，不需要第三方侧栏插件）。
 5. 安装仓库中的 dsh-skill/scan2ebook/SKILL.md，让 DSH 能在识别到扫描书转换请求时唤起面板。
-6. 用 scan2ebook --help 验证转换器，并确认两个 DSH 插件的安装命令成功完成。
-7. 告诉我需要如何重启 DSH，以及之后从哪里打开 Scan2Ebook。
+6. 用 scan2ebook --help 验证转换器，并确认 DSH 插件的安装命令成功完成。
+7. 告诉我需要如何重启 DSH，以及之后从哪里打开 Scan2Ebook（右侧栏）。
 
 安全要求：
-- 不要向我索要、读取或保存 DeepSeek API Key；我会在 Scan2Ebook sidebar 中自己输入。
+- 不要向我索要、读取或保存 DeepSeek API Key；我会在 Scan2Ebook 面板中自己输入。
 - 不要创建 .env，不要使用钥匙串保存 Key。
 - 不要启动真实转换，不要调用任何付费模型 API。
 - 不要修改或删除 ~/Library/Application Support/Scan2Ebook Reader/ 中已有的数据。
@@ -111,7 +111,7 @@ macOS 上，书库默认保存在：
 
 ### 安装后看不到 Scan2Ebook 入口
 
-让 AI 检查 `dsh-better-sidebar` 和 `dsh-client-ui-scan2ebook` 是否都安装在 DSH 的 `web` profile 中，然后完全退出并重新启动 DSH。
+Scan2Ebook 显示在 DSH 的**右侧栏**，不会在左侧栏新增按钮。让 AI 检查 `dsh-client-ui-scan2ebook` 是否安装在 DSH 的 `desktop` profile 中，然后完全退出并重新启动 DSH；打开右侧栏后，在引导页（添加菜单）里选择 Scan2Ebook。
 
 ### DSH 提示找不到 `scan2ebook`
 
@@ -147,11 +147,10 @@ scan2ebook --help
 
 ### 安装 DSH 插件
 
-Better Sidebar 是必需依赖，请按顺序安装：
+Scan2Ebook 使用 DSH Desktop 自带的右侧栏，不需要第三方侧栏插件：
 
 ```bash
-dsh plugin --profile web add dsh-better-sidebar
-dsh plugin --profile web add dsh-client-ui-scan2ebook
+dsh plugin --profile desktop add dsh-client-ui-scan2ebook
 ```
 
 ### 安装 DSH Skill（可选）
