@@ -34,16 +34,19 @@ window.__ModuleLoader__.load({
       document.head.appendChild(style)
     }
 
-    async function rpc(endpoint, args) {
+    async function rpc(endpoint, args, { timeoutMs = 20000 } = {}) {
       try {
-        const response = await fetch(`/scan2ebook/${endpoint}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'client-request', rpcId: crypto.randomUUID(), method: endpoint, payload: { args: args || {} } }) })
+        const response = await fetch(`/scan2ebook/${endpoint}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'client-request', rpcId: crypto.randomUUID(), method: endpoint, payload: { args: args || {} } }), signal: typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(timeoutMs) : undefined })
         const body = await response.json().catch(() => ({}))
         if (body.result?.ok) return body.result.value
         throw new Error(body.result?.error?.message || `scan2ebook/${endpoint} HTTP ${response.status}`)
       } catch (error) {
         // DSH 后端已退出时，即使浏览器页面暂未关闭，也立即清除临时 Key。
         window.dispatchEvent(new Event('scan2ebook:host-unavailable'))
-        throw error
+        const timedOut = error?.name === 'TimeoutError'
+        throw new Error(timedOut
+          ? `请求 scan2ebook/${endpoint} 超时（${Math.round(timeoutMs / 1000)} 秒无响应）：插件宿主半可能未加载，请完全退出并重新启动 DSH`
+          : String(error?.message || error))
       }
     }
 
@@ -88,8 +91,22 @@ window.__ModuleLoader__.load({
     /** 右栏 tab 正文：官方 sidebar.right.pane.tab 席位，props 由框架注入（含会话标准工具包）。 */
     function Scan2EbookTab(props) {
       const sessionId = props?.sessionId ?? props?.session?.id
+      const [hostError, setHostError] = useState('')
+      useEffect(() => {
+        let alive = true
+        setHostError('')
+        rpc('bootstrap', { sessionId })
+          .then(() => { if (alive) setHostError('') })
+          .catch((error) => { if (alive) setHostError(String(error?.message || error)) })
+        return () => { alive = false }
+      }, [sessionId])
       return h('div', { className: 's2e-side' },
         h(Header, { icon: bookIcon, title: 'Scan2Ebook', subtitle: '转换与阅读器集中在右栏，不影响正常聊天。' }),
+        hostError !== '' && h('section', { className: 's2e-card' },
+          h('h3', { className: 's2e-error' }, '无法连接 DSH 宿主'),
+          h('p', { className: 's2e-hint' }, hostError),
+          h('p', { className: 's2e-hint' }, '这通常说明插件的宿主半没有加载（刚安装/刚改过代码时需要完全重启 DSH）。转换与阅读器按钮在恢复连接前都不会生效。'),
+        ),
         h(ConversionView, { sessionId }),
         h(ReaderView),
       )
