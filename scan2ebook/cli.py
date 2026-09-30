@@ -64,6 +64,8 @@ def parse_args(argv=None) -> argparse.Namespace:
     ap.add_argument("--page-start", type=int, help="转换起始 PDF 页码（1-based，闭区间）")
     ap.add_argument("--page-end", type=int, help="转换结束 PDF 页码（1-based，闭区间）")
     ap.add_argument("--vision-model", help="多模态结构化模型（默认读取 DEEPSEEK_VISION_MODEL）")
+    ap.add_argument("--workers", type=int, default=6,
+                    help="版面结构化的并发请求数（默认 6；网络与额度允许时可提高，如 12–16）")
     ap.add_argument("--progress-json", action="store_true",
                     help="向 stdout 输出 S2E_EVENT JSON 行，供 GUI 展示进度")
     ap.add_argument("--verbose", action="store_true")
@@ -197,6 +199,7 @@ def main(argv=None) -> int:
     structured = vs.structure_book(
         imgs,
         ocr_texts,
+        workers=max(1, int(getattr(args, "workers", 6) or 6)),
         blank_indices=blank_indices,
         page_numbers=page_numbers,
         progress_callback=on_structure_progress,
