@@ -10,11 +10,11 @@ description: 将扫描版书籍 PDF 转换为带原始 PDF 页码锚点的结构
 
 ## 使用方式
 
-当 `scan2ebook_open` 工具存在时，优先调用它打开 DSH 的 Scan2Ebook sidebar：
+当 `scan2ebook_open` 工具存在时，优先调用它打开 DSH 的 Scan2Ebook 右栏面板：
 
 1. 让用户通过系统文件选择器选择 PDF。
-2. 由用户确认两端闭区间页码、视觉模型、当前 sidebar 的临时 API Key 和费用估算。
-3. 用户点击“开始转换”后，由 sidebar 展示进度、费用和取消按钮。
+2. 由用户确认两端闭区间页码、视觉模型、当前面板的临时 API Key 和费用估算。
+3. 用户点击“开始转换”后，由面板展示进度、费用和取消按钮。
 4. 不要同时从命令行启动第二份转换任务。
 
 插件不可用时，再使用仓库 CLI：
@@ -31,12 +31,13 @@ scan2ebook "<输入.pdf>" -o "<输入 PDF 所在目录>"
 - `--page-start N`：1-based 起始页，闭区间。
 - `--page-end N`：1-based 结束页，闭区间。
 - `--vision-model MODEL`：覆盖视觉模型。
+- `--workers N`：视觉结构化的并发请求数（默认 6；大书可用 12–16 显著缩短总时长）。
 - `--serve`：转换后启动网页阅读器；需要另行安装
   `scan2ebook-reader` npm 包，或设置 `SCAN2EBOOK_READER_COMMAND`。
 
 不要在消息、日志或命令行参数中输出 API Key。插件模式下，API Key 只能由用户在
-当前 sidebar 中临时输入；不使用钥匙串、`.env`、DSH Provider 或宿主环境变量。
-关闭 sidebar 或 DSH 后，该 Key 应自动清除。CLI 模式由用户在终端中隐藏输入，
+当前面板中临时输入；不使用钥匙串、`.env`、DSH Provider 或宿主环境变量。
+关闭面板或 DSH 后，该 Key 应自动清除。CLI 模式由用户在终端中隐藏输入，
 也不创建或读取项目 `.env`。
 
 ## 输出约束
@@ -44,6 +45,7 @@ scan2ebook "<输入.pdf>" -o "<输入 PDF 所在目录>"
 - `书名.json`：结构化数据的唯一真源。
 - `书名.html`：单文件快速预览。
 - `书名.s2e`：原 PDF 与 `book.json` 的完整阅读器包。
+- 需要简体 Word 时，用仓库脚本 `scripts/book_json_to_docx.py`（繁简转换、标题层级、脚注、原书页码标记、重复去重与扫描水印过滤）；结构质检用 `scripts/report_book_json.py`。
 - 选择部分页码时，输出中的 `pdf_page` 仍使用原 PDF 的真实页码，不从 1 重新编号。
 - `items` 保持原页面阅读顺序；脚注位于页面 `items` 末尾。
 - 正文脚注引用保留为 `[序号]`。
