@@ -16,6 +16,8 @@ window.__ModuleLoader__.load({
     // 需要的浏览器侧服务：slot 注册表、右栏 tab 注册表与右栏导航控制器。
     const inject = [SLOTS_SERVICE, TABS_SERVICE, SIDEBAR_SERVICE]
     const TAB_SLOT = 'sidebar.right.pane.tab'
+    // 插件端点：宿主半用官方精确 Fetch 路由注册在 /api 桥下。
+    const RPC_PATH = '/api/scan2ebook'
     const bookIcon = '<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2.5h7a2 2 0 0 1 2 2v9H5a2 2 0 0 1-2-2z"/><path d="M5 4.5h5M5 7h5M5 9.5h3"/><path d="M12 5h1.2a.8.8 0 0 1 .8.8v6.4a.8.8 0 0 1-.8.8H12"/></svg>'
     const readerIcon = '<svg viewBox="0 0 16 16" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2.5" width="12" height="9" rx="1.4"/><path d="M5 13.5h6M8 11.5v2"/><path d="M5 5h6M5 7.5h4"/></svg>'
 
@@ -36,10 +38,10 @@ window.__ModuleLoader__.load({
 
     async function rpc(endpoint, args, { timeoutMs = 20000 } = {}) {
       try {
-        const response = await fetch(`/scan2ebook/${endpoint}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'client-request', rpcId: crypto.randomUUID(), method: endpoint, payload: { args: args || {} } }), signal: typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(timeoutMs) : undefined })
+        const response = await fetch(RPC_PATH, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ endpoint, args: args || {} }), signal: typeof AbortSignal?.timeout === 'function' ? AbortSignal.timeout(timeoutMs) : undefined })
         const body = await response.json().catch(() => ({}))
-        if (body.result?.ok) return body.result.value
-        throw new Error(body.result?.error?.message || `scan2ebook/${endpoint} HTTP ${response.status}`)
+        if (body.ok) return body.value
+        throw new Error(body.error?.message || `scan2ebook/${endpoint} HTTP ${response.status}`)
       } catch (error) {
         // DSH 后端已退出时，即使浏览器页面暂未关闭，也立即清除临时 Key。
         window.dispatchEvent(new Event('scan2ebook:host-unavailable'))

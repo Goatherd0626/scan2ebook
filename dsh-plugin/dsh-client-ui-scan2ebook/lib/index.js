@@ -6,13 +6,23 @@ import { readdirSync, realpathSync, statSync } from 'node:fs'
 import { dirname, extname, isAbsolute, join, relative, resolve } from 'node:path'
 
 export const name = 'scan2ebook'
-export const inject = ['tools']
+export const inject = ['tools', 'connection']
 
 const EVENT_PREFIX = 'S2E_EVENT '
 const MAX_LOG_LINES = 200
 const DEFAULT_MODEL = 'deepseek-flash'
 const DEFAULT_PORT = 8765
 const DEFAULT_CONVERTER_COMMAND = 'scan2ebook'
+// 插件端点的精确 Fetch 路由：与官方包一致，挂在 Connection 的 /api 桥下。
+const RPC_PATH = '/api/scan2ebook'
+
+/** @param {unknown} payload @param {number} status */
+function rpcResponse(payload, status = 200) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  })
+}
 
 /** @param {unknown} value */
 function messageOf(value) {
@@ -337,10 +347,8 @@ export function apply(ctx, config = {}) {
     },
   })
 
-  ctx.inject(['connection'], (connectionCtx) => {
-    const connection = connectionCtx.connection
-    if (!connection?.rpc) return
-    connection.rpc.handle('/scan2ebook', async (endpoint, payload) => {
+  /** 所有客户端请求都经这一个分发器；成功与失败都返回 { ok, value|error } 结构。 */
+  const handleRpc = async (endpoint, payload) => {
       try {
         const args = payload?.args || {}
         if (endpoint === 'bootstrap') {
@@ -445,8 +453,25 @@ export function apply(ctx, config = {}) {
       } catch (error) {
         return { ok: false, error: { code: 'ERROR', message: messageOf(error) } }
       }
-    }, {})
-  })
+  }
+
+  const connection = Reflect.get(ctx, 'connection') ?? ctx.get('connection')
+  if (connection?.fetch?.register) {
+    ctx.effect(() => connection.fetch.register({
+      path: RPC_PATH,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: async (request) => {
+        let body
+        try {
+          body = await request.json()
+        } catch {
+          return rpcResponse({ ok: false, error: { code: 'BAD_BODY', message: '请求体不是 JSON' } }, 400)
+        }
+        return rpcResponse(await handleRpc(String(body?.endpoint || ''), { args: body?.args || {} }))
+      },
+    }), 'scan2ebook: RPC route')
+  }
 
   ctx.effect(() => async () => {
     for (const job of jobs.values()) if (job.status === 'running') terminateChild(job.child)

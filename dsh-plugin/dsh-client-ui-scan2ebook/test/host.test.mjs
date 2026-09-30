@@ -42,14 +42,12 @@ async function freePort() {
 }
 
 function createHarness(config = {}, sessions) {
-  let rpcHandler
+  let rpcRoute
   const cleanups = []
   const ctx = {
     tools: { register() {} },
+    connection: { fetch: { register(route) { rpcRoute = route } } },
     get(name) { return name === 'sessions' ? sessions : undefined },
-    inject(_deps, callback) {
-      callback({ connection: { rpc: { handle(_route, handler) { rpcHandler = handler } } } })
-    },
     effect(factory) {
       const cleanup = factory()
       if (typeof cleanup === 'function') cleanups.push(cleanup)
@@ -61,7 +59,16 @@ function createHarness(config = {}, sessions) {
     ...config,
   })
   return {
-    rpc: (...args) => rpcHandler(...args),
+    // 与浏览器端一致：POST JSON 到精确路由，读回 { ok, value|error } 信封。
+    rpc: async (endpoint, payload) => {
+      const request = new Request('http://127.0.0.1/api/scan2ebook', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ endpoint, args: payload?.args || {} }),
+      })
+      const response = await rpcRoute.fetch(request)
+      return response.json()
+    },
     async cleanup() {
       for (const cleanup of cleanups) await cleanup()
     },
