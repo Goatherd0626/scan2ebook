@@ -133,7 +133,7 @@ window.__ModuleLoader__.load({
     function ReaderView() {
       const [port, setPort] = useState(Number(localStorage.getItem(PORT_KEY) || 8765)), [editing, setEditing] = useState(false), [status, setStatus] = useState(null), [busy, setBusy] = useState(false), [feedback, setFeedback] = useState('正在检查阅读器状态…'), [failed, setFailed] = useState(false)
       const portRef = useRef(null)
-      const refresh = useCallback(async (value = port) => { setFailed(false); try { const next = await rpc('reader-status', { port: Number(value) }); setStatus(next); if (next.occupied) { setFeedback('该端口已被其他程序占用，不是 scan2ebook 阅读器。'); setFailed(true) } else setFeedback(next.running ? (next.managed ? '阅读器正在运行，由本插件管理。' : '检测到独立运行的 scan2ebook 阅读器；可以打开，但插件不会终止它。') : '阅读器未运行。') } catch (error) { setFeedback(error.message); setFailed(true) } }, [port])
+      const refresh = useCallback(async (value = port) => { setFailed(false); try { const next = await rpc('reader-status', { port: Number(value) }); setStatus(next); if (next.occupied) { setFeedback('该端口已被其他程序占用，不是 scan2ebook 阅读器。'); setFailed(true) } else setFeedback(next.running ? (next.managed ? `阅读器正在运行（reader v${next.version || '?'}），由本插件管理。` : `检测到独立运行的 scan2ebook 阅读器（v${next.version || '?'}）；可以打开，但插件不会终止它。`) : '阅读器未运行。') } catch (error) { setFeedback(error.message); setFailed(true) } }, [port])
       useEffect(() => { refresh() }, [])
       // 单一开关：未运行时启动；运行中且由本插件管理时停止。
       const toggle = useCallback(async () => {
@@ -148,7 +148,7 @@ window.__ModuleLoader__.load({
           } else {
             setFeedback('正在启动阅读器…')
             const next = await rpc('reader-start', { port: Number(port) })
-            setStatus(next); setFeedback(next?.reused ? '该端口上已有阅读器在运行。' : '阅读器已启动。')
+            setStatus(next); setFeedback(next?.reused ? `该端口上已有阅读器在运行（v${next?.version || '?'}）。` : `阅读器已启动（reader v${next?.version || '?'}）。`)
           }
         } catch (error) { setFeedback(error.message); setFailed(true) } finally { setBusy(false) }
       }, [busy, status, port])
