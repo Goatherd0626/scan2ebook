@@ -58,14 +58,18 @@ DSH 自带 CLI 的绝对路径(桌面版)是:
 DSH="/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"
 ```
 
-优先按名字安装:
+优先按名字安装,**必须带上显式版本范围 `@^0.2.0`**:
 
 ```bash
-"$DSH" plugin --profile desktop add dsh-client-ui-scan2ebook
+"$DSH" plugin --profile desktop add "dsh-client-ui-scan2ebook@^0.2.0"
 ```
 
-**然后必须验证版本**:npm 上若仍是 `0.1.0`(旧版,依赖第三方 `dsh-better-sidebar`,在 DSH Desktop 0.2 上不可用),
-或安装报错,则改用仓库路径安装开发版:
+为什么要显式指定:npm 上存在旧的 `0.1.0`(依赖第三方 `dsh-better-sidebar`,在 DSH Desktop 0.2 上不可用)。
+只写包名时 pnpm 可能写入 `^0.1.0`,而 `0.x` 的 caret **锁小版本**,之后永远升不到 0.2.0;
+pnpm 的元数据缓存过期时甚至可能直接解析到 0.1.0。
+
+**然后必须验证版本**:`~/.dsh/profiles/desktop/node_modules/dsh-client-ui-scan2ebook/package.json` 里
+`version` 必须 ≥ `0.2.0`,且 `lib/client.js` 含 `sidebarRightTabs`。任何一条不满足,就按下面的仓库路径安装:
 
 ```bash
 git clone --depth 1 https://github.com/Goatherd0626/scan2ebook.git /tmp/scan2ebook-install
@@ -119,6 +123,7 @@ curl --fail --location \
 | 找不到 `dsh` 命令 | 用本文档里的绝对路径 `"/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"` |
 | 右侧栏没有 Scan2Ebook | 完全退出并重启 DSH;再确认 `~/.dsh/profiles/desktop/package.json` 的 `dsh.profile.bundles` 里有 `dsh-client-ui-scan2ebook` |
 | 面板显示"无法连接 DSH 宿主" | 插件宿主半没加载:确认插件已安装,然后完全重启 DSH;若仍报错,把面板里的报错文本发回给用户转交开发者 |
-| 按名字安装拿到旧版 | 用第 2 步的仓库路径安装方式 |
+| 按名字安装拿到旧版 0.1.0 | 用 `dsh plugin --profile desktop add "dsh-client-ui-scan2ebook@^0.2.0"`;profile 里若已写死 `^0.1.0`,该命令会把它替换掉。仍不行则用第 2 步的仓库路径安装 |
+| 之前装过 `^0.1.0`,升级不到 0.2 | `^0.1.0` 不会自动升级(`0.x` caret 锁小版本),必须显式 `@^0.2.0` 重装 |
 | 用户问费用 | 面板显示的是估算值;重试次数、空白页跳过和模型定价变化都会影响实际账单,以服务商账单为准 |
 | 用户问 API Key 安全 | Key 只在该面板内存里保留,关闭面板或 DSH 即清除,不写 `.env`/钥匙串/浏览器存储/日志 |

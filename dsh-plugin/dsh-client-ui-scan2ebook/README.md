@@ -37,7 +37,7 @@ pipx install git+https://github.com/Goatherd0626/scan2ebook.git
 Scan2Ebook 直接使用 DSH Desktop 自带的右侧栏（`@deepseek-ai/dsh-client-ui-sidebar-right`），**不需要** `dsh-better-sidebar` 之类的第三方侧栏插件。要求 DSH Desktop `0.2.0-rc.2` 或更高：
 
 ```bash
-dsh plugin --profile desktop add dsh-client-ui-scan2ebook
+dsh plugin --profile desktop add "dsh-client-ui-scan2ebook@^0.2.0"
 ```
 
 如果 npm 上还没有 0.2.0（旧版基于 `dsh-better-sidebar`，只适用于 DSH 0.1.x），可以直接从仓库安装开发版：
@@ -106,7 +106,7 @@ pipx ensurepath
 重新执行安装命令：
 
 ```bash
-dsh plugin --profile desktop add dsh-client-ui-scan2ebook
+dsh plugin --profile desktop add "dsh-client-ui-scan2ebook@^0.2.0"
 ```
 
 然后完全退出并重新启动 DSH。入口在**右侧栏**：打开右栏后，在引导页（添加菜单）里选择 Scan2Ebook；插件不会在左侧栏新增按钮。

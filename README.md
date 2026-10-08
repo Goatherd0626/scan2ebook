@@ -158,7 +158,7 @@ scan2ebook --help
 Scan2Ebook 使用 DSH Desktop 自带的右侧栏，不需要第三方侧栏插件（要求 DSH Desktop `0.2.0-rc.2` 或更高）：
 
 ```bash
-dsh plugin --profile desktop add dsh-client-ui-scan2ebook
+dsh plugin --profile desktop add "dsh-client-ui-scan2ebook@^0.2.0"
 ```
 
 如果 npm 上还没有对应的插件版本，或者你想用仓库里的开发版：

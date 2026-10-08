@@ -85,7 +85,11 @@ installed_ok() {
 if installed_ok; then
   :
 else
-  if run "$DSH_BIN" plugin --profile "$PROFILE" add "$PLUGIN_PKG" >/dev/null 2>&1 && installed_ok; then
+  # 注意:必须带显式版本范围。只写包名时 pnpm 可能写入 ^0.1.0(旧版存在),
+  # 而 0.x 的 caret 锁小版本,后续永远升不到 0.2.0。
+  if run "$DSH_BIN" plugin --profile "$PROFILE" add "${PLUGIN_PKG}@^${MIN_DSH_PLUGIN}" >/dev/null 2>&1 && installed_ok; then
+    :
+  elif run "$DSH_BIN" plugin --profile "$PROFILE" add "$PLUGIN_PKG" >/dev/null 2>&1 && installed_ok; then
     :
   else
     warn "npm 安装不可用或版本过旧,改用仓库路径安装"
