@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: 秘密扫描 (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出完整历史
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  python:
+    name: Python 转换器
+    # OCR 依赖 Apple Vision(ocrmac),只能在 macOS 上跑真实后端
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: 安装转换器与开发依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: 单元测试
+        run: python -m pytest tests -q
+
+  reader:
+    name: 网页阅读器(测试 / 构建 / 打包)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: reader
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: reader/package-lock.json
+      - name: 安装依赖
+        run: npm ci
+      - name: 单元测试(jsdom)
+        run: npm test
+      - name: 前端构建
+        run: npm run build
+      - name: npm 包内容检查
+        run: npm run test:package
+
+  plugin:
+    name: DSH 插件(测试 / 打包)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dsh-plugin/dsh-client-ui-scan2ebook
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: 单元测试(宿主半 + 客户端半源码契约)
+        run: npm test
+      - name: npm 包内容与元数据检查
+        run: npm run test:package

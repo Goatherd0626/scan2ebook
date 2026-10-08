@@ -33,13 +33,20 @@ const errors = [];
 window.addEventListener('error', (e) => errors.push('window.onerror: ' + e.message));
 process.on('unhandledRejection', (r) => errors.push('unhandledRejection: ' + ((r && r.message) || r)));
 
-/* ---- .s2e 文件格式解析（浏览器 File→JSZip 之外的核心契约） ---- */
-const s2ePath = join(root, '../output/本雅明/本雅明机器复制时代的艺术作品.s2e');
-const zip = await JSZip.loadAsync(new Uint8Array(readFileSync(s2ePath)));
-const bookJson = JSON.parse(await zip.file('book.json').async('string'));
-const pdfBlob = await zip.file('book.pdf').async('blob');
-console.log('=== .s2e 解析 ===');
-console.log('book.json + book.pdf 齐全:', !!bookJson && pdfBlob.size > 0, '| 书名:', bookJson.book.title, '| 页数:', bookJson.pages.length);
+/* ---- .s2e 文件格式解析（浏览器 File→JSZip 之外的核心契约） ----
+   需要一个真实的 .s2e 样本：用环境变量 S2E_SMOKE_BOOK 指定路径。
+   仓库里不包含任何真实书籍，所以未提供时直接跳过这一段而不是失败。 */
+const smokePath = process.env.S2E_SMOKE_BOOK;
+if (!smokePath) {
+  console.log('跳过 .s2e 解析：未设置 S2E_SMOKE_BOOK（例如 S2E_SMOKE_BOOK=/path/to/样本.s2e npm run test:smoke）');
+}
+const zip = smokePath ? await JSZip.loadAsync(new Uint8Array(readFileSync(smokePath))) : null;
+const bookJson = zip ? JSON.parse(await zip.file('book.json').async('string')) : { book: { title: '示例书' }, pages: [] };
+const pdfBlob = zip ? await zip.file('book.pdf').async('blob') : new Blob([new Uint8Array([0])]);
+if (zip) {
+  console.log('=== .s2e 解析 ===');
+  console.log('book.json + book.pdf 齐全:', !!bookJson && pdfBlob.size > 0, '| 书名:', bookJson.book.title, '| 页数:', bookJson.pages.length);
+}
 
 /* ---- 核心 + 插件 ---- */
 await import('../src/plugins/index.js');     // 注册插件（main.js 里同款）
@@ -56,7 +63,7 @@ console.log('护眼面板已创建:', !!document.getElementById('eyecare-panel')
 /* ---- 开书渲染（绕过 File 上传，直接入库） ---- */
 import * as db from '../src/core/db.js';
 const id = 'test-book';
-const book = { id, s2eName: '本雅明.s2e', importedAt: Date.now(), folderId: null,
+const book = { id, s2eName: '示例书.s2e', importedAt: Date.now(), folderId: null,
   meta: bookJson.book, bookJson, pdfBlob, bookmarks: [], progress: null };
 await db.addBook(state.db, book);
 state.books.push(book);

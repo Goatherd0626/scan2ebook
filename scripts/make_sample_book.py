@@ -144,7 +144,7 @@ def build_pages() -> list[Image.Image]:
     s.y += 80
     s.heading("一个制度变迁的视角", level=2)
     s.y += 200
-    s.para("郑泽卉 著", indent=False)
+    s.para("示例作者 著", indent=False)
     s.y += 120
     s.para("启明大学出版社", indent=False)
     s.y += 100
