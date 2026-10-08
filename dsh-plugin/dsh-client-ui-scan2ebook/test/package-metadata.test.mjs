@@ -6,7 +6,7 @@ const packageJson = JSON.parse(await readFile(new URL('../package.json', import.
 const hostSource = await readFile(new URL('../lib/index.js', import.meta.url), 'utf8')
 
 test('plugin targets DSH Desktop 0.2.x and declares its standalone reader dependency', () => {
-  assert.equal(packageJson.version, '0.2.0')
+  assert.equal(packageJson.version, '0.2.1')
   assert.equal(packageJson.dsh.engines.dsh, '>=0.2.0-rc.2')
   assert.deepEqual(packageJson.dsh.client.inject, [
     '@deepseek-ai/dsh-client-modules',

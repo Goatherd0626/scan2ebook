@@ -1,6 +1,6 @@
 # DSH 插件设计与实现
 
-> 状态:**已实现并发布**(npm `dsh-client-ui-scan2ebook@0.2.0`,同时支持从仓库路径安装)。
+> 状态:**已实现并发布**(npm `dsh-client-ui-scan2ebook@0.2.1`,同时支持从仓库路径安装)。
 > 源码:`dsh-plugin/dsh-client-ui-scan2ebook/`。
 > 目标:在 DeepSeek Harness Desktop 的**右侧栏**提供一个「Scan2Ebook」面板,
 > 让不懂命令行的用户也能 选 PDF → 转换 → 打开阅读器。
@@ -173,7 +173,13 @@ grep -c sidebarRightTabs ~/.dsh/profiles/desktop/node_modules/dsh-client-ui-scan
 CI 在 `.github/workflows/ci.yml`:秘密扫描(gitleaks 全历史)+ Python(macOS,Apple Vision)+
 阅读器(测试/构建/打包)+ 插件(测试/打包)。
 
-## 九、历史沿革
+## 九、版本记录
+
+- **0.2.1**:面板 PDF 区新增合法使用脚注(确认对所选 PDF 有合法处理权;页面图像与文字会发送给所配置的模型服务)。
+- **0.2.0**:迁移到 DSH Desktop 0.2 原生右栏;插件端点改用 `/api/scan2ebook` 精确 Fetch 路由;面板视觉重做;阅读器改为单一启停开关 + 可点击地址行;默认模型 `deepseek-flash`。
+- **0.1.0**:早期原型,依赖第三方 `dsh-better-sidebar`,仅适用于 DSH 0.1.x。
+
+## 十、历史沿革
 
 早期原型依赖第三方 `dsh-better-sidebar` 并通过 DOM 注入左侧入口,适用于 DSH 0.1.x;
 `@deepseek-ai/dsh-client-runtime` 在 0.2 已移除,该原型随之废弃并通过 `file:` 包被本次实现替换。

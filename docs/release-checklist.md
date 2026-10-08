@@ -45,7 +45,7 @@
 - [x] reader npm tarball 包含 `dist/`、CLI、Node API、README 和 MIT License，不包含源码、测试、`.env` 或电子书。
 - [x] 已发布 `scan2ebook-reader@0.1.0`，并设置为 npm `latest`。
 - [x] 已发布 `dsh-client-ui-scan2ebook@0.1.0`（旧版：依赖第三方 `dsh-better-sidebar`，仅适用于 DSH 0.1.x）。
-- [x] **已发布 `dsh-client-ui-scan2ebook@0.2.0`**（改用 DSH Desktop 0.2 原生右栏）。
+- [x] **已发布 `dsh-client-ui-scan2ebook@0.2.0` 与 `0.2.1`**（0.2.0 改用 DSH Desktop 0.2 原生右栏;0.2.1 补面板合法使用脚注）。
       已校验：registry `dist.shasum` 与本地打包一致（`aa4fff23…`）、profile 锁定 integrity 与 registry 一致，按名安装实测装到 0.2.0。
 - [x] **已把本地提交推送到 GitHub**（`4c5aee3` → `8f17749`，含 0.2 移植、路由修复、面板重做、AGENTS.md 与安装脚本）。
 - [x] 插件在 DSH Desktop `0.2.0-rc.2` 实机验证：右侧栏出现 Scan2Ebook 入口，宿主工具可唤起面板。

@@ -1,6 +1,6 @@
 {
   "name": "dsh-client-ui-scan2ebook",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DeepSeek Harness right-sidebar workflow for scan2ebook conversion, progress, cost estimation, and reader lifecycle management.",
   "type": "module",
   "main": "lib/index.js",
