@@ -113,6 +113,12 @@ dsh plugin --profile desktop add "dsh-client-ui-scan2ebook@^0.2.0"
 
 项目主页：[github.com/Goatherd0626/scan2ebook](https://github.com/Goatherd0626/scan2ebook)
 
+## 合法使用
+
+- 请确认你要转换的 PDF 是自有、已购买、公有领域或已获授权的材料；
+- 转换会把选定页面的图像与文字发送给你配置的多模态模型服务，请确认材料允许上传到第三方服务；
+- 插件不上传、不收集、不保存你的 PDF 或转换产物；API Key 只在该面板内存中保留。
+
 ## License
 
 MIT

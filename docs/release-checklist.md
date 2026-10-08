@@ -72,4 +72,5 @@
 - [ ] 增加 `CONTRIBUTING.md`、Issue 模板和安全漏洞报告方式。
 - [ ] 增加 `CHANGELOG.md` 或 GitHub Releases 约定。
 - [ ] 说明 `.s2e` 格式版本、兼容策略和未来 schema 变更原则。
-- [ ] 明确用户必须对输入 PDF 拥有合法处理权，项目不附带受版权保护的书籍。
+- [x] 明确用户必须对输入 PDF 拥有合法处理权，项目不附带受版权保护的书籍。
+      （README 新增「合法使用与版权」章节；插件 README 与 Skill 同步；`sample/` 与 `output/` 均在 `.gitignore`，仓库不含真实书籍）
