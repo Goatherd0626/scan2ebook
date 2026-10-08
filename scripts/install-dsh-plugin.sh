@@ -87,7 +87,16 @@ if installed_ok; then
 else
   # 注意:必须带显式版本范围。只写包名时 pnpm 可能写入 ^0.1.0(旧版存在),
   # 而 0.x 的 caret 锁小版本,后续永远升不到 0.2.0。
-  if run "$DSH_BIN" plugin --profile "$PROFILE" add "${PLUGIN_PKG}@^${MIN_DSH_PLUGIN}" >/dev/null 2>&1 && installed_ok; then
+  # 已装版本若低于 registry 上的最新版,用「旧版不满足」的范围强制升级
+  # (pnpm 的 prefer-frozen-lockfile 会让 add 在 lockfile 已满足时原地不动)
+  LATEST="$(npm view "$PLUGIN_PKG" version 2>/dev/null | tail -1 | tr -d '[:space:]')"
+  if [ -n "$LATEST" ] && ver_ge "$LATEST" "$MIN_DSH_PLUGIN"; then
+    run "$DSH_BIN" plugin --profile "$PROFILE" add "${PLUGIN_PKG}@^${LATEST}" >/dev/null 2>&1 || true
+    installed_ok && ok "已升级到最新版 ${LATEST}"
+  fi
+  if installed_ok; then
+    :
+  elif run "$DSH_BIN" plugin --profile "$PROFILE" add "${PLUGIN_PKG}@^${MIN_DSH_PLUGIN}" >/dev/null 2>&1 && installed_ok; then
     :
   elif run "$DSH_BIN" plugin --profile "$PROFILE" add "$PLUGIN_PKG" >/dev/null 2>&1 && installed_ok; then
     :

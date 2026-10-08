@@ -89,6 +89,27 @@ grep -c "sidebarRightTabs" ~/.dsh/profiles/desktop/node_modules/dsh-client-ui-sc
 - 若 DSH CLI 提示 `profile "desktop" is managed exclusively by the Electron application`,这是正常的:
   它只影响 `--dump-config`,不影响 `plugin add`。
 
+### 2.1 升级到新版(重要)
+
+DSH 插件 CLI 的 `add` 在 lockfile 已经满足版本范围时**不会升级**(pnpm 的 `prefer-frozen-lockfile`),
+`update` 也可能不动。要升级,必须给一个**旧版本不满足**的范围:
+
+```bash
+"$DSH" plugin --profile desktop add "dsh-client-ui-scan2ebook@^0.2.1"
+```
+
+或直接在 profile 目录用 pnpm(效果相同):
+
+```bash
+cd ~/.dsh/profiles/desktop
+ELECTRON_RUN_AS_NODE=1 "/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness" \
+  --expose-internals "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/pnpm/bin/pnpm.mjs" \
+  add "dsh-client-ui-scan2ebook@^0.2.1"
+```
+
+升级后同样要**完全重启 DSH**。若 pnpm 元数据缓存过期(表现为装到旧版),删除
+`~/Library/Caches/pnpm/v11/metadata/registry.npmjs.org/dsh-client-ui-scan2ebook.jsonl` 后重试。
+
 ### 3.(可选)安装 Skill
 
 ```bash
@@ -125,5 +146,6 @@ curl --fail --location \
 | 面板显示"无法连接 DSH 宿主" | 插件宿主半没加载:确认插件已安装,然后完全重启 DSH;若仍报错,把面板里的报错文本发回给用户转交开发者 |
 | 按名字安装拿到旧版 0.1.0 | 用 `dsh plugin --profile desktop add "dsh-client-ui-scan2ebook@^0.2.0"`;profile 里若已写死 `^0.1.0`,该命令会把它替换掉。仍不行则用第 2 步的仓库路径安装 |
 | 之前装过 `^0.1.0`,升级不到 0.2 | `^0.1.0` 不会自动升级(`0.x` caret 锁小版本),必须显式 `@^0.2.0` 重装 |
+| 已装 0.2.0,`add @^0.2.0` 升不到 0.2.1 | lockfile 已满足该范围,add 不会重新解析;用**旧版不满足**的范围 `@^0.2.1`(见 2.1 节) |
 | 用户问费用 | 面板显示的是估算值;重试次数、空白页跳过和模型定价变化都会影响实际账单,以服务商账单为准 |
 | 用户问 API Key 安全 | Key 只在该面板内存里保留,关闭面板或 DSH 即清除,不写 `.env`/钥匙串/浏览器存储/日志 |
