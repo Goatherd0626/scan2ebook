@@ -1,6 +1,6 @@
 # 独立网页改版验收记录 · 2026-11-06
 
-最新视觉、任务历史与交互验收见 [数字书桌第二轮验收](fashion-workbench-verification-20261106.md)。
+当前界面见 [2026-11-07 书库精简验收](compact-library-verification-20261107.md)；本文保留初版功能验收记录。
 
 本次交付为当前仓库的本机网页版：React + TypeScript + Vite 8、Tailwind CSS 与 shadcn/ui 组件方式重构外壳、书库和转换页；保留原有阅读引擎与书库格式。无需 DSH。本轮没有发布 npm 包或构建 macOS 桌面应用。
 
