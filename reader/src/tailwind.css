@@ -1,0 +1,16 @@
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@source "./web";
+@source "./components";
+
+@theme inline {
+  --color-primary: var(--lg-accent);
+  --color-primary-foreground: #ffffff;
+  --color-card: var(--lg-paper);
+  --color-card-foreground: var(--lg-label);
+  --color-muted: var(--lg-fill);
+  --color-border: var(--lg-separator);
+  --color-ring: var(--lg-accent);
+  --color-destructive: var(--lg-danger);
+}

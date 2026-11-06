@@ -46,10 +46,18 @@ function openSheet(options, inputOptions = null) {
     field.className = 'app-sheet-field';
     const label = document.createElement('span');
     label.textContent = inputOptions.label || '名称';
-    input = document.createElement('input');
+    const isSelect = Array.isArray(inputOptions.choices);
+    input = document.createElement(isSelect ? 'select' : 'input');
     input.className = 'app-sheet-input';
+    if (isSelect) {
+      for (const choice of inputOptions.choices) {
+        const option = document.createElement('option');
+        option.value = choice.value;
+        option.textContent = choice.label;
+        input.appendChild(option);
+      }
+    } else input.placeholder = inputOptions.placeholder || '';
     input.value = inputOptions.value || '';
-    input.placeholder = inputOptions.placeholder || '';
     field.append(label, input);
     dialog.appendChild(field);
   }
@@ -92,7 +100,7 @@ function openSheet(options, inputOptions = null) {
       close(null);
       return;
     }
-    if (event.key === 'Enter' && input && event.target === input && !confirm.disabled) {
+    if (event.key === 'Enter' && input?.tagName === 'INPUT' && event.target === input && !confirm.disabled) {
       event.preventDefault();
       confirm.click();
       return;
@@ -113,7 +121,7 @@ function openSheet(options, inputOptions = null) {
   }, { signal: controller.signal });
 
   (input || cancel).focus();
-  input?.select();
+  input?.select?.();
   return result;
 }
 
@@ -123,6 +131,10 @@ export function confirmSheet(options) {
 
 export function promptSheet(options) {
   return openSheet(options, options);
+}
+
+export function selectSheet(options) {
+  return openSheet(options, { ...options, allowEmpty: true });
 }
 
 export function showToast(options) {

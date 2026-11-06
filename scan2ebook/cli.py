@@ -108,10 +108,8 @@ def _render_and_ocr(doc, args, page_indices: list[int]) -> tuple[list, list[str]
     for completed, i in enumerate(iterator, start=1):
         try:
             img = render_page(doc, i, dpi=args.dpi)
-        except Exception as e:  # noqa: BLE001
-            log.warning("第 %d 页渲染失败：%s", i + 1, e)
-            imgs.append(None)
-            ocr_texts.append("")
+        except Exception:  # noqa: BLE001
+            raise RuntimeError(f"第 {i + 1} 页渲染失败，请检查 PDF 是否损坏或受密码保护") from None
         else:
             imgs.append(img)
             if layer_texts is not None:
@@ -121,9 +119,8 @@ def _render_and_ocr(doc, args, page_indices: list[int]) -> tuple[list, list[str]
                     blocks = ocr_image(img, languages=langs)
                     lines = sorted(blocks, key=lambda b: (b.cy, b.x0))
                     ocr_texts.append("\n".join(b.clean() for b in lines if b.clean()))
-                except Exception as e:  # noqa: BLE001
-                    log.warning("第 %d 页 OCR 失败：%s", i + 1, e)
-                    ocr_texts.append("")
+                except Exception:  # noqa: BLE001
+                    raise RuntimeError(f"第 {i + 1} 页文字识别失败，请检查本机 OCR 组件后重试") from None
         _emit_progress(args.progress_json, {
             "stage": "ocr",
             "current": completed,
@@ -185,7 +182,12 @@ def main(argv=None) -> int:
     })
 
     # 1) 渲染 + OCR
-    imgs, ocr_texts = _render_and_ocr(doc, args, page_indices)
+    try:
+        imgs, ocr_texts = _render_and_ocr(doc, args, page_indices)
+    except RuntimeError as error:
+        log.error("转换失败：%s", error)
+        _emit_progress(args.progress_json, {"stage": "failed", "message": str(error)})
+        return 1
 
     # 2) ds-vision 逐页结构化（图像 + OCR 文本）
     blank_indices = {i for i, t in enumerate(ocr_texts) if len(t.strip()) < BLANK_TEXT_THRESHOLD}
@@ -196,15 +198,20 @@ def main(argv=None) -> int:
         event["message"] = f"正在结构化第 {event['pdf_page']} 页"
         _emit_progress(args.progress_json, event)
 
-    structured = vs.structure_book(
-        imgs,
-        ocr_texts,
-        workers=max(1, int(getattr(args, "workers", 6) or 6)),
-        blank_indices=blank_indices,
-        page_numbers=page_numbers,
-        progress_callback=on_structure_progress,
-        show_progress=not args.progress_json,
-    )
+    try:
+        structured = vs.structure_book(
+            imgs,
+            ocr_texts,
+            workers=max(1, int(getattr(args, "workers", 6) or 6)),
+            blank_indices=blank_indices,
+            page_numbers=page_numbers,
+            progress_callback=on_structure_progress,
+            show_progress=not args.progress_json,
+        )
+    except RuntimeError as error:
+        log.error("转换失败：%s", error)
+        _emit_progress(args.progress_json, {"stage": "failed", "message": str(error)})
+        return 1
 
     if args.no_footnotes:
         for pg in structured:
@@ -296,9 +303,12 @@ def _inspect_pdf(argv: list[str]) -> int:
         print(json.dumps({"ok": False, "error": "inspect 仅支持 PDF 文件"}, ensure_ascii=False))
         return 1
     try:
-        doc = open_pdf(str(src))
-        payload = {"ok": True, "path": str(src.resolve()), "name": src.name, "pages": len(doc)}
-        doc.close()
+        with open_pdf(str(src)) as doc:
+            if doc.needs_pass:
+                raise ValueError("PDF 受密码保护，请先解密后再转换")
+            if len(doc) < 1:
+                raise ValueError("PDF 中没有可转换的页面")
+            payload = {"ok": True, "path": str(src.resolve()), "name": src.name, "pages": len(doc)}
     except Exception as e:  # noqa: BLE001
         payload = {"ok": False, "error": f"无法读取 PDF：{e}"}
         print(json.dumps(payload, ensure_ascii=False))

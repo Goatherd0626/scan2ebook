@@ -1,3 +1,4 @@
+import { shellHtml } from './fixtures/shell.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -7,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const dom = new JSDOM(readFileSync(join(root, 'index.html'), 'utf8'), {
+const dom = new JSDOM(shellHtml, {
   url: 'http://127.0.0.1:8765/',
   pretendToBeVisual: true,
 });

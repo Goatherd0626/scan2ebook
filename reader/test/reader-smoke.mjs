@@ -1,3 +1,4 @@
+import { shellHtml } from './fixtures/shell.mjs';
 /* 阅读器核心+插件冒烟测试（jsdom + fake-indexeddb）。
    运行：cd reader && node test/reader-smoke.mjs
    验证：核心初始化、插件激活（工具栏/目录tab）、.s2e 解析、开书渲染（文字视图+脚注插件）。
@@ -10,7 +11,7 @@ import { dirname, join } from 'path';
 import JSZip from 'jszip';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const dom = new JSDOM(readFileSync(join(root, 'index.html'), 'utf-8'), { url: 'http://127.0.0.1:8765/', pretendToBeVisual: true });
+const dom = new JSDOM(shellHtml, { url: 'http://127.0.0.1:8765/', pretendToBeVisual: true });
 const { window } = dom;
 
 // ---- 浏览器全局桩 ----

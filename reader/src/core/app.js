@@ -3,9 +3,10 @@
 import JSZip from 'jszip';
 import * as db from './db.js';
 import { parseAnnotationSidecar } from './annotation_format.js';
-import { confirmSheet, promptSheet, showToast } from './dialogs.js';
+import { confirmSheet, promptSheet, selectSheet, showToast } from './dialogs.js';
 import { buildRenderModel, PdfView, TextView, pdfjsLib } from './views.js';
 import { initSidebarResizer, initSplitResizer, layoutDefaults } from './layout_resize.js';
+import { createConversionView } from './conversion.js';
 import {
   bus, ui, listExtensions, isEnabled, setEnabled,
   activateExtension, deactivateExtension, makeAppCtx, injectCore, renderToolbarWidgets, setPersistentStorage,
@@ -29,9 +30,13 @@ let selectionAnchorId = null;
 let selectedBookId = null;
 let selectedHomeFolderId = null;
 let suppressBookClick = false;
+let conversionView = null;
+let mountHomeOverride = null;
 
 /* ============================ 初始化 ============================ */
-export async function init() {
+/** @param {{ mountHome?: ((host: HTMLElement) => void) | null }} [options] */
+export async function init({ mountHome = null } = {}) {
+  mountHomeOverride = mountHome;
   state.db = await db.openDB();
   const preferenceStorage = db.createPreferenceStorage(state.db);
   setPersistentStorage(preferenceStorage);
@@ -85,9 +90,12 @@ export async function init() {
 
   createTopbarViewSwitch();     // 视图工具条（顶栏搜索框右侧，仅开书时显示）
   createHomeView();              // 首页（Zotero 式书库管理）
+  conversionView = createConversionView({ onImport: importFile, onRead: openBook });
+  $('workspace').appendChild(conversionView.element);
   enableCustomTooltips();        // title → 样式化悬浮提示
   const q = new URLSearchParams(location.search).get('book');
   if (q) openBook(q);
+  else if (new URLSearchParams(location.search).get('view') === 'convert') switchConvert();
   else switchHome();
 }
 
@@ -227,7 +235,12 @@ async function startFolderRename(row, folder, nameEl) {
 }
 
 /* ============================ 导入 ============================ */
-async function importFile(file) {
+/** @param {File} file @param {string | null} [sourceJobId] */
+export async function importFile(file, sourceJobId = null) {
+  if (sourceJobId) {
+    const existing = state.books.find((book) => book.sourceJobId === sourceJobId);
+    if (existing) { await openBook(existing.id); return existing.id; }
+  }
   const zip = await JSZip.loadAsync(file);
   const j = zip.file('book.json');
   if (!j) throw new Error('压缩包内缺少 book.json');
@@ -235,13 +248,13 @@ async function importFile(file) {
   let pdfEntry = zip.file('book.pdf') || zip.file(/\.pdf$/i)[0];
   if (!pdfEntry) throw new Error('压缩包内缺少 book.pdf');
   const pdfBlob = await pdfEntry.async('blob');
-  const id = crypto.randomUUID();
+  const id = sourceJobId || crypto.randomUUID();
   const annotationEntry = zip.file('annotations.json');
   const parsedAnnotations = annotationEntry
     ? parseAnnotationSidecar(await annotationEntry.async('string'), id)
     : { records: [], invalidCount: 0 };
   const book = {
-    id, s2eName: file.name.replace(/\.s2e$/i, ''), importedAt: Date.now(), folderId: null,
+    id, s2eName: file.name.replace(/\.s2e$/i, ''), importedAt: Date.now(), folderId: null, sourceJobId,
     meta: Object.assign({ title: file.name.replace(/\.s2e$/i, '') }, bookJson.book || {}),
     bookJson, pdfBlob, bookmarks: parsedAnnotations.bookmarks || [], progress: null,
   };
@@ -252,9 +265,10 @@ async function importFile(file) {
   await loadLibrary();
   renderLibrary();
   renderHome();
-  openBook(id);
+  await openBook(id);
   toast('已导入「' + (book.meta.title || book.s2eName) + '」');
   if (parsedAnnotations.invalidCount) toast('已跳过 ' + parsedAnnotations.invalidCount + ' 条无效标注');
+  return id;
 }
 
 function bindDragDrop() {
@@ -262,10 +276,22 @@ function bindDragDrop() {
   document.addEventListener('dragover', ov);
   document.addEventListener('drop', (e) => {
     e.preventDefault();
-    for (const f of e.dataTransfer.files || []) {
-      if (/\.(s2e|zip)$/i.test(f.name)) importFile(f).catch((err) => toast('导入失败：' + err.message));
-    }
+    addFiles(e.dataTransfer.files || []);
   });
+}
+
+export async function addFiles(files) {
+  const selected = [...files];
+  for (const file of selected.filter((item) => /\.(s2e|zip)$/i.test(item.name))) {
+    try { await importFile(file); } catch (error) { toast('未能添加「' + file.name + '」：' + error.message); }
+  }
+  const pdfs = selected.filter((item) => /\.pdf$/i.test(item.name));
+  if (pdfs.length) {
+    await switchConvert({ file: pdfs[0] });
+    if (pdfs.length > 1) toast('已打开第一份 PDF。一次转换一本，其余文件请在完成后添加。');
+  } else if (selected.length && !selected.some((item) => /\.(s2e|zip)$/i.test(item.name))) {
+    toast('支持添加 PDF 或 .s2e 电子书');
+  }
 }
 
 /* ============================ 标签页 ============================ */
@@ -381,7 +407,8 @@ function createBookView(book) {
   enableCustomTooltips(wv);
   // ---- 每本书自己的视图配置（记忆并持久化到统一数据目录） ----
   book.prefs = Object.assign({
-    viewMode: 'split', spread: false, sync: false, splitRatio: layoutDefaults.splitRatio,
+    viewMode: window.matchMedia?.('(max-width: 760px)').matches ? 'text' : 'split',
+    spread: false, sync: false, splitRatio: layoutDefaults.splitRatio,
   }, book.prefs || {});
   const prefs = book.prefs;
   view.prefs = prefs;   // 供顶栏视图工具条读取
@@ -463,6 +490,8 @@ export async function openBook(id) {
 }
 
 function switchTab(id) {
+  conversionView?.deactivate();
+  setScreen('reading', id);
   state.activeBookId = id;
   const home = document.getElementById('home-view');
   if (home) home.style.display = 'none';
@@ -476,6 +505,8 @@ function switchTab(id) {
 }
 
 function switchHome() {
+  conversionView?.deactivate();
+  setScreen('library');
   state.activeBookId = null;
   for (const t of state.tabs) t.wv.hidden = true;
   const home = document.getElementById('home-view');
@@ -484,6 +515,38 @@ function switchHome() {
   renderToc();
   syncViewSwitch();
   bus.emit('book:switch', { bookId: null });
+}
+
+function setScreen(screen, bookId = null) {
+  document.body.dataset.screen = screen;
+  document.body.classList.remove('reader-tools-open');
+  $('btn-reader-tools')?.setAttribute('aria-expanded', 'false');
+  if (window.history?.replaceState) {
+    const url = new URL(window.location.href);
+    if (screen === 'convert') url.searchParams.set('view', 'convert'); else url.searchParams.delete('view');
+    if (bookId) url.searchParams.set('book', bookId); else url.searchParams.delete('book');
+    window.history.replaceState(null, '', url);
+  }
+  for (const [id, selected] of [['nav-library', screen !== 'convert'], ['nav-convert', screen === 'convert']]) {
+    if (selected) $(id)?.setAttribute('aria-current', 'page');
+    else $(id)?.removeAttribute('aria-current');
+  }
+  if (window.matchMedia?.('(max-width: 920px)').matches) {
+    document.body.classList.add('sidebar-hidden');
+    $('btn-library').setAttribute('aria-pressed', 'false');
+  }
+}
+
+/** @param {{ jobId?: string, file?: File } | Event | null} [options] */
+async function switchConvert(options = null) {
+  state.activeBookId = null;
+  setScreen('convert');
+  for (const tab of state.tabs) tab.wv.hidden = true;
+  if ($('home-view')) $('home-view').style.display = 'none';
+  renderTabs(); renderToc(); syncViewSwitch();
+  bus.emit('book:switch', { bookId: null });
+  const request = options && ('jobId' in options || 'file' in options) ? options : undefined;
+  await conversionView?.open(request);
 }
 
 function closeTab(id) {
@@ -714,23 +777,48 @@ function renderPluginList() {
 
 /* ============================ 顶栏 ============================ */
 function bindTopbar() {
+  const toggleTools = (open) => {
+    document.body.classList.toggle('reader-tools-open', open);
+    $('btn-reader-tools')?.setAttribute('aria-expanded', String(open));
+  };
+  window.matchMedia?.('(max-width: 920px)').addEventListener('change', (event) => {
+    if (!event.matches) return;
+    document.body.classList.add('sidebar-hidden');
+    $('btn-library').setAttribute('aria-pressed', 'false');
+    toggleTools(false);
+    if (document.activeElement?.closest('#sidebar')) $('btn-library').focus();
+  });
+  $('btn-reader-tools')?.addEventListener('click', () => toggleTools(!document.body.classList.contains('reader-tools-open')));
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest?.('#topbar')) toggleTools(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') toggleTools(false);
+    if (event.key.toLowerCase() === 'f' && (event.metaKey || event.ctrlKey)
+        && document.body.dataset.screen === 'reading' && window.matchMedia?.('(max-width: 760px)').matches
+        && !event.target.closest?.('.annotations-sidebar')) toggleTools(true);
+  });
+  $('nav-library')?.addEventListener('click', () => {
+    switchHome();
+    window.dispatchEvent(new window.Event('s2e:library-home'));
+  });
+  $('nav-convert')?.addEventListener('click', switchConvert);
   $('btn-library').addEventListener('click', () => {
     document.body.classList.toggle('sidebar-hidden');
     $('btn-library').classList.toggle('active', !document.body.classList.contains('sidebar-hidden'));
+    $('btn-library').setAttribute('aria-pressed', String(!document.body.classList.contains('sidebar-hidden')));
   });
   $('btn-import').addEventListener('click', () => $('import-input').click());
   $('btn-import-lib').addEventListener('click', () => $('import-input').click());
   $('import-input').addEventListener('change', async (e) => {
-    for (const f of e.target.files) {
-      if (/\.(s2e|zip)$/i.test(f.name)) importFile(f).catch((err) => toast('导入失败：' + err.message));
-    }
+    await addFiles(e.target.files);
     e.target.value = '';
   });
   $('btn-new-folder').addEventListener('click', async () => {
     const name = await promptSheet({ title: '新建文件夹', label: '文件夹名称', confirmLabel: '创建' });
     if (!name || !name.trim()) return;
     await db.addFolder(state.db, { id: crypto.randomUUID(), name: name.trim(), parentId: null });
-    await loadLibrary(); renderLibrary();
+    await loadLibrary(); renderLibrary(); renderHome();
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -773,18 +861,23 @@ function bindTopbar() {
 }
 
 async function selectFolder() {
-  const names = [{ id: null, name: '（书库根目录）' }, ...state.folders].map((f) => f.name).join('\n');
-  const pick = await promptSheet({
+  const choices = [{ value: '', label: '书库根目录' }, ...state.folders.map((folder) => {
+    const names = [folder.name];
+    let parent = state.folders.find((item) => item.id === folder.parentId);
+    while (parent) {
+      names.unshift(parent.name);
+      parent = state.folders.find((item) => item.id === parent.parentId);
+    }
+    return { value: folder.id, label: names.join(' / ') };
+  })];
+  const pick = await selectSheet({
     title: '移动电子书',
-    message: '现有位置：\n' + names,
-    label: '目标文件夹（留空为书库根目录）',
+    label: '目标文件夹',
     confirmLabel: '移动',
-    allowEmpty: true,
+    choices,
   });
   if (pick === null) return undefined;
-  if (!pick.trim() || pick.trim() === '（书库根目录）') return null;
-  const f = state.folders.find((x) => x.name === pick.trim());
-  return f ? f.id : null;
+  return pick || null;
 }
 
 function folderTreeIds(rootId) {
@@ -836,12 +929,27 @@ function createHomeView() {
   const home = document.createElement('div');
   home.id = 'home-view';
   home.style.display = 'none';
+  if (mountHomeOverride) {
+    $('workspace').appendChild(home);
+    mountHomeOverride(home);
+    bindBookMarquee(home.querySelector('.home-main'), '.ht-row');
+    bindRootDropTarget(home.querySelector('.home-title'));
+    return;
+  }
   home.innerHTML = `
     <div class="home-main">
+      <section class="home-welcome">
+        <div class="welcome-copy"><span class="page-eyebrow">A SPACE FOR YOUR BOOKS</span><h1>从纸页，到随手可读。</h1>
+          <p>把扫描的旧书，变成可搜索、可批注的电子书。<br>原文与文字并肩，每一页都有来处。</p>
+          <div class="welcome-actions"><button id="home-convert" class="primary-action" type="button">转换 PDF <span aria-hidden="true">↗</span></button>
+            <button id="home-welcome-import" class="secondary-action" type="button">导入电子书</button></div></div>
+        <div class="welcome-art" aria-hidden="true"><div class="welcome-orbit"></div><div class="shelf-book shelf-sage"><span>文<br>字<br>与<br>时<br>间</span><small>READ</small></div>
+          <div class="shelf-book shelf-cream"><span>每一页<br>都有来处</span><small>SCAN2EBOOK</small></div><div class="shelf-book shelf-lilac"><span>读<br>有<br>所<br>获</span><small>VOL. 01</small></div><div class="art-baseline"></div></div>
+      </section>
       <div class="home-head">
         <div class="home-title">
-          <h2>书库</h2>
-          <span class="home-count"></span>
+          <h2>我的书库</h2>
+          <span id="home-count" class="home-count"></span>
         </div>
         <div class="home-actions">
           <div id="home-batch-bar" class="batch-bar home-selection-bar" hidden>
@@ -869,14 +977,16 @@ function createHomeView() {
         <div id="home-table"></div>
         <div id="home-empty" hidden>
           <div class="big"><span class="sf i-home-library" aria-hidden="true"></span></div>
-          <p>书库还是空的</p>
-          <button id="home-empty-import" class="import-big">选择 .s2e 文件导入</button>
-          <div class="drop-hint">也可以把 .s2e 文件拖到窗口任意位置</div>
+          <p>给下一本想读的书，留一个位置。</p>
+          <button id="home-empty-import" class="import-big">导入 .s2e 电子书</button>
+          <div class="drop-hint">也可以直接拖入电子书文件，或从上方转换 PDF</div>
         </div>
       </div>
     </div>
     <aside id="detail-panel"></aside>`;
   $('workspace').appendChild(home);
+  $('home-convert').addEventListener('click', switchConvert);
+  $('home-welcome-import').addEventListener('click', () => $('import-input').click());
 
   $('home-import').addEventListener('click', () => $('import-input').click());
   $('home-empty-import').addEventListener('click', () => $('import-input').click());
@@ -905,6 +1015,11 @@ function createHomeView() {
 }
 
 function renderHome() {
+  if (mountHomeOverride) {
+    bus.emit('library:change');
+    renderDetail();
+    return;
+  }
   const table = $('home-table');
   if (!table) return;
   table.innerHTML = '';
@@ -1002,11 +1117,22 @@ function appendHomeBook(table, book, depth, ancestorIds) {
   row.appendChild(cell('ht-pages', book.bookJson.pages ? book.bookJson.pages.length + ' 页' : ''));
   const folder = state.folders.find((item) => item.id === book.folderId);
   row.appendChild(cell('ht-folder', folder ? folder.name : '—'));
-  row.appendChild(cell('ht-actions', ''));
+  const actions = cell('ht-actions', '');
+  const read = document.createElement('button');
+  read.type = 'button';
+  read.className = 'ht-read-button';
+  read.textContent = '阅读 →';
+  read.setAttribute('aria-label', '阅读 ' + (book.meta.title || book.s2eName || '未命名'));
+  read.addEventListener('click', (event) => { event.stopPropagation(); openBook(book.id); });
+  actions.appendChild(read);
+  row.appendChild(actions);
   row.addEventListener('click', (event) => {
     selectBookFromEvent(event, book.id, visibleHomeBookIds(table));
   });
   row.addEventListener('dblclick', () => openBook(book.id));
+  row.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && event.target === row) { event.preventDefault(); openBook(book.id); }
+  });
   table.appendChild(row);
 }
 
@@ -1079,7 +1205,7 @@ function syncBookSelectionUI() {
   document.querySelectorAll('.book-row, .ht-row').forEach((row) => {
     const selected = selectedBookIds.has(row.dataset.id);
     row.classList.toggle('selected', selected);
-    row.setAttribute('aria-selected', selected ? 'true' : 'false');
+    if (row.getAttribute('role') !== 'listitem') row.setAttribute('aria-selected', selected ? 'true' : 'false');
     row.draggable = selected;
   });
   document.querySelectorAll('.ht-folder-row').forEach((row) => {
@@ -1091,10 +1217,11 @@ function syncBookSelectionUI() {
   const homeDelete = $('home-delete');
   if (homeDelete) homeDelete.disabled = !selectedBookIds.size && !selectedHomeFolderId;
   const homeBatch = $('home-batch-bar');
-  if (homeBatch) homeBatch.hidden = selectedBookIds.size < 2;
+  if (homeBatch) homeBatch.hidden = mountHomeOverride ? selectedBookIds.size === 0 : selectedBookIds.size < 2;
   const sidebarBatch = $('batch-bar');
   if (sidebarBatch) sidebarBatch.hidden = selectedBookIds.size < 2;
   renderDetail();
+  bus.emit('library:change');
 }
 
 function selectBookFromEvent(event, id, orderedIds) {
@@ -1390,6 +1517,69 @@ async function ctxDbSave(book) {
   toast('已保存');
 }
 /* ============================ 工具 ============================ */
+export const readerBridge = {
+  snapshot: () => ({
+    books: state.books, folders: state.folders,
+    selectedIds: [...selectedBookIds], selectedFolderId: selectedHomeFolderId,
+    expandedIds: [...expandedHomeFolders],
+  }),
+  subscribe: (listener) => bus.on('library:change', listener),
+  openBook,
+  importBook: () => $('import-input').click(),
+  showConversion: (jobId) => switchConvert(typeof jobId === 'string' ? { jobId } : null),
+  showLibrary: switchHome,
+  importConversion: importFile,
+  selectBook: (event, id) => selectBookFromEvent(event, id, visibleHomeBookIds($('home-table'))),
+  selectBookOnly(event, id) {
+    selectBookFromEvent(event, id, visibleHomeBookIds($('home-table')));
+    $('detail-panel').hidden = true;
+  },
+  toggleBookSelection(id) {
+    selectBookFromEvent({ metaKey: true }, id, visibleHomeBookIds($('home-table')));
+    $('detail-panel').hidden = true;
+  },
+  showBookDetails(id) { selectBookFromEvent({}, id, visibleHomeBookIds($('home-table'))); },
+  showFolderDetails(id) {
+    selectedHomeFolderId = id; selectedBookIds.clear(); selectionAnchorId = null; syncBookSelectionUI();
+  },
+  clearSelection() {
+    selectedBookIds.clear(); selectedHomeFolderId = null; selectionAnchorId = null; syncBookSelectionUI();
+  },
+  selectAllVisible() {
+    selectedBookIds.clear();
+    visibleHomeBookIds($('home-table')).forEach((id) => selectedBookIds.add(id));
+    selectedHomeFolderId = null; syncBookSelectionUI(); $('detail-panel').hidden = true;
+  },
+  selectFolder(id) {
+    selectedHomeFolderId = id;
+    selectedBookIds.clear(); selectionAnchorId = null;
+    if (expandedHomeFolders.has(id)) expandedHomeFolders.delete(id); else expandedHomeFolders.add(id);
+    syncBookSelectionUI();
+  },
+  async createFolder() {
+    const name = await promptSheet({ title: '新建文件夹', label: '文件夹名称', confirmLabel: '创建' });
+    if (!name?.trim()) return;
+    await db.addFolder(state.db, { id: crypto.randomUUID(), name: name.trim(), parentId: null });
+    await loadLibrary(); renderLibrary(); renderHome();
+  },
+  deleteSelection: deleteCurrentHomeSelection,
+  async moveSelection() {
+    const folder = await selectFolder();
+    if (folder === undefined) return;
+    await db.moveBooks(state.db, [...selectedBookIds], folder);
+    await loadLibrary(); renderLibrary(); renderHome();
+  },
+  dragBooks: setDraggedBooks,
+  async dropBooks(event, folderId) {
+    const ids = draggedBookIds(event);
+    if (!ids.length) return;
+    event.preventDefault();
+    await db.moveBooks(state.db, ids, folderId);
+    if (folderId) expandedHomeFolders.add(folderId);
+    await loadLibrary(); renderLibrary(); renderHome();
+  },
+};
+
 export function enableCustomTooltips(root = document) {
   root.querySelectorAll('[title]').forEach((el) => {
     el.dataset.tip = el.title;

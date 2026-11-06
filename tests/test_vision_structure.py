@@ -1,11 +1,16 @@
 import unittest
+import io
+import tempfile
+from pathlib import Path
+from contextlib import redirect_stdout
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 from PIL import Image
 
 from scan2ebook.cli import _resolve_api_key, _resolve_page_indices
 from scan2ebook.vision import VisionStructure, _normalize_items
+from scan2ebook import cli
 
 
 class NormalizeItemsTest(unittest.TestCase):
@@ -111,6 +116,46 @@ class PageNumberMappingTest(unittest.TestCase):
             page_numbers=[7, 8], show_progress=False,
         )
         self.assertEqual([page["pdf_page"] for page in result], [7, 8])
+
+
+class ConversionFailureTest(unittest.TestCase):
+    def vision_with(self, create):
+        vision = VisionStructure.__new__(VisionStructure)
+        vision._client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+        vision.model = "test-vision"
+        vision._usage_lock = __import__("threading").Lock()
+        vision._usage = {"requests": 0, "input_tokens": 0, "output_tokens": 0}
+        return vision
+
+    def test_service_error_is_not_reported_as_a_blank_page(self):
+        vision = self.vision_with(Mock(side_effect=RuntimeError("test-only-placeholder")))
+        with self.assertRaises(RuntimeError) as caught:
+            vision.structure_page(Image.new("RGB", (1, 1)), "测试正文")
+        self.assertNotIn("test-only-placeholder", str(caught.exception))
+
+    def test_repeated_invalid_json_is_not_reported_as_a_blank_page(self):
+        response = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="invalid JSON"))])
+        vision = self.vision_with(Mock(return_value=response))
+        with self.assertRaisesRegex(RuntimeError, "页面结构"):
+            vision.structure_page(Image.new("RGB", (1, 1)), "测试正文")
+
+    def test_cli_reports_failure_without_generating_an_ebook(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "fixture.pdf"
+            source.write_bytes(b"%PDF-test")
+            out = Path(tmp) / "out"
+            vision = Mock(enabled=True, model="test-vision")
+            vision.structure_book.side_effect = RuntimeError("模型服务拒绝访问")
+            output = io.StringIO()
+            with patch.object(cli, "_resolve_api_key", return_value="test-only-placeholder"), \
+                 patch.object(cli, "VisionStructure", return_value=vision), \
+                 patch.object(cli, "open_pdf", return_value=[None]), \
+                 patch.object(cli, "_render_and_ocr", return_value=([None], ["测试正文"])), \
+                 redirect_stdout(output):
+                result = cli.main([str(source), "-o", str(out), "--progress-json"])
+            self.assertNotEqual(result, 0)
+            self.assertIn('"stage": "failed"', output.getvalue())
+            self.assertEqual(list(out.glob("*.s2e")), [])
 
 
 if __name__ == "__main__":

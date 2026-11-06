@@ -264,7 +264,10 @@ registerExtension({
     });
     listen(document, 'keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
+        if (document.body.dataset.screen === 'convert') return;
         e.preventDefault();
+        const libraryInput = document.body.dataset.screen === 'library' && document.getElementById('library-filter');
+        if (libraryInput) { libraryInput.focus(); libraryInput.select(); return; }
         // 焦点在右侧标注栏内时打开标注搜索,其余位置打开全局搜索。
         const annInput = document.querySelector('.annotations-sidebar:not([hidden]) .annotations-search-input');
         if (annInput && document.activeElement?.closest('.annotations-sidebar')) {

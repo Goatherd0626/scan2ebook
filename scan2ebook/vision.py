@@ -194,7 +194,7 @@ class VisionStructure:
 
     # ------------------------------------------------------------------
     def structure_page(self, img: Image.Image, ocr_text: str) -> dict:
-        """单页：返回 {"page_kind", "items", "toc"}。失败时按空白页处理。"""
+        """单页结构化；服务或解析失败必须报错，不能伪装成空白页。"""
         ocr = ocr_text[:4000]
         content = [
             {"type": "text", "text": USER_PROMPT.replace("__OCR__", ocr)},
@@ -220,9 +220,16 @@ class VisionStructure:
             except Exception as e:  # noqa: BLE001
                 if response is None:
                     self._record_usage()
-                log.warning("ds-vision 第 %d 页失败：%s", getattr(img, "pdf_page", "?"), e)
-                break
-        return {"page_kind": "blank", "items": [], "toc": []}
+                status = getattr(e, "status_code", None)
+                if status in (401, 403):
+                    message = "模型服务拒绝访问，请检查 API Key 和模型权限"
+                elif status == 429:
+                    message = "模型请求受限，请检查账户额度或降低同时处理页数"
+                else:
+                    message = "页面结构化失败，请检查模型名称和网络连接"
+                log.warning("ds-vision 第 %s 页失败：%s", getattr(img, "pdf_page", "?"), message)
+                raise RuntimeError(message) from None
+        raise RuntimeError("模型未返回有效的页面结构，请检查多模态模型后重试")
 
     @staticmethod
     def _finalize(data: dict) -> dict:
@@ -276,7 +283,12 @@ class VisionStructure:
                 disable=not show_progress,
             )
             for fut in iterator:
-                i, page = fut.result()
+                try:
+                    i, page = fut.result()
+                except Exception:
+                    for pending in futs:
+                        pending.cancel()
+                    raise
                 results[i] = page
                 completed += 1
                 if progress_callback is not None:

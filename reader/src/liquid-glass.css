@@ -714,14 +714,14 @@ body.sidebar-hidden #sidebar { display: none; }
 .b-cover,
 .dp-cover {
   border-radius: 6px;
-  background: linear-gradient(145deg, #5ac8fa, #007aff) !important;
+  background: linear-gradient(145deg, #5ac8fa, #007aff);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 2px 6px rgba(0, 0, 0, .12);
   color: #fff;
 }
-.b-cover.c2, .dp-cover.c2 { background: linear-gradient(145deg, #64d2ff, #30b0c7) !important; }
-.b-cover.c3, .dp-cover.c3 { background: linear-gradient(145deg, #bf5af2, #8e44ad) !important; }
-.b-cover.c4, .dp-cover.c4 { background: linear-gradient(145deg, #ff9f0a, #ff6b00) !important; }
-.b-cover.c5, .dp-cover.c5 { background: linear-gradient(145deg, #30d158, #248a3d) !important; }
+.b-cover.c2, .dp-cover.c2 { background: linear-gradient(145deg, #64d2ff, #30b0c7); }
+.b-cover.c3, .dp-cover.c3 { background: linear-gradient(145deg, #bf5af2, #8e44ad); }
+.b-cover.c4, .dp-cover.c4 { background: linear-gradient(145deg, #ff9f0a, #ff6b00); }
+.b-cover.c5, .dp-cover.c5 { background: linear-gradient(145deg, #30d158, #248a3d); }
 .toc-item { min-height: 38px; padding-top: 4px; padding-bottom: 4px; }
 .toc-item .toc-page,
 .bm-item .bm-page,

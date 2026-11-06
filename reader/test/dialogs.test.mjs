@@ -12,7 +12,7 @@ globalThis.window = window;
 globalThis.document = window.document;
 globalThis.HTMLElement = window.HTMLElement;
 
-const { confirmSheet, promptSheet, showToast } = await import('../src/core/dialogs.js');
+const { confirmSheet, promptSheet, selectSheet, showToast } = await import('../src/core/dialogs.js');
 
 test('确认 Sheet 取消后返回 false 并把焦点还给来源控件', async () => {
   const trigger = document.createElement('button');
@@ -78,4 +78,18 @@ test('应用 Sheet 消费 Escape，不触发背景快捷键', async () => {
   assert.equal(await result, false);
   assert.equal(backgroundEscapeCount, 0);
   document.removeEventListener('keydown', onBackgroundKeydown);
+});
+
+test('选择 Sheet 使用位置 ID，同名文件夹与书库根目录均可准确选择', async () => {
+  const choices = [{ value: '', label: '书库根目录' }, { value: 'folder-a', label: '资料' }, { value: 'folder-b', label: '资料' }];
+  const selected = selectSheet({ title: '移动电子书', label: '目标文件夹', choices, confirmLabel: '移动' });
+  const select = document.querySelector('select.app-sheet-input');
+  assert.equal(document.activeElement, select);
+  select.value = 'folder-b';
+  document.querySelector('[data-dialog-action="confirm"]').click();
+  assert.equal(await selected, 'folder-b');
+  const root = selectSheet({ title: '移动电子书', choices });
+  assert.equal(document.querySelector('[data-dialog-action="confirm"]').disabled, false);
+  document.querySelector('[data-dialog-action="confirm"]').click();
+  assert.equal(await root, '');
 });

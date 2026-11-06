@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { openBrowser as openSystemBrowser } from './open-browser.js';
 import { DEFAULT_HOST, DEFAULT_PORT, validateHost, validatePort } from './options.js';
 import { ReaderStorage, defaultStorageDir } from './storage.js';
+import { createConversionManager } from './conversion.js';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json');
@@ -112,9 +113,11 @@ export function createRequestHandler({
   distDir = DEFAULT_DIST_DIR,
   version = READER_VERSION,
   storage,
+  conversion,
 } = {}) {
   return async (request, response) => {
     const pathname = new URL(request.url || '/', 'http://reader.local').pathname;
+    if (conversion && await conversion.handle(request, response, pathname)) return;
     if (pathname === HEALTH_PATH) {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
         send(response, 405, 'Method Not Allowed', { allow: 'GET, HEAD', 'content-type': 'text/plain; charset=utf-8' });
@@ -229,12 +232,14 @@ export async function createReaderServer({
   port = DEFAULT_PORT,
   distDir = DEFAULT_DIST_DIR,
   storageDir = defaultStorageDir(),
+  conversionOptions = {},
 } = {}) {
   const safeHost = validateHost(host);
   const safePort = port === 0 ? 0 : validatePort(port);
   await ensureBuilt(distDir);
   const storage = await new ReaderStorage(storageDir).init();
-  const server = createServer(createRequestHandler({ distDir, storage }));
+  const conversion = await createConversionManager({ directory: resolve(storageDir, 'conversions'), ...conversionOptions });
+  const server = createServer(createRequestHandler({ distDir, storage, conversion }));
 
   await new Promise((resolveListen, reject) => {
     const onError = (error) => {
@@ -260,7 +265,9 @@ export async function createReaderServer({
     storageDir: storage.storageDir,
     async close() {
       if (!server.listening) return;
-      await new Promise((resolveClose, reject) => server.close((error) => error ? reject(error) : resolveClose()));
+      const closed = new Promise((resolveClose, reject) => server.close((error) => error ? reject(error) : resolveClose()));
+      await conversion.close();
+      await closed;
     },
   };
 }

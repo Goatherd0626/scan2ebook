@@ -1,3 +1,4 @@
+import { shellHtml } from './fixtures/shell.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -11,7 +12,7 @@ const read = (p) => readFileSync(join(root, p), 'utf8');
 
 const mainSource = read('src/main.js');
 const lgCss = read('src/liquid-glass.css');
-const indexHtml = read('index.html');
+const indexHtml = shellHtml;
 const appSource = read('src/core/app.js');
 
 test('入口在旧结构样式后加载 Liquid Glass 视觉层', () => {
