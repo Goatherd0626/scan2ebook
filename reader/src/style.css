@@ -285,8 +285,6 @@ body.layout-resizing * { cursor: col-resize !important; }
   font-family: var(--sans); padding: 2px 6px; width: 100%;
   background: var(--surface); color: var(--ink);
 }
-#batch-bar { display: flex; padding: 8px 10px; gap: 6px; border-bottom: 1px solid var(--line-soft); }
-
 /* ---------- 目录 / 书签 ---------- */
 .toc-item, .bm-item {
   display: flex; align-items: center; gap: 6px; padding: 4px 8px;
@@ -350,97 +348,16 @@ body.layout-resizing * { cursor: col-resize !important; }
   background: var(--accent-2); color: #fff;
   outline: 2px dashed var(--accent); outline-offset: -2px;
 }
-.home-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 18px 26px 14px; border-bottom: 1px solid var(--line-soft);
-  background: var(--panel);
-}
-.home-title h2 { margin: 0; font-size: 19px; letter-spacing: 1px; color: var(--ink); }
-.root-drop-target {
-  border-radius: 8px; transition: background .12s, box-shadow .12s;
-}
-.root-drop-target.drag-over {
-  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
-  box-shadow: 0 0 0 2px var(--accent);
-}
-.home-title.root-drop-target { padding: 5px 8px; margin: -5px -8px; }
-.home-count { font-size: 12px; color: var(--ink-3); }
-.home-actions { display: flex; align-items: center; gap: 6px; }
-.home-tool { width: 34px; height: 34px; padding: 0; justify-content: center; }
-.home-tool .sf.i-folder { width: 22px; height: 17px; }
-.home-tool .sf.i-upload { width: 16px; height: 18px; }
-.home-tool .sf.i-trash { width: 16px; height: 18px; }
-.home-tool:disabled { opacity: .35; cursor: default; background: var(--surface); }
-.home-tool:disabled:hover { color: var(--ink-2); background: var(--surface); }
-.batch-bar { display: flex; gap: 6px; }
+.root-drop-target { border-radius: 6px; transition: background .12s; }
+.root-drop-target.drag-over { background: var(--panel-2); outline: 2px solid var(--accent); }
 .mini.danger { color: var(--danger); }
-.mini.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.mini.primary:hover { background: #7d6234; color: #fff; }
+.mini.primary { background: var(--accent); color: #fff; }
 
-#home-table-wrap { max-width: 1100px; width: 100%; margin: 20px auto; padding: 0 26px 60px; }
-.ht-head, .ht-row, .ht-folder-row {
-  display: grid;
-  grid-template-columns: 40px minmax(200px, 2.2fr) minmax(110px, 1fr) minmax(110px, 1fr) 64px 110px 96px;
-  gap: 10px; align-items: center;
-}
-.ht-head {
-  padding: 8px 12px; font-size: 11px; letter-spacing: 1px; color: var(--ink-3);
-  border-bottom: 1px solid var(--line); position: sticky; top: 0;
-  background: var(--bg);
-}
-.ht-row {
-  padding: 8px 12px; border-bottom: 1px solid var(--line-soft);
-  cursor: pointer; transition: background .12s; font-size: 13px; user-select: none;
-}
-.ht-row:hover { background: var(--panel-2); }
-.ht-folder-row {
-  padding: 8px 12px; border-bottom: 1px solid var(--line-soft);
-  cursor: pointer; color: var(--ink-2); font-size: 13px;
-  background: color-mix(in srgb, var(--panel) 46%, transparent);
-  transition: background .12s;
-}
-.ht-folder-row:hover { background: var(--panel-2); }
-.ht-folder-row.selected { color: #fff; background: var(--accent); }
-.ht-folder-row.selected .home-folder-leading,
-.ht-folder-row.selected .home-folder-caret,
-.ht-folder-row.selected .home-folder-count { color: rgba(255, 255, 255, .82); }
-.ht-folder-row.selected:hover { background: var(--accent); }
-.ht-folder-row.drag-over { background: var(--accent-2); color: #fff; outline: 2px dashed var(--accent); outline-offset: -2px; }
-.home-folder-leading { display: flex; align-items: center; gap: 4px; color: var(--accent); }
-.home-folder-caret { width: 11px; color: var(--ink-3); font-size: 11px; text-align: center; }
-.home-folder-glyph {
-  width: 22px; height: 17px; color: currentColor;
-}
-.home-folder-name { font-weight: 650; }
-.home-folder-count { color: var(--ink-3); font-size: 12px; }
-/* 选中行：深色背景提示（Zotero 风） */
-.ht-row.selected { background: var(--accent); }
-.ht-row.selected .ht-title,
-.ht-row.selected .ht-author,
-.ht-row.selected .ht-pub,
-.ht-row.selected .ht-pages,
-.ht-row.selected .ht-folder { color: #fff; }
-.ht-row.selected .ht-folder { opacity: .85; }
-.ht-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
-.ht-author, .ht-pub { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ht-pages { color: var(--ink-3); font-size: 12px; }
-.ht-folder { color: var(--ink-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ht-actions { display: flex; gap: 2px; justify-content: flex-end; opacity: 0; transition: opacity .12s; }
-.ht-row:hover .ht-actions { opacity: 1; }
-.ht-act {
-  width: 26px; height: 26px; border-radius: var(--r-sm); font-size: 13px;
-  color: var(--ink-2); display: flex; align-items: center; justify-content: center;
-}
-.ht-act:hover { background: var(--surface); box-shadow: var(--shadow-card); color: var(--ink); }
-.ht-act[title="删除"]:hover { color: var(--danger); }
 .book-selection-marquee {
   position: fixed; z-index: 2200; pointer-events: none;
   border: 1px solid var(--accent); border-radius: 3px;
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
-
-#home-empty { text-align: center; color: var(--ink-3); padding: 60px 20px 30px; }
-#home-empty .big { font-size: 46px; margin-bottom: 12px; }
 
 /* ---------- 右侧详情面板（Zotero Info 风格） ---------- */
 #detail-panel {

@@ -143,3 +143,12 @@ for (const detail of [{ removedId: 'old' }, { cleanup: true }]) {
     assert.equal(document.getElementById('conversion-submit').disabled, true);
   });
 }
+
+test('转换失败原因出现在失败卡内，重试设置紧随其后', async (t) => {
+  const upload = { id: 'upload-old', name: '失败样书.pdf', pages: 3, size: 30 };
+  const jobs = [{ id: 'failed', upload, status: 'failed', pageStart: 1, pageEnd: 3, model: 'test-model', workers: 2, progress: 12, files: [], error: '测试模型不可用，请更换模型后重试' }];
+  const { view } = setup(t, { jobs });
+  await act(() => view.open({ jobId: 'failed' }));
+  assert.match(document.querySelector('#conversion-progress #conversion-error')?.textContent || '', /请更换模型后重试/);
+  assert.equal(document.querySelectorAll('#conversion-error').length, 1);
+});

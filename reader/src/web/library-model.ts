@@ -7,6 +7,20 @@ export type BookRecord = {
 export type FolderRecord = { id: string; parentId?: string | null; name: string };
 export type LibraryFilter = { query?: string; folderId?: string | null; sort?: 'recent' | 'added' | 'title'; status?: 'all' | 'unread' | 'reading' };
 
+export function folderTrail(folders: FolderRecord[], id?: string | null) {
+  const trail: FolderRecord[] = [];
+  let current = folders.find((folder) => folder.id === id);
+  while (current) {
+    trail.unshift(current);
+    current = folders.find((folder) => folder.id === current?.parentId);
+  }
+  return trail;
+}
+
+export function folderBookCount(books: BookRecord[], folders: FolderRecord[], id: string) {
+  return books.filter((book) => folderTrail(folders, book.folderId).some((folder) => folder.id === id)).length;
+}
+
 export function readingPosition(book: BookRecord) {
   const pages = book.bookJson.pages || [];
   const page = Number(book.progress?.page || 0);

@@ -1,104 +1,71 @@
 import { shellHtml } from './fixtures/shell.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { act } from 'react';
 import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { JSDOM } from 'jsdom';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const dom = new JSDOM(shellHtml, {
-  url: 'http://127.0.0.1:8765/', pretendToBeVisual: true,
-});
-const { window } = dom;
-Object.assign(globalThis, {
-  window, document: window.document, indexedDB, IDBKeyRange,
-  localStorage: window.localStorage, location: window.location,
-  NodeFilter: window.NodeFilter, HTMLElement: window.HTMLElement, File: window.File,
-});
+const { window } = new JSDOM(shellHtml, { url: 'http://127.0.0.1:8765/', pretendToBeVisual: true });
+Object.assign(globalThis, { window, document: window.document, indexedDB, IDBKeyRange,
+  localStorage: window.localStorage, location: window.location, NodeFilter: window.NodeFilter,
+  HTMLElement: window.HTMLElement, File: window.File, IS_REACT_ACT_ENVIRONMENT: true });
 window.indexedDB = indexedDB;
 globalThis.IntersectionObserver = window.IntersectionObserver = class { observe() {} disconnect() {} };
-
 const dbApi = await import('../src/core/db.js');
 const seedDb = await dbApi.openDB();
-await dbApi.addFolder(seedDb, { id: 'folder-move', name: '保留电子书', parentId: null });
-await dbApi.addFolder(seedDb, { id: 'folder-delete', name: '一起删除', parentId: null });
-for (const [id, folderId] of [['book-move', 'folder-move'], ['book-delete', 'folder-delete']]) {
-  await dbApi.addBook(seedDb, {
-    id, folderId, s2eName: id, meta: { title: id },
-    bookJson: { pages: [] }, pdfBlob: new Blob(), bookmarks: [], progress: null,
-  });
+for (const folder of [{ id: 'folder-move', name: '保留电子书', parentId: null }, { id: 'folder-delete', name: '一起删除', parentId: null }, { id: 'folder-child', name: '子文件夹', parentId: 'folder-delete' }]) await dbApi.addFolder(seedDb, folder);
+for (const [id, folderId] of [['book-move', 'folder-move'], ['book-delete', 'folder-child']]) {
+  await dbApi.addBook(seedDb, { id, folderId, s2eName: id, meta: { title: id }, bookJson: { pages: [] }, pdfBlob: new Blob(), bookmarks: [], progress: null });
 }
 seedDb.close();
-
 await import('../src/plugins/index.js');
 const app = await import('../src/core/app.js');
+async function waitFor(predicate) {
+  const deadline = Date.now() + 1500;
+  while (!predicate() && Date.now() < deadline) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 5)); });
+  assert.ok(predicate(), '等待文件夹操作完成');
+}
+function folderMenu(name, index) {
+  const summary = [...document.querySelectorAll('.folder-more summary')].find((element) => element.getAttribute('aria-label') === '文件夹操作 ' + name);
+  summary.click(); summary.closest('details').querySelectorAll('button')[index].click();
+}
 
-test('首页 trash 检测文件夹后确认并递归删除内部电子书', async () => {
-  let confirms = 0;
-  const acceptDeleteSheet = async () => {
-    const sheet = document.querySelector('.app-sheet');
-    assert.ok(sheet, '删除文件夹应显示应用内确认 Sheet');
-    confirms += 1;
-    sheet.querySelector('[data-dialog-action="confirm"]').click();
-    await new Promise((resolve) => setTimeout(resolve, 40));
-  };
-  await app.init();
-  assert.equal(document.querySelectorAll('#library-tree .folder-delete').length, 0);
-  assert.equal(document.querySelectorAll('#home-table .ht-folder-row:not([hidden])').length, 2);
-  assert.equal(document.querySelectorAll('#home-table .folder-delete').length, 0);
-  assert.equal(document.querySelector('.ht-row[data-id="book-move"]').hidden, true);
-  const search = document.getElementById('search-input');
-  search.value = 'book-move';
-  search.dispatchEvent(new window.Event('input', { bubbles: true }));
-  assert.equal(document.querySelector('.ht-row[data-id="book-move"]').hidden, false, '搜索应临时展开折叠目录中的命中');
-  search.value = '';
-  search.dispatchEvent(new window.Event('input', { bubbles: true }));
-  assert.equal(document.querySelector('.ht-row[data-id="book-move"]').hidden, true, '清空搜索后恢复文件夹折叠状态');
-  document.querySelector('.ht-folder-row[data-folder-id="folder-move"]').click();
-  assert.equal(document.querySelector('.ht-row[data-id="book-move"]').hidden, false);
-  assert.equal(document.querySelector('.ht-folder-row[data-folder-id="folder-move"]').classList.contains('selected'), true);
-  assert.equal(document.getElementById('home-delete').disabled, false);
-  assert.match(document.getElementById('detail-panel').textContent, /保留电子书/);
-  assert.match(document.getElementById('detail-panel').textContent, /1 本/);
-  const folderName = document.querySelector('#detail-panel [data-folder-key="name"]');
-  assert.ok(folderName);
-  folderName.click();
-  const nameInput = folderName.querySelector('input');
-  nameInput.value = '重命名后的文件夹';
-  nameInput.dispatchEvent(new window.Event('blur'));
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  assert.equal(app.state.folders.find((folder) => folder.id === 'folder-move').name, '重命名后的文件夹');
-  assert.match(document.getElementById('detail-panel').textContent, /重命名后的文件夹/);
-
-  const movedRow = document.querySelector('.ht-row[data-id="book-move"]');
+test('React 文件夹可导航、重命名、移出书籍，并确认递归删除', async () => {
+  await act(() => app.init());
+  assert.equal(document.querySelectorAll('.folder-card').length, 2);
+  act(() => document.querySelector('[aria-label="打开文件夹 保留电子书"]').click());
+  assert.equal(document.querySelectorAll('.book-item').length, 1);
+  assert.match(document.querySelector('.library-breadcrumbs').textContent, /保留电子书/);
+  act(() => document.querySelector('.library-breadcrumbs > button').click());
+  act(() => folderMenu('保留电子书', 0));
+  const name = document.querySelector('[data-folder-key="name"]');
+  name.click();
+  const input = name.querySelector('input');
+  input.value = '重命名后的文件夹';
+  act(() => input.dispatchEvent(new window.Event('blur')));
+  await waitFor(() => document.querySelector('[aria-label="打开文件夹 重命名后的文件夹"]'));
+  assert.ok(document.querySelector('[aria-label="打开文件夹 重命名后的文件夹"]'));
+  act(() => document.querySelector('[aria-label="打开文件夹 重命名后的文件夹"]').click());
   const payload = new Map();
-  const dataTransfer = {
-    types: ['text/s2e-book', 'text/s2e-books'],
-    effectAllowed: '', dropEffect: '',
-    setData(type, value) { payload.set(type, value); },
-    getData(type) { return payload.get(type) || ''; },
-  };
-  const dragStart = new window.Event('dragstart', { bubbles: true, cancelable: true });
-  Object.defineProperty(dragStart, 'dataTransfer', { value: dataTransfer });
-  movedRow.querySelector('.b-cover').dispatchEvent(dragStart);
+  const dataTransfer = { types: ['text/s2e-book', 'text/s2e-books'], effectAllowed: '', dropEffect: '',
+    setData(type, value) { payload.set(type, value); }, getData(type) { return payload.get(type) || ''; } };
+  const drag = new window.Event('dragstart', { bubbles: true });
+  Object.defineProperty(drag, 'dataTransfer', { value: dataTransfer });
+  act(() => document.querySelector('.book-open').dispatchEvent(drag));
   const drop = new window.Event('drop', { bubbles: true, cancelable: true });
   Object.defineProperty(drop, 'dataTransfer', { value: dataTransfer });
-  document.querySelector('.home-title').dispatchEvent(drop);
-  await new Promise((resolve) => setTimeout(resolve, 40));
-  assert.equal(app.state.books.find((book) => book.id === 'book-move').folderId, null);
-
-  document.getElementById('home-delete').click();
-  await acceptDeleteSheet();
-  assert.equal(app.state.folders.some((folder) => folder.id === 'folder-move'), false);
-  assert.equal(app.state.books.some((book) => book.id === 'book-move'), true, '移到根目录的书不应随原文件夹删除');
-
-  document.querySelector('.ht-folder-row[data-folder-id="folder-delete"]').click();
-  document.getElementById('home-delete').click();
-  await acceptDeleteSheet();
-  assert.equal(app.state.folders.some((folder) => folder.id === 'folder-delete'), false);
-  assert.equal(app.state.books.some((book) => book.id === 'book-delete'), false);
-  assert.equal(confirms, 2);
+  act(() => document.querySelector('.library-breadcrumbs > button').dispatchEvent(drop));
+  await waitFor(() => !document.querySelector('.book-item[data-id="book-move"]') && app.state.books.find((book) => book.id === 'book-move').folderId === null);
+  act(() => document.querySelector('.library-breadcrumbs > button').click());
+  act(() => folderMenu('重命名后的文件夹', 1));
+  assert.match(document.querySelector('.app-sheet').textContent, /删除/);
+  act(() => document.querySelector('[data-dialog-action="confirm"]').click());
+  await waitFor(() => !document.querySelector('[aria-label="打开文件夹 重命名后的文件夹"]'));
+  assert.equal(app.state.books.some((book) => book.id === 'book-move'), true);
+  act(() => folderMenu('一起删除', 1));
+  act(() => document.querySelector('[data-dialog-action="confirm"]').click());
+  await waitFor(() => !document.querySelector('[aria-label="打开文件夹 一起删除"]'));
+  assert.deepEqual(app.state.books.map((book) => book.id), ['book-move']);
+  assert.equal(app.state.folders.some((folder) => folder.id === 'folder-child'), false);
+  assert.deepEqual((await dbApi.getBooks(app.state.db)).map((book) => book.id), ['book-move']);
 });

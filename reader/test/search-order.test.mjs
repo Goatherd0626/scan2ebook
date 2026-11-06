@@ -104,3 +104,25 @@ test('⌘F 按焦点路由:标注栏内打开标注搜索,其余位置打开全�
   sidebar.remove();
   extensions.deactivateExtension('search');
 });
+
+test('退出正文搜索后不再隐藏 React 书库，首页搜索条件保持独立', (t) => {
+  extensions.ui.reset();
+  extensions.setEnabled('search', true);
+  const library = document.createElement('div');
+  library.innerHTML = '<input id="library-filter" value="青禾"><div id="home-table"><article class="ht-row book-item" data-id="a">山川</article><article class="ht-row book-item" data-id="b">笔记</article></div>';
+  document.body.append(library);
+  const state = { activeBookId: 'a', books: [{ id: 'a', meta: { title: '山川' } }, { id: 'b', meta: { title: '笔记' } }], folders: [] };
+  const holder = document.querySelector('.text-content');
+  extensions.activateExtension('search', { bus: extensions.bus, ui: extensions.ui, state, getView: () => state.activeBookId ? { textView: { holder } } : null });
+  t.after(() => { extensions.deactivateExtension('search'); library.remove(); });
+  const input = document.getElementById('search-input');
+  input.value = '目标';
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
+  assert.equal(holder.querySelectorAll('mark.hit').length, 3);
+  state.activeBookId = null;
+  extensions.bus.emit('book:switch', { bookId: null });
+  assert.equal(input.value, '');
+  assert.equal(document.getElementById('find-strip').hidden, true);
+  assert.equal(document.getElementById('library-filter').value, '青禾');
+  assert.equal([...library.querySelectorAll('.book-item')].every((book) => !book.hidden && book.style.display !== 'none'), true);
+});

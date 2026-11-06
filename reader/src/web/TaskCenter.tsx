@@ -100,16 +100,15 @@ export function TaskCenter({ onOpenJob, onImport }: Props) {
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
       }
     }}>
-      <header className="task-drawer-heading"><div><span className="section-kicker">YOUR CONVERSIONS</span><h2 id="task-drawer-title">转换任务<span>{jobs.length}</span></h2></div><Button data-close-tasks variant="ghost" size="icon" aria-label="关闭任务中心" onClick={() => setOpen(false)}><Icon name="close" /></Button></header>
-      <p className="task-drawer-intro">离开转换页面也可以继续读书。完成后，结果会留在这里。</p>
+      <header className="task-drawer-heading"><div><h2 id="task-drawer-title">转换任务<span>{jobs.length}</span></h2></div><Button data-close-tasks variant="ghost" size="icon" aria-label="关闭任务中心" onClick={() => setOpen(false)}><Icon name="close" /></Button></header>
       {!connected && <div className="task-connection-error" role="status">本机服务暂时无法连接。<button onClick={refresh}>重新连接</button></div>}
       {error && <div className="cv-error" role="alert">{error}</div>}
-      <div className="task-list">{!jobs.length ? <div className="task-empty"><Icon name="activity" size={36} /><h3>还没有转换任务</h3><p>添加一份扫描 PDF，开始你的第一本。</p><Button variant="outline" onClick={() => { setOpen(false); document.getElementById('nav-convert')?.click(); }}>去转换 PDF<Icon name="arrow" size={17} /></Button></div> : jobs.map((job) => <article className={'task-card task-' + job.status} key={job.id}>
+      <div className="task-list">{!jobs.length ? <div className="task-empty"><Icon name="activity" size={36} /><h3>还没有转换任务</h3><Button variant="outline" onClick={() => { setOpen(false); document.getElementById('nav-convert')?.click(); }}>去转换 PDF<Icon name="arrow" size={17} /></Button></div> : jobs.map((job) => <article className={'task-card task-' + job.status} key={job.id}>
         <div className="task-card-top"><span className="task-file-icon"><Icon name="file" size={22} /></span><div><h3>{job.upload.name}</h3><p>第 {job.pageStart}–{job.pageEnd} 页<span>·</span>{job.startedAt ? new Date(job.startedAt).toLocaleString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</p></div><span className="task-status-label">{labels[job.status]}</span></div>
         {job.status === 'running' ? <><div className="task-progress"><span style={{ width: `${job.progress}%` }} /></div><p className="task-message">{job.message}<b>{Math.round(job.progress)}%</b></p></> : job.status !== 'completed' && <p className="task-message">{job.error || job.message}</p>}
         <div className="task-actions">{job.status === 'completed' ? <><Button size="sm" onClick={() => read(job)} disabled={working === job.id}>阅读电子书<Icon name="arrow" size={15} /></Button>{job.files.find((file) => file.kind === 's2e') && <a href={job.files.find((file) => file.kind === 's2e')!.url} download={job.files.find((file) => file.kind === 's2e')!.name}><Icon name="download" size={15} />下载</a>}<button onClick={() => visit(job)}>查看结果</button></> : <><Button variant="outline" size="sm" onClick={() => visit(job)}>{job.status === 'running' ? '查看进度' : '重新转换'}</Button>{job.status === 'running' && <button disabled={working === job.id} onClick={() => cancel(job)}>取消转换</button>}</>}{job.status !== 'running' && <button className="task-remove" aria-label={'移除任务 ' + job.upload.name} disabled={working === job.id} onClick={() => remove(job)}><Icon name="trash" size={15} /></button>}</div>
       </article>)}</div>
-      <footer className="task-drawer-footer"><span><Icon name="lock" size={14} />不会保存 API Key</span><Button variant="ghost" size="sm" disabled={!connected || working === 'cleanup'} onClick={cleanup}>清理转换副本</Button></footer>
+      <footer className="task-drawer-footer"><Button variant="ghost" size="sm" disabled={!connected || working === 'cleanup'} onClick={cleanup}>清理转换副本</Button></footer>
     </section></div>, document.body)}
   </>;
 }

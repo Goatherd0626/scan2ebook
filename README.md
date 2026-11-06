@@ -42,6 +42,8 @@ Key 输入会在开始转换或离开转换页时清空，不保存到磁盘。�
 
 源码安装与开发步骤见 [`reader/README.md`](reader/README.md)。现有 DSH 插件仍可继续使用。macOS 桌面端仅完成了 [Tauri 2 接入方案](docs/tauri-desktop-plan.md)，尚未构建安装包。
 
+文件夹轮廓改编自 [Rare UI](https://rareui.com)，第三方许可和来源见 [`reader/THIRD_PARTY_NOTICES.md`](reader/THIRD_PARTY_NOTICES.md)。
+
 ## 使用 DSH：让 AI 帮你安装
 
 你不需要懂 Python、npm 或终端命令。把下面这段话原样发给一个能操作你电脑终端的 AI 助手（DSH、Codex、Claude Code 都可以），它会自己读完仓库里的安装说明并把一切装好：

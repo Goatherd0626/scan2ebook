@@ -21,5 +21,5 @@ export function PdfPreview({ url, pageNumber = 1 }: { url: string; pageNumber?: 
     }).catch(() => { if (!cancelled) setStatus('failed'); });
     return () => { cancelled = true; task.destroy(); };
   }, [url, pageNumber]);
-  return <div className={'pdf-preview ' + status} aria-label={'PDF 第 ' + pageNumber + ' 页预览'}><canvas ref={canvas} />{status !== 'ready' && <div className="preview-placeholder"><Icon name="file" size={32} /><span>{status === 'loading' ? '正在生成原页预览' : '预览暂不可用，仍可继续转换'}</span></div>}<span className="preview-page-label">ORIGINAL / {String(pageNumber).padStart(2, '0')}</span></div>;
+  return <div className={'pdf-preview ' + status} aria-label={'PDF 第 ' + pageNumber + ' 页预览'}><canvas ref={canvas} />{status !== 'ready' && <div className="preview-placeholder"><Icon name="file" size={32} /><span>{status === 'loading' ? '正在加载预览' : '预览暂不可用，仍可继续转换'}</span></div>}<span className="preview-page-label">第 {pageNumber} 页</span></div>;
 }

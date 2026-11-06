@@ -29,3 +29,14 @@ test('从桌面缩到窄屏时收起侧栏，避免遮住正文与转换按钮',
   assert.equal(document.getElementById('btn-library').getAttribute('aria-pressed'), 'false');
   assert.equal(document.activeElement.id, 'btn-library');
 });
+
+test('阅读工具展开后键盘进入搜索，Escape 关闭并恢复触发按钮', () => {
+  document.body.dataset.screen = 'reading';
+  const trigger = document.getElementById('btn-reader-tools');
+  trigger.focus();
+  trigger.click();
+  assert.equal(document.activeElement.id, 'search-input');
+  document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+  assert.equal(document.activeElement, trigger);
+});

@@ -1,167 +1,85 @@
 import { shellHtml } from './fixtures/shell.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { act } from 'react';
 import { IDBKeyRange, indexedDB } from 'fake-indexeddb';
 import { JSDOM } from 'jsdom';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const dom = new JSDOM(shellHtml, {
-  url: 'http://127.0.0.1:8765/', pretendToBeVisual: true,
-});
-const { window } = dom;
-Object.assign(globalThis, {
-  window,
-  document: window.document,
-  indexedDB,
-  IDBKeyRange,
-  localStorage: window.localStorage,
-  location: window.location,
-  NodeFilter: window.NodeFilter,
-  HTMLElement: window.HTMLElement,
-  File: window.File,
-});
+const { window } = new JSDOM(shellHtml, { url: 'http://127.0.0.1:8765/', pretendToBeVisual: true });
+Object.assign(globalThis, { window, document: window.document, indexedDB, IDBKeyRange,
+  localStorage: window.localStorage, location: window.location, NodeFilter: window.NodeFilter,
+  HTMLElement: window.HTMLElement, File: window.File, IS_REACT_ACT_ENVIRONMENT: true });
 window.indexedDB = indexedDB;
 globalThis.IntersectionObserver = window.IntersectionObserver = class { observe() {} disconnect() {} };
-
 const dbApi = await import('../src/core/db.js');
 const seedDb = await dbApi.openDB();
 for (const [id, title] of [['book-a', '第一本'], ['book-b', '第二本'], ['book-c', '第三本']]) {
-  await dbApi.addBook(seedDb, {
-    id, s2eName: title, importedAt: 1, folderId: null,
-    meta: { title },
-    bookJson: { pages: [{ pdf_page: 1, items: [{ type: 'body', text: '正文' }] }] },
-    pdfBlob: new Blob(), bookmarks: [], progress: null,
-  });
+  await dbApi.addBook(seedDb, { id, s2eName: title, importedAt: 1, folderId: null, meta: { title },
+    bookJson: { pages: [{ pdf_page: 1, items: [{ type: 'body', text: '正文' }] }] }, pdfBlob: new Blob(), bookmarks: [], progress: null });
 }
 seedDb.close();
-
 await import('../src/plugins/index.js');
 const app = await import('../src/core/app.js');
+async function waitFor(predicate) {
+  const deadline = Date.now() + 1500;
+  while (!predicate() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.ok(predicate(), '等待实际界面更新');
+}
 
-test('首页和侧边栏无需模式按钮即可连续、增减和框选，并确认删除', async () => {
-  let confirms = 0;
-  const acceptDeleteSheet = async () => {
-    const sheet = document.querySelector('.app-sheet');
-    assert.ok(sheet, '删除操作应显示应用内确认 Sheet');
-    assert.match(sheet.textContent, /删除/);
-    confirms += 1;
-    sheet.querySelector('[data-dialog-action="confirm"]').click();
-    await new Promise((resolve) => setTimeout(resolve, 40));
-  };
-  await app.init();
-  assert.equal(document.getElementById('detail-panel').hidden, false);
-  assert.match(document.getElementById('detail-panel').textContent, /未选择对象/);
-  document.querySelector('#detail-panel .dp-close').click();
-  assert.equal(document.getElementById('detail-panel').hidden, true, '详情面板关闭按钮应在初始化后真实可用');
-
-  const toolbarButtons = [...document.querySelectorAll('.home-actions > .home-tool')];
-  assert.deepEqual(toolbarButtons.map((button) => button.id), [
-    'home-new-folder', 'home-delete', 'home-import',
-  ]);
-  assert.equal(document.getElementById('home-batch'), null);
-  assert.equal(document.getElementById('btn-batch'), null);
-  assert.equal(document.querySelectorAll('.batch-check').length, 0);
-  assert.ok(document.querySelector('#home-delete .i-trash'));
-  assert.equal(document.getElementById('home-delete').disabled, true);
-
-  const rows = [...document.querySelectorAll('#home-table .ht-row')];
-  rows[0].click();
-  assert.equal(document.getElementById('detail-panel').hidden, false, '重新选择对象应再次显示详情面板');
-  assert.equal(document.getElementById('home-delete').disabled, false);
+test('React 书库支持增减、连续和框选；删除确认与设置焦点保持可用', async () => {
+  await act(() => app.init());
+  assert.ok(document.querySelector('.compact-library'));
+  assert.equal(document.querySelectorAll('#btn-import').length, 1);
+  assert.equal(document.getElementById('batch-bar'), null, '只保留首页一处批量操作');
+  assert.equal(document.getElementById('home-batch-bar').hidden, true);
+  const rows = [...document.querySelectorAll('#home-table .book-item')];
+  act(() => rows[0].querySelector('.book-selection').click());
+  assert.equal(document.getElementById('detail-panel').hidden, true, '勾选书籍不弹出详情');
+  act(() => { rows[0].querySelector('summary').click(); rows[0].querySelector('.book-menu button').click(); });
   assert.match(document.getElementById('detail-panel').textContent, /第一本/);
-  rows[2].dispatchEvent(new window.MouseEvent('click', { bubbles: true, shiftKey: true }));
-  assert.equal(document.querySelectorAll('#home-table .ht-row.selected').length, 3);
-  assert.match(document.getElementById('detail-panel').textContent, /已选择 3 本电子书/);
-  rows[1].dispatchEvent(new window.MouseEvent('click', { bubbles: true, metaKey: true }));
-  assert.equal(document.querySelectorAll('#home-table .ht-row.selected').length, 2);
-  assert.equal([...document.querySelectorAll('#home-table .ht-row.selected')]
-    .every((row) => row.getAttribute('aria-selected') === 'true'), true);
-
+  document.querySelector('.dp-close').click();
+  act(() => rows[2].querySelector('.book-open').dispatchEvent(new window.MouseEvent('click', { bubbles: true, shiftKey: true })));
+  assert.equal(document.querySelectorAll('.book-selection[aria-checked="true"]').length, 3);
+  act(() => rows[1].querySelector('.book-open').dispatchEvent(new window.MouseEvent('click', { bubbles: true, metaKey: true })));
+  assert.equal(document.querySelectorAll('.book-selection[aria-checked="true"]').length, 2);
+  assert.equal(rows.every((row) => !row.hasAttribute('aria-selected')), true);
   const settingsButton = document.getElementById('btn-settings');
-  settingsButton.focus();
-  settingsButton.click();
-  const settingsDialog = document.getElementById('settings-dialog');
-  const settingsClose = document.getElementById('sd-close');
-  assert.equal(settingsDialog.hidden, false);
-  assert.equal(document.activeElement, settingsClose, '设置窗口打开后应把焦点移入窗口');
-  const settingsFocusable = [...settingsDialog.querySelectorAll(
-    'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
-  )];
-  settingsFocusable.at(-1).focus();
-  settingsDialog.dispatchEvent(new window.KeyboardEvent('keydown', {
-    key: 'Tab', bubbles: true, cancelable: true,
-  }));
-  assert.equal(document.activeElement, settingsClose, 'Tab 应在设置窗口内循环');
-  settingsDialog.dispatchEvent(new window.KeyboardEvent('keydown', {
-    key: 'Escape', bubbles: true, cancelable: true,
-  }));
-  assert.equal(settingsDialog.hidden, true);
-  assert.equal(document.activeElement, settingsButton, '关闭设置窗口后应恢复来源焦点');
-  assert.equal(document.querySelectorAll('#home-table .ht-row.selected').length, 2,
-    '关闭设置窗口不应清除背景中的书籍选择');
-
-  document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-  assert.equal(document.querySelectorAll('#home-table .ht-row.selected').length, 0);
-  assert.equal(document.getElementById('home-delete').disabled, true);
-  rows[0].click();
-  rows[1].dispatchEvent(new window.MouseEvent('click', { bubbles: true, metaKey: true }));
-
-  rows.forEach((row, index) => {
-    row.getBoundingClientRect = () => ({ left: 10, right: 210, top: 10 + index * 40, bottom: 35 + index * 40 });
+  settingsButton.focus(); settingsButton.click();
+  const settings = document.getElementById('settings-dialog');
+  const close = document.getElementById('sd-close');
+  assert.equal(document.activeElement, close);
+  const focusable = [...settings.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')];
+  focusable.at(-1).focus();
+  settings.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+  assert.equal(document.activeElement, close);
+  settings.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  assert.equal(settings.hidden, true);
+  assert.equal(document.activeElement, settingsButton);
+  assert.equal(document.querySelectorAll('.book-selection[aria-checked="true"]').length, 2);
+  act(() => document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  assert.equal(document.querySelectorAll('.book-selection[aria-checked="true"]').length, 0);
+  rows.forEach((row, index) => { row.getBoundingClientRect = () => ({ left: 10, right: 210, top: 10 + index * 40, bottom: 35 + index * 40 }); });
+  act(() => {
+    document.querySelector('.home-main').dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 0, clientY: 0 }));
+    document.dispatchEvent(new window.MouseEvent('pointermove', { bubbles: true, clientX: 230, clientY: 75 }));
+    document.dispatchEvent(new window.MouseEvent('pointerup', { bubbles: true }));
   });
-  rows[2].click();
-  rows[0].dispatchEvent(new window.MouseEvent('pointerdown', {
-    bubbles: true, button: 0, clientX: 0, clientY: 0,
-  }));
-  document.dispatchEvent(new window.MouseEvent('pointermove', {
-    bubbles: true, clientX: 230, clientY: 75,
-  }));
-  document.dispatchEvent(new window.MouseEvent('pointerup', { bubbles: true }));
-  rows[0].dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
-  assert.equal(document.querySelectorAll('#home-table .ht-row.selected').length, 2);
-
-  rows[2].click();
-  document.querySelector('.home-head').dispatchEvent(new window.MouseEvent('pointerdown', {
-    bubbles: true, button: 0, clientX: 0, clientY: 0,
-  }));
-  document.dispatchEvent(new window.MouseEvent('pointermove', {
-    bubbles: true, clientX: 230, clientY: 75,
-  }));
-  document.dispatchEvent(new window.MouseEvent('pointerup', { bubbles: true }));
-  assert.equal(document.querySelectorAll('#home-table .ht-row.selected').length, 2, '首页标题区空白处也应能开始框选');
+  const selected = [...document.querySelectorAll('#home-table .book-item.selected')];
+  assert.deepEqual(selected.map((row) => row.dataset.id), ['book-a', 'book-b']);
   assert.equal(document.querySelectorAll('#library-tree .book-row.selected').length, 2);
-  const selectedRows = [...document.querySelectorAll('#home-table .ht-row.selected')];
-  assert.equal(selectedRows.every((row) => row.draggable), true, '选中的书籍行应恢复拖拽移动');
-  const dragPayload = new Map();
-  const dragStart = new window.Event('dragstart', { bubbles: true, cancelable: true });
-  Object.defineProperty(dragStart, 'dataTransfer', {
-    value: {
-      setData(type, value) { dragPayload.set(type, value); },
-      effectAllowed: '',
-    },
-  });
-  selectedRows[0].dispatchEvent(dragStart);
-  assert.deepEqual(JSON.parse(dragPayload.get('text/s2e-books')).sort(), ['book-a', 'book-b']);
+  const payload = new Map();
+  const drag = new window.Event('dragstart', { bubbles: true });
+  Object.defineProperty(drag, 'dataTransfer', { value: { setData(type, value) { payload.set(type, value); }, effectAllowed: '' } });
+  act(() => selected[0].querySelector('.book-open').dispatchEvent(drag));
+  assert.deepEqual(JSON.parse(payload.get('text/s2e-books')), ['book-a', 'book-b']);
   assert.equal(document.getElementById('home-batch-bar').hidden, false);
-
-  document.getElementById('home-delete').click();
-  await acceptDeleteSheet();
-
-  assert.equal(confirms, 1);
-  assert.equal(app.state.books.length, 1);
+  act(() => document.getElementById('home-delete').click());
+  assert.match(document.querySelector('.app-sheet').textContent, /删除 2 本/);
+  await act(async () => { document.querySelector('[data-dialog-action="confirm"]').click(); await waitFor(() => app.state.books.length === 1); });
   assert.equal((await dbApi.getBooks(app.state.db)).length, 1);
-
-  const remainingSidebarRow = document.querySelector('#library-tree .book-row');
-  remainingSidebarRow.click();
-  remainingSidebarRow.focus();
-  remainingSidebarRow.dispatchEvent(new window.KeyboardEvent('keydown', {
-    key: 'Delete', bubbles: true, cancelable: true,
-  }));
-  await acceptDeleteSheet();
-  assert.equal(confirms, 2);
-  assert.equal(app.state.books.length, 0);
+  const sidebarRow = document.querySelector('#library-tree .book-row');
+  act(() => { sidebarRow.click(); sidebarRow.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true })); });
+  assert.match(document.querySelector('.app-sheet').textContent, /删除电子书/);
+  await act(async () => { document.querySelector('[data-dialog-action="confirm"]').click(); await waitFor(() => app.state.books.length === 0); });
+  assert.equal((await dbApi.getBooks(app.state.db)).length, 0);
 });

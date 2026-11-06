@@ -1,7 +1,6 @@
 /* 插件：搜索（VS Code 查找框风格）
    - 浮动查找条： [输入框 | 1 of N | ▲ ▼ | ≡结果列表 | ×关闭]
    - 打开书：正文命中高亮 + Enter/▲▼ 循环跳转（Shift+Enter 上一个）
-   - 首页：过滤书库表格 + 计数，Enter 打开下一本匹配
    - ≡ 展开/收起结果列表弹窗（可选视图）
    - 入口：顶栏放大镜按钮 / Cmd+F / F3 */
 
@@ -11,7 +10,7 @@ registerExtension({
   id: 'search',
   name: '搜索',
   version: '1.3.0',
-  description: '顶栏搜索框 + VS Code 式浮动控件条：正文搜索/书库元数据搜索',
+  description: '正文检索与命中跳转',
   activate(ctx) {
     const controller = new window.AbortController();
     const listen = (target, type, handler) => target.addEventListener(type, handler, { signal: controller.signal });
@@ -22,10 +21,10 @@ registerExtension({
     const input = document.createElement('input');
     input.id = 'search-input';
     input.type = 'search';
-    input.placeholder = '搜索书库…';
+    input.placeholder = '搜索正文…';
     input.autocomplete = 'off';
     input.spellcheck = false;
-    input.setAttribute('aria-label', '搜索书库或正文');
+    input.setAttribute('aria-label', '搜索正文');
     const searchIcon = document.createElement('span');
     searchIcon.className = 'sf i-search';
     searchIcon.setAttribute('aria-hidden', 'true');
@@ -57,7 +56,6 @@ registerExtension({
     let listOpen = false;
 
     const isHome = () => ctx.state && ctx.state.activeBookId === null;
-    const updatePlaceholder = () => { input.placeholder = isHome() ? '搜索书库…' : '搜索正文…'; };
 
     function escapeHtml(s) {
       return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -75,49 +73,6 @@ registerExtension({
         p.normalize();
       });
     }
-    function resetTable() {
-      document.querySelectorAll('#home-table .ht-row, #home-table .ht-folder-row').forEach((row) => {
-        row.style.display = '';
-        row.hidden = row.dataset.treeHidden === '1';
-      });
-    }
-
-    /* ---------- 搜索执行 ---------- */
-    function homeResults(q) {
-      resetTable();
-      const ql = q.toLowerCase();
-      if (!ql) return [];
-      const out = [];
-      document.querySelectorAll('#home-table .ht-row, #home-table .ht-folder-row').forEach((row) => {
-        row.style.display = 'none';
-      });
-      for (const book of ctx.state.books || []) {
-        const folder = (ctx.state.folders || []).find((f) => f.id === book.folderId);
-        const fields = [
-          { k: '书名', v: book.meta.title }, { k: '作者', v: book.meta.author },
-          { k: '出版社', v: book.meta.publisher }, { k: '版次', v: book.meta.edition },
-          { k: 'ISBN', v: book.meta.isbn }, { k: '文件', v: book.s2eName },
-          { k: '文件夹', v: folder && folder.name },
-        ].filter((f) => f.v);
-        const hit = ql && fields.some((f) => f.v.toLowerCase().includes(ql));
-        const row = document.querySelector(`#home-table .ht-row[data-id="${book.id}"]`);
-        if (row && hit) {
-          row.hidden = false;
-          row.style.display = '';
-          for (const folderId of (row.dataset.folderPath || '').split(',').filter(Boolean)) {
-            const folderRow = [...document.querySelectorAll('#home-table .ht-folder-row')]
-              .find((item) => item.dataset.folderId === folderId);
-            if (folderRow) { folderRow.hidden = false; folderRow.style.display = ''; }
-          }
-        }
-        if (hit) {
-          const f = fields.find((f) => f.v.toLowerCase().includes(ql));
-          out.push({ kind: 'book', book, snippet: f.k + '：' + f.v });
-        }
-      }
-      return out;
-    }
-
     function textResults(q) {
       const view = ctx.getView && ctx.getView();
       const holder = view && view.textView.holder;
@@ -163,10 +118,10 @@ registerExtension({
     }
 
     function run() {
+      if (isHome()) { clearAll(); return; }
       query = input.value.trim();
       clearTextMarks();
-      resetTable();
-      results = isHome() ? homeResults(query) : textResults(query);
+      results = textResults(query);
       idx = -1;
       strip.hidden = !query;
       placeStrip();
@@ -177,7 +132,6 @@ registerExtension({
     function updateCount() {
       const n = results.length;
       if (!query) { countEl.textContent = ''; return; }
-      if (isHome()) { countEl.textContent = n + ' 本'; return; }
       countEl.textContent = n ? (idx >= 0 ? idx + 1 : 1) + ' / ' + n : '0 / 0';
     }
 
@@ -185,13 +139,9 @@ registerExtension({
       if (!results.length) return;
       idx = (i + results.length) % results.length;
       const r = results[idx];
-      if (isHome()) {
-        ctx.openBook(r.book.id);
-      } else {
-        document.querySelectorAll('mark.hit.current').forEach((x) => x.classList.remove('current'));
-        r.el.classList.add('current');
-        r.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+      document.querySelectorAll('mark.hit.current').forEach((x) => x.classList.remove('current'));
+      r.el.classList.add('current');
+      r.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       updateCount();
       renderList();
     }
@@ -206,9 +156,7 @@ registerExtension({
       if (!query) { drop.hidden = true; return; }
       if (!n) { drop.innerHTML = html + '<div class="sr-empty">无结果</div>'; drop.hidden = false; return; }
       drop.innerHTML = html + results.map((r, i) => {
-        const title = r.kind === 'book'
-          ? (r.book.meta.title || r.book.s2eName) + (r.book.meta.author ? ' · ' + r.book.meta.author : '')
-          : 'PDF 第 ' + r.page + ' 页';
+        const title = 'PDF 第 ' + r.page + ' 页';
         return `<div class="sr-item${i === idx ? ' current' : ''}" data-i="${i}">
           <span class="sr-idx">${i + 1}</span>
           <span class="sr-snippet">${escapeHtml(title)}<span class="sr-sub">${highlightSnippet(r.snippet, query)}</span></span>
@@ -222,8 +170,7 @@ registerExtension({
       drop.querySelectorAll('.sr-item').forEach((item) => {
         item.addEventListener('click', () => {
           idx = +item.dataset.i;
-          if (isHome()) ctx.openBook(results[idx].book.id);
-          else jump(idx);
+          jump(idx);
         });
       });
     }
@@ -231,7 +178,7 @@ registerExtension({
 
     function clearAll() {
       input.value = ''; query = '';
-      clearTextMarks(); resetTable();
+      clearTextMarks();
       results = []; idx = -1; listOpen = false;
       strip.hidden = true; drop.hidden = true;
       countEl.textContent = '';
@@ -248,7 +195,7 @@ registerExtension({
 
     /* ---------- 交互 ---------- */
     listen(input, 'input', run);
-    listen(input, 'focus', () => { strip.hidden = !query; updatePlaceholder(); });
+    listen(input, 'focus', () => { strip.hidden = !query; });
     listen(input, 'keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); if (results.length) jump(idx + 1); }
       else if (e.key === 'Escape') { e.preventDefault(); clearAll(); input.blur(); }
@@ -284,9 +231,8 @@ registerExtension({
         clearAll();
       }
     });
-    const offSwitch = ctx.bus.on('book:switch', () => { updatePlaceholder(); if (query) run(); });
+    const offSwitch = ctx.bus.on('book:switch', () => { if (isHome()) clearAll(); else if (query) run(); });
     const offContentChange = ctx.bus.on('book:content-change', () => { if (query) run(); });
-    updatePlaceholder();
 
     return () => {
       controller.abort();

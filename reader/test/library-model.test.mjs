@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterLibrary, readingPosition, continueReading } from '../src/web/library-model.ts';
+import { filterLibrary, readingPosition, continueReading, folderTrail, folderBookCount } from '../src/web/library-model.ts';
 
 const books = [
   { id: 'a', s2eName: '山川', importedAt: 30, folderId: 'child', meta: { title: '山川之间', author: '林间' }, bookJson: { pages: [7, 8, 9, 10].map((pdf_page) => ({ pdf_page })) }, progress: { page: 8, at: 100 } },
@@ -30,4 +30,11 @@ test('继续阅读选择真正有进度的最近一本，排序不改写书库�
 test('未开始筛选与空搜索结果能明确区分', () => {
   assert.deepEqual(filterLibrary(books, folders, { status: 'unread' }).map((b) => b.id), ['b']);
   assert.deepEqual(filterLibrary(books, folders, { query: '不存在的书' }), []);
+});
+
+test('文件夹路径按父子顺序返回，数量包含子文件夹中的书', () => {
+  assert.deepEqual(folderTrail(folders, 'child').map((folder) => folder.id), ['parent', 'child']);
+  assert.deepEqual(folderTrail(folders, null), []);
+  assert.equal(folderBookCount(books, folders, 'parent'), 1);
+  assert.equal(folderBookCount(books, folders, 'child'), 1);
 });

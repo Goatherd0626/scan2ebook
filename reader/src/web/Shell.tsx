@@ -19,14 +19,11 @@ export function Shell({ onOpenJob, onImportTask }: ShellProps = {}) {
     </header>
     <div id="layout">
       <aside id="sidebar">
-        <a className="app-brand" href="./" aria-label="Scan2Ebook 首页" onClick={(event) => { event.preventDefault(); document.getElementById('nav-library')?.click(); }}><span className="brand-mark" aria-hidden="true">s2e<span>.</span></span><span><strong>Scan2Ebook</strong><small>READ, REIMAGINED.</small></span></a>
-        <nav className="app-nav" aria-label="主要导航"><Button id="nav-library" variant="ghost" aria-current="page"><span className="sf i-home-library" aria-hidden="true" />我的书库</Button><Button id="nav-convert" variant="ghost"><span className="sf i-pdf" aria-hidden="true" />转换 PDF<span className="nav-plus" aria-hidden="true">+</span></Button></nav>
-        <div id="library-panel" className="side-panel"><div className="panel-head"><span className="panel-title">快速访问</span><span className="panel-actions">
-          <Button id="btn-import-lib" className="mini act" variant="ghost" size="icon" title="导入电子书" aria-label="导入电子书"><span className="sf i-upload" /></Button><Button id="btn-new-folder" className="mini act" variant="ghost" size="icon" title="新建文件夹" aria-label="新建文件夹"><span className="sf i-folder" /></Button>
-        </span></div><div id="library-tree" className="panel-body" /></div>
+        <a className="app-brand" href="./" aria-label="Scan2Ebook 首页" onClick={(event) => { event.preventDefault(); document.getElementById('nav-library')?.click(); }}><span className="brand-mark" aria-hidden="true">s2e<span>.</span></span><strong>Scan2Ebook</strong></a>
+        <nav className="app-nav" aria-label="主要导航"><Button id="nav-library" variant="ghost" aria-current="page"><span className="sf i-home-library" aria-hidden="true" />我的书库</Button><Button id="nav-convert" variant="ghost"><span className="sf i-pdf" aria-hidden="true" />转换 PDF</Button></nav>
+        <div id="library-panel" className="side-panel"><div className="panel-head"><span className="panel-title">书库</span></div><div id="library-tree" className="panel-body" /></div>
         <div id="toc-panel" className="side-panel"><div className="panel-head"><span className="panel-title">目录</span><span className="seg" id="toc-tabs"><button data-tt="toc" className="active">目录</button></span></div><div id="toc-list" className="panel-body" /></div>
         <div id="sidebar-resizer" className="layout-resizer" role="separator" aria-orientation="vertical" aria-label="调整侧边栏宽度" aria-valuemin={180} aria-valuemax={480} tabIndex={0} />
-        <div className="sidebar-footer"><span className="local-badge"><i />本机书库</span><small>原页与文字，始终在一起。</small><span className="sidebar-wordmark" aria-hidden="true">MAKE<br />ROOM<br />FOR<br />READING<span>↗</span></span></div>
       </aside>
       <main id="workspace" tabIndex={-1} />
     </div>
