@@ -8,7 +8,7 @@ const FLAP_PATH = 'M0 25C0 11.1929 11.1929 0 25 0H136.084C143.044 0 149.689 2.90
 type Props = {
   name: string; count: number; onOpen: () => void;
   onDrop: (event: DragEvent<HTMLElement>) => void;
-  onDetails: () => void; onDelete: () => void;
+  onDetails: () => void; onDelete: (anchor: HTMLElement | null) => void;
 };
 
 export function FolderCard({ name, count, onOpen, onDrop, onDetails, onDelete }: Props) {
@@ -29,6 +29,6 @@ export function FolderCard({ name, count, onOpen, onDrop, onDetails, onDelete }:
     </button>
     <details className="folder-more" name="folder-actions" onKeyDown={(event) => {
       if (event.key === 'Escape') { event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); }
-    }}><summary aria-label={'文件夹操作 ' + name}><Icon name="more" size={18} /></summary><div className="book-menu"><button onClick={(event) => { event.currentTarget.closest('details')!.open = false; onDetails(); }}>文件夹详情</button><button className="danger" onClick={(event) => { event.currentTarget.closest('details')!.open = false; onDelete(); }}>删除文件夹</button></div></details>
+    }}><summary aria-label={'文件夹操作 ' + name}><Icon name="more" size={18} /></summary><div className="book-menu"><button onClick={(event) => { event.currentTarget.closest('details')!.open = false; onDetails(); }}>文件夹详情</button><button className="danger" onClick={(event) => { const menu = event.currentTarget.closest('details')!; menu.open = false; onDelete(menu.querySelector('summary')); }}>删除文件夹</button></div></details>
   </article>;
 }

@@ -1,0 +1,43 @@
+/* Rare UI Bounce Sidebar 与 Gooey Nav 的本地主题适配。 */
+.bounce-nav { position: relative; }
+.bounce-dot { position: absolute; z-index: 2; left: 0; top: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--lg-accent); pointer-events: none; }
+.app-nav.bounce-nav > button { padding-left: 30px; }
+.app-nav.bounce-nav .bounce-dot { background: var(--fashion-lime); }
+.settings-page-layout { display: grid; grid-template-columns: 148px minmax(0, 1fr); gap: 36px; max-width: 1040px; }
+.settings-page-layout #settings-nav { display: flex; flex-direction: column; align-self: start; gap: 7px; margin: 0; padding: 0; border: 0; }
+.settings-page-layout #settings-nav a { min-height: 44px; padding: 0 12px 0 27px; border: 0; border-radius: 7px; white-space: nowrap; }
+.settings-page-layout #settings-nav a[aria-current] { background: var(--lg-fill); color: var(--ink); }
+.settings-page-head { margin-bottom: 28px; }
+.settings-page-layout #settings-content { min-width: 0; }
+#tabs.gooey-nav { --gooey-active: var(--fashion-lime); --gooey-base: var(--lg-fill); --gooey-separation: 14px; gap: 0; padding: 4px 0; }
+#topbar #tabs.gooey-nav > .tab { position: relative; flex-shrink: 0; border: 0; background: var(--gooey-base); color: var(--ink-2); overflow: visible; transition: background-color 400ms, color 200ms; }
+#topbar #tabs.gooey-nav > .tab.active { color: var(--fashion-ink); background: var(--gooey-active); }
+[data-gooey-seam] { position: absolute; right: 100%; top: 0; height: 100%; pointer-events: none; overflow: visible; }
+.gooey-nav .tab > :not([data-gooey-seam]) { position: relative; }
+.gooey-nav .tab-x { color: inherit; }
+#topbar-leading [data-tip]::after { left: 0; transform: none; }
+#topbar-trailing [data-tip]::after { left: auto; right: 0; transform: none; }
+@media (max-width: 1100px) {
+  .settings-page-layout .settings-form-layout { grid-template-columns: 1fr; gap: 26px; }
+}
+@media (max-width: 850px) {
+  .settings-page-layout { grid-template-columns: 1fr; gap: 28px; }
+  .settings-page-layout #settings-nav { flex-direction: row; gap: 10px; }
+  .settings-page-layout #settings-nav a { padding-right: 18px; }
+  .settings-page-head { margin-bottom: 18px; }
+}
+@media (max-width: 760px) { #tabs.gooey-nav { --gooey-separation: 8px; } }
+@media (prefers-reduced-motion: reduce) { #topbar #tabs.gooey-nav > .tab { transition: none; } }
+
+.notification-bell { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 38px; min-height: 38px; padding: 0 8px; }
+.bell-icon { flex-shrink: 0; transform-origin: 50% 12%; }
+.bell-clapper { transform-box: fill-box; transform-origin: 50% 0; }
+.bell-icon.is-ringing { animation: bell-swing 680ms ease-out; }
+.bell-icon.is-ringing .bell-clapper { animation: bell-clapper 680ms ease-out; }
+#topbar .notification-bell > .notification-count { position: absolute; top: -1px; right: 0; display: grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; border: 2px solid var(--lg-canvas); border-radius: 20px; background: var(--fashion-lime); color: var(--fashion-ink); font-size: 10px; font-weight: 650; line-height: 1; animation: notification-count-in 250ms cubic-bezier(.2,.8,.2,1.1); }
+.notification-progress { min-width: 25px; font-size: 10px; font-variant-numeric: tabular-nums; }
+@keyframes bell-swing { 0%,100% { transform: rotate(0); } 12% { transform: rotate(19deg); } 30% { transform: rotate(-16deg); } 48% { transform: rotate(10deg); } 68% { transform: rotate(-5deg); } 85% { transform: rotate(2deg); } }
+@keyframes bell-clapper { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-22deg); } 40% { transform: rotate(17deg); } 62% { transform: rotate(-9deg); } 82% { transform: rotate(3deg); } }
+@keyframes notification-count-in { from { opacity: 0; transform: translateY(5px) scale(.8); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (max-width: 760px) { #topbar .notification-bell > .notification-count { top: 1px; right: 1px; } }
+@media (prefers-reduced-motion: reduce) { .bell-icon.is-ringing, .bell-icon.is-ringing .bell-clapper, #topbar .notification-bell > .notification-count { animation: none; } }

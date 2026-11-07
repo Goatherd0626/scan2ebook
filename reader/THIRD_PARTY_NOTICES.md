@@ -1,6 +1,12 @@
 # Rare UI
 
-`src/web/FolderCard.tsx` 的文件夹轮廓改编自 [Rare UI Folder](https://github.com/swamimalode07/rare-ui/blob/main/components/ui/folder-component.tsx)。项目主页：[Rare UI](https://rareui.com)。动画以本地 CSS 实现。
+界面中的文件夹、提示、删除确认与导航动效改编自 [Rare UI](https://rareui.com)。保留交互与图形设计，以本地 CSS 和浏览器动画适配现有主题。
+
+- `src/web/FolderCard.tsx`：[Folder](https://github.com/swamimalode07/rare-ui/blob/main/components/ui/folder-component.tsx)
+- `src/core/toast.js`：[Toast](https://github.com/swamimalode07/rare-ui/blob/main/components/ui/toast.tsx)
+- `src/core/delete-confirm.js`：[Delete Button](https://github.com/swamimalode07/rare-ui/blob/main/components/ui/delete-button.tsx)
+- `src/core/navigation-motion.js`：[Bounce Sidebar](https://github.com/swamimalode07/rare-ui/blob/main/components/ui/bounce-sidebar.tsx)、[Gooey Nav](https://github.com/swamimalode07/rare-ui/blob/main/components/ui/gooey-nav.tsx)
+- `src/components/ui/notification-bell.tsx`：[Notification Bell](https://github.com/swamimalode07/rare-ui/blob/main/components/ui/notification-bell.tsx)
 
 MIT + Commons Clause License Condition v1.0 + Attribution
 

@@ -16,7 +16,7 @@ npm start
 
 网页转换的产物先保留在应用数据目录的 `conversions/`，通过下载按钮保存到你选择的位置；浏览器无法直接写入原 PDF 所在目录。这个行为与 DSH 面板不同。
 
-右上角「任务」可查看后台进度、重新打开历史结果、下载电子书或清理已结束的转换。任务索引保存在本机，网页刷新或服务重启后都能找回；意外中断的任务需要重新输入 Key 后重新转换，不提供断点续传。清理只移除转换记录、上传副本和产物，不删除原始 PDF 或已加入书库的电子书。重要结果仍建议另行下载备份。
+右上角铃铛可查看通知与后台任务、重新打开历史结果、下载电子书或清理已结束的转换。新的转换结果显示操作提示与未读角标，打开铃铛后清除未读。任务索引保存在本机，网页刷新或服务重启后都能找回；意外中断的任务需要重新输入 Key 后重新转换，不提供断点续传。清理只移除转换记录、上传副本和产物，不删除原始 PDF 或已加入书库的电子书。重要结果仍建议另行下载备份。
 
 ## 开发与检查
 
@@ -29,6 +29,8 @@ npm run build
 ```
 
 开发时先启动本地服务，再运行 `npm run dev`；Vite 将本地 API 转发到 `127.0.0.1:8765`。只运行 Vite 或静态预览不能提供真实转换服务。
+
+操作提示统一使用 Toast；删除、导航和通知的后续开发约定见 [前端交互约定](../docs/frontend-ui.md)。
 
 自动化验证使用隔离的 `--data-dir` 和 `test/fixtures/converter.mjs` 模拟进程，不调用真实模型，也不读取用户书库。Tauri 后续方案见 [`../docs/tauri-desktop-plan.md`](../docs/tauri-desktop-plan.md)。
 
@@ -102,4 +104,4 @@ Windows 默认使用 `%APPDATA%/Scan2Ebook Reader/`，Linux 默认使用用户�
 
 MIT
 
-文件夹轮廓改编自 [Rare UI](https://rareui.com)，Copyright (c) 2026 Swami Malode。该部分适用 [第三方许可](THIRD_PARTY_NOTICES.md)。
+文件夹轮廓、Toast、删除确认、导航与通知铃铛改编自 [Rare UI](https://rareui.com)，Copyright (c) 2026 Swami Malode。相关部分适用 [第三方许可](THIRD_PARTY_NOTICES.md)。

@@ -4,9 +4,11 @@ import JSZip from 'jszip';
 import * as db from './db.js';
 import { parseAnnotationSidecar } from './annotation_format.js';
 import { confirmSheet, promptSheet, selectSheet, showToast } from './dialogs.js';
+import { confirmDelete, cancelDeleteConfirmation } from './delete-confirm.js';
 import { buildRenderModel, PdfView, TextView, pdfjsLib } from './views.js';
 import { initSidebarResizer, initSplitResizer, layoutDefaults } from './layout_resize.js';
 import { createConversionView } from './conversion.js';
+import { initNavigationMotion } from './navigation-motion.js';
 import {
   bus, ui, listExtensions, isEnabled, setEnabled,
   activateExtension, makeAppCtx, injectCore, renderToolbarWidgets, setPersistentStorage, selectSettingsSection,
@@ -30,6 +32,7 @@ let selectedBookId = null;
 let selectedHomeFolderId = null;
 let suppressBookClick = false;
 let conversionView = null;
+let deletingLibrary = false;
 let settingsSource = { screen: 'library', bookId: null };
 
 /* ============================ 初始化 ============================ */
@@ -95,6 +98,7 @@ export async function init({ mountHome = null } = {}) {
   conversionView = createConversionView({ onImport: importFile, onRead: openBook });
   $('workspace').appendChild(conversionView.element);
   enableCustomTooltips();        // title → 样式化悬浮提示
+  initNavigationMotion();
   const q = new URLSearchParams(location.search).get('book');
   if (q) openBook(q);
   else if (new URLSearchParams(location.search).get('view') === 'settings') switchSettings(new URLSearchParams(location.search).get('section'));
@@ -173,7 +177,7 @@ async function startMetaEdit(row, book, titleEl) {
     await db.updateBook(state.db, book);
     renderLibrary();
     refreshTabTitles();
-    toast('书名已更新');
+    toast({ type: 'success', message: '书名已更新' });
   };
   input.addEventListener('blur', done);
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') input.blur(); });
@@ -208,7 +212,7 @@ function appendFolder(parent, folder) {
     e.preventDefault();
     await db.moveBooks(state.db, ids, folder.id);
     await loadLibrary(); renderLibrary(); renderHome();
-    toast('已将 ' + ids.length + ' 本电子书移入「' + folder.name + '」');
+    toast({ type: 'success', message: '已将 ' + ids.length + ' 本电子书移入「' + folder.name + '」' });
   });
   row.addEventListener('click', () => {
     const ch = parent.querySelector(':scope > .folder-children');
@@ -269,7 +273,7 @@ export async function importFile(file, sourceJobId = null) {
   renderLibrary();
   renderHome();
   await openBook(id);
-  toast('已导入「' + (book.meta.title || book.s2eName) + '」');
+  toast({ type: 'success', message: '已导入「' + (book.meta.title || book.s2eName) + '」' });
   if (parsedAnnotations.invalidCount) toast('已跳过 ' + parsedAnnotations.invalidCount + ' 条无效标注');
   return id;
 }
@@ -286,7 +290,7 @@ function bindDragDrop() {
 export async function addFiles(files) {
   const selected = [...files];
   for (const file of selected.filter((item) => /\.(s2e|zip)$/i.test(item.name))) {
-    try { await importFile(file); } catch (error) { toast('未能添加「' + file.name + '」：' + error.message); }
+    try { await importFile(file); } catch (error) { toast({ type: 'error', message: '未能添加「' + file.name + '」', description: error.message }); }
   }
   const pdfs = selected.filter((item) => /\.pdf$/i.test(item.name));
   if (pdfs.length) {
@@ -341,6 +345,8 @@ function renderTabs() {
   // 固定「首页」标签（Zotero 式书库管理页）
   const homeBtn = document.createElement('button');
   homeBtn.className = 'tab' + (document.body.dataset.screen === 'library' ? ' active' : '');
+  homeBtn.dataset.navKey = 'library';
+  if (document.body.dataset.screen === 'library') homeBtn.setAttribute('aria-current', 'page');
   homeBtn.innerHTML = '<span class="sf i-home-library"></span><span>首页</span>';
   homeBtn.addEventListener('click', switchHome);
   tabs.appendChild(homeBtn);
@@ -349,6 +355,8 @@ function renderTabs() {
     if (!book) continue;
     const btn = document.createElement('button');
     btn.className = 'tab' + (t.bookId === state.activeBookId ? ' active' : '');
+    btn.dataset.navKey = t.bookId;
+    if (t.bookId === state.activeBookId) btn.setAttribute('aria-current', 'page');
     const title = document.createElement('span');
     title.textContent = book.meta.title || book.s2eName || '书';
     title.style.overflow = 'hidden'; title.style.textOverflow = 'ellipsis';
@@ -523,6 +531,7 @@ function switchHome() {
 }
 
 function setScreen(screen, bookId = null) {
+  cancelDeleteConfirmation();
   document.body.dataset.screen = screen;
   $('settings-view').hidden = screen !== 'settings';
   document.body.classList.remove('reader-tools-open');
@@ -782,6 +791,7 @@ function bindTopbar() {
   });
   document.addEventListener('keydown', (e) => {
     if (document.body.dataset.screen === 'settings') return;
+    if (e.target.closest?.('.delete-confirmation, [data-toast-region], .task-drawer')) return;
     if (e.key === 'Escape') {
       $('fn-tooltip').style.display = 'none'; hideContextBar();
       selectedBookIds.clear();
@@ -835,33 +845,38 @@ function folderTreeIds(rootId) {
   return [...ids];
 }
 
-async function deleteSelectedFolder(folder) {
+async function deleteSelectedFolder(folder, anchor = null) {
+  if (deletingLibrary) return;
   const folderIds = folderTreeIds(folder.id);
   const folderIdSet = new Set(folderIds);
   const bookIds = state.books.filter((book) => folderIdSet.has(book.folderId)).map((book) => book.id);
   const detail = bookIds.length ? '及其中 ' + bookIds.length + ' 本电子书' : '';
-  if (!await confirmSheet({
+  if (!await confirmDelete({ anchor,
     title: '删除文件夹“' + folder.name + '”？',
     message: (detail ? '将同时删除' + detail + '。' : '') + '此操作无法撤销。',
     confirmLabel: '删除',
-    danger: true,
   })) return;
-  if (bookIds.length) {
-    await db.deleteBooks(state.db, bookIds);
-    bookIds.forEach((id) => {
-      selectedBookIds.delete(id);
-      if (state.tabs.some((tab) => tab.bookId === id)) closeTab(id);
-    });
-  }
-  for (const id of [...folderIds].reverse()) await db.deleteFolder(state.db, id);
-  folderIds.forEach((id) => expandedHomeFolders.delete(id));
-  selectedHomeFolderId = null;
-  selectionAnchorId = null;
-  await loadLibrary();
-  renderLibrary();
-  renderHome();
-  syncBookSelectionUI();
-  toast('已删除文件夹' + (bookIds.length ? '及其中 ' + bookIds.length + ' 本电子书' : ''));
+  deletingLibrary = true;
+  try {
+    if (bookIds.length) {
+      await db.deleteBooks(state.db, bookIds);
+      bookIds.forEach((id) => {
+        selectedBookIds.delete(id);
+        if (state.tabs.some((tab) => tab.bookId === id)) closeTab(id);
+      });
+    }
+    for (const id of [...folderIds].reverse()) await db.deleteFolder(state.db, id);
+    folderIds.forEach((id) => expandedHomeFolders.delete(id));
+    selectedHomeFolderId = null;
+    selectionAnchorId = null;
+    await loadLibrary();
+    renderLibrary();
+    renderHome();
+    syncBookSelectionUI();
+    toast({ type: 'success', message: '已删除文件夹' + (bookIds.length ? '及其中 ' + bookIds.length + ' 本电子书' : '') });
+  } catch (error) {
+    toast({ type: 'error', message: error.message || '文件夹未能删除，请重试' });
+  } finally { deletingLibrary = false; }
 }
 
 /* ============================ 书库 ============================ */
@@ -925,7 +940,7 @@ function bindRootDropTarget(target) {
     await loadLibrary();
     renderLibrary();
     renderHome();
-    toast('已将 ' + ids.length + ' 本电子书移到书库根目录');
+    toast({ type: 'success', message: '已将 ' + ids.length + ' 本电子书移到书库根目录' });
   });
 }
 
@@ -1029,40 +1044,43 @@ function bindBookMarquee(container, rowSelector) {
 }
 
 /* ---- 右侧详情面板（Zotero Info 风格：左标签右值，面板内编辑） ---- */
-async function deleteCurrentHomeSelection() {
+/** @param {HTMLElement | null} [anchor] */
+async function deleteCurrentHomeSelection(anchor = null) {
   if (selectedHomeFolderId) {
     const folder = state.folders.find((item) => item.id === selectedHomeFolderId);
-    if (folder) await deleteSelectedFolder(folder);
+    if (folder) await deleteSelectedFolder(folder, anchor);
     return;
   }
-  await deleteSelectedBooks();
+  await deleteSelectedBooks([...selectedBookIds], anchor);
 }
 
-async function deleteSelectedBooks(requestedIds = [...selectedBookIds]) {
+async function deleteSelectedBooks(requestedIds = [...selectedBookIds], anchor = null) {
+  if (deletingLibrary) return;
   const ids = requestedIds.filter((id) => state.books.some((book) => book.id === id));
   if (!ids.length) return;
   const books = ids.map((id) => state.books.find((book) => book.id === id));
-  const promptText = ids.length === 1
-    ? '删除「' + (books[0].meta?.title || books[0].s2eName || '未命名电子书') + '」（阅读器存储中的副本）？'
-    : '删除选中的 ' + ids.length + ' 本电子书（阅读器存储中的副本）？';
-  if (!await confirmSheet({
-    title: ids.length === 1 ? '删除电子书？' : '删除 ' + ids.length + ' 本电子书？',
-    message: promptText,
-    confirmLabel: '删除',
-    danger: true,
+  if (!await confirmDelete({ anchor,
+    title: ids.length === 1 ? '移出「' + (books[0].meta?.title || books[0].s2eName || '未命名电子书') + '」？' : '移出 ' + ids.length + ' 本电子书？',
+    message: '只删除书库中的副本，原始文件保留。',
+    confirmLabel: '移出书库',
   })) return;
-  await db.deleteBooks(state.db, ids);
-  ids.forEach((id) => {
-    selectedBookIds.delete(id);
-    if (state.tabs.some((tab) => tab.bookId === id)) closeTab(id);
-  });
-  selectionAnchorId = null;
-  selectedBookId = null;
-  await loadLibrary();
-  renderLibrary();
-  renderHome();
-  renderDetail();
-  toast('已删除 ' + ids.length + ' 本电子书');
+  deletingLibrary = true;
+  try {
+    await db.deleteBooks(state.db, ids);
+    ids.forEach((id) => {
+      selectedBookIds.delete(id);
+      if (state.tabs.some((tab) => tab.bookId === id)) closeTab(id);
+    });
+    selectionAnchorId = null;
+    selectedBookId = null;
+    await loadLibrary();
+    renderLibrary();
+    renderHome();
+    renderDetail();
+    toast({ type: 'success', message: '已移出 ' + ids.length + ' 本电子书' });
+  } catch (error) {
+    toast({ type: 'error', message: error.message || '电子书未能移出，请重试' });
+  } finally { deletingLibrary = false; }
 }
 
 function renderDetail() {
@@ -1168,7 +1186,7 @@ function bindFolderNameEdit(folder) {
         await loadLibrary();
         renderLibrary();
         renderHome();
-        toast('文件夹名称已更新');
+        toast({ type: 'success', message: '文件夹名称已更新' });
       } else {
         renderDetail();
       }
@@ -1235,7 +1253,7 @@ async function ctxDbSave(book) {
   await loadLibrary(); renderLibrary(); renderHome();
   refreshTabTitles();
   renderDetail();
-  toast('已保存');
+  toast({ type: 'success', message: '已保存' });
 }
 /* ============================ 工具 ============================ */
 export const readerBridge = {
@@ -1285,6 +1303,13 @@ export const readerBridge = {
     await loadLibrary(); renderLibrary(); renderHome();
   },
   deleteSelection: deleteCurrentHomeSelection,
+  /** @param {string} id @param {HTMLElement | null} [anchor] */
+  deleteBook(id, anchor = null) { return deleteSelectedBooks([id], anchor); },
+  /** @param {string} id @param {HTMLElement | null} [anchor] */
+  deleteFolder(id, anchor = null) {
+    const folder = state.folders.find(item => item.id === id);
+    return folder ? deleteSelectedFolder(folder, anchor) : Promise.resolve();
+  },
   async moveSelection() {
     const folder = await selectFolder();
     if (folder === undefined) return;

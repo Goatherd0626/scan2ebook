@@ -1,5 +1,6 @@
 let activeSheet = null;
-let toastTimer = null;
+
+export { showToast } from './toast.js';
 
 function button(label, action, className = '') {
   const element = document.createElement('button');
@@ -135,39 +136,4 @@ export function promptSheet(options) {
 
 export function selectSheet(options) {
   return openSheet(options, { ...options, allowEmpty: true });
-}
-
-export function showToast(options) {
-  const config = typeof options === 'string' ? { message: options } : options;
-  const host = document.getElementById('toast');
-  if (!host) return () => {};
-  if (toastTimer) window.clearTimeout(toastTimer);
-  host.replaceChildren();
-  const message = document.createElement('span');
-  message.className = 'toast-message';
-  message.textContent = config.message;
-  host.appendChild(message);
-  let used = false;
-  if (config.actionLabel && typeof config.onAction === 'function') {
-    const action = document.createElement('button');
-    action.type = 'button';
-    action.dataset.toastAction = '1';
-    action.textContent = config.actionLabel;
-    action.addEventListener('click', async () => {
-      if (used) return;
-      used = true;
-      action.disabled = true;
-      await config.onAction();
-      host.replaceChildren(Object.assign(document.createElement('span'), {
-        className: 'toast-message', textContent: config.doneMessage || '已撤销',
-      }));
-    });
-    host.appendChild(action);
-  }
-  host.classList.add('show');
-  toastTimer = window.setTimeout(() => host.classList.remove('show'), config.duration || 3600);
-  return () => {
-    if (toastTimer) window.clearTimeout(toastTimer);
-    host.classList.remove('show');
-  };
 }

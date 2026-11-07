@@ -1,0 +1,242 @@
+/* 轻量改编自 Rare UI Toast / Delete Button；来源与许可见 reader/THIRD_PARTY_NOTICES.md。 */
+:root {
+  --feedback-paper: #fffefb;
+  --feedback-ink: #17392f;
+  --feedback-muted: #6c7b70;
+  --feedback-line: rgba(29, 64, 48, .13);
+  --feedback-recess: #f0f2e9;
+  --feedback-accent: #c8eb79;
+  --feedback-success: #286345;
+  --feedback-danger: #c7513a;
+  --feedback-warning: #9f751c;
+  --feedback-shadow: 0 1px 2px rgba(22, 42, 30, .05), 0 5px 20px rgba(22, 42, 30, .12);
+}
+
+body.dark {
+  --feedback-paper: #1c3027;
+  --feedback-ink: #edf1e6;
+  --feedback-muted: #acb6a9;
+  --feedback-line: rgba(222, 235, 207, .14);
+  --feedback-recess: #14241c;
+  --feedback-success: #b9e879;
+  --feedback-danger: #f28a72;
+  --feedback-warning: #efc872;
+  --feedback-shadow: 0 1px 2px rgba(0, 0, 0, .2), 0 6px 24px rgba(0, 0, 0, .28);
+}
+
+#toast[data-toast-region],
+#toast[data-toast-region].show {
+  position: fixed;
+  z-index: 6000;
+  inset: auto 18px calc(18px + env(safe-area-inset-bottom, 0px)) auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: min(360px, calc(100vw - 36px));
+  max-width: none;
+  min-height: 0;
+  gap: 9px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--feedback-ink);
+  opacity: 1;
+  pointer-events: none;
+  transform: none;
+  transition: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  font: 500 12px/1.45 var(--sans, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif);
+}
+
+#toast [data-slot="toast"] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 34px 10px 10px;
+  border: 1px solid var(--feedback-line);
+  border-radius: 21px;
+  background: var(--feedback-paper);
+  box-shadow: var(--feedback-shadow), inset 0 1px 0 rgba(255, 255, 255, .13);
+  pointer-events: auto;
+  animation: rare-toast-arrive .42s cubic-bezier(.2, 1.32, .36, 1) both;
+}
+
+#toast [data-slot="toast-icon"] {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  color: var(--feedback-ink);
+  background: var(--feedback-accent);
+  animation: rare-toast-icon-in .44s .12s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+
+#toast [data-slot="toast-icon"] svg { width: 18px; height: 18px; }
+#toast [data-slot="toast-icon"] path[pathLength] {
+  stroke-dasharray: 1;
+  animation: rare-toast-draw .3s .22s ease-out both;
+}
+#toast [data-type="success"] [data-slot="toast-icon"] { color: var(--feedback-paper); background: var(--feedback-success); }
+#toast [data-type="error"] [data-slot="toast-icon"] { color: var(--feedback-paper); background: var(--feedback-danger); }
+#toast [data-type="warning"] [data-slot="toast-icon"] { color: var(--feedback-paper); background: var(--feedback-warning); }
+#toast [data-type="loading"] [data-slot="toast-icon"] { color: var(--feedback-muted); background: var(--feedback-recess); }
+#toast [data-type="loading"] [data-slot="toast-icon"] svg { animation: rare-feedback-spin 1s linear infinite; }
+#toast .rare-toast-content { flex: 1 1 auto; min-width: 0; }
+#toast [data-slot="toast-title"] { margin: 0; font-size: 12px; font-weight: 650; overflow-wrap: anywhere; }
+#toast [data-slot="toast-description"] { margin: 2px 0 0; color: var(--feedback-muted); font-size: 11px; overflow-wrap: anywhere; }
+#toast [data-slot="toast-description"][hidden] { display: none; }
+
+#toast [data-slot="toast-action"] {
+  flex: 0 0 auto;
+  max-width: 96px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--feedback-ink);
+  background: var(--feedback-recess);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: background .15s ease, transform .15s ease;
+}
+#toast [data-slot="toast-action"]:hover { background: color-mix(in srgb, var(--feedback-accent) 32%, var(--feedback-recess)); }
+#toast [data-slot="toast-action"]:active { transform: scale(.96); }
+#toast [data-slot="toast-action"]:disabled { opacity: .6; cursor: wait; }
+#toast [data-slot="toast-close"] {
+  position: absolute;
+  top: 8px;
+  right: 7px;
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+  padding: 5px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--feedback-muted);
+  background: transparent;
+  cursor: pointer;
+}
+#toast [data-slot="toast-close"] svg { width: 11px; height: 11px; }
+#toast [data-slot="toast-close"]:hover { color: var(--feedback-ink); background: var(--feedback-recess); }
+
+.delete-confirmation {
+  position: fixed;
+  z-index: 4200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  padding: 10px;
+  border: 1px solid var(--feedback-line);
+  border-radius: 18px;
+  color: var(--feedback-ink);
+  background: var(--feedback-paper);
+  box-shadow: var(--feedback-shadow);
+  overflow: auto;
+  transform-origin: var(--delete-origin-x, right) var(--delete-origin-y, top);
+  animation: rare-delete-expand .44s cubic-bezier(.32, .95, .28, 1.08) both;
+  font: 500 12px/1.45 var(--sans, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif);
+}
+.delete-confirmation-tile {
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 46px;
+  border-radius: 13px;
+  color: var(--feedback-muted);
+  background: var(--feedback-recess);
+}
+.delete-confirmation-trash { width: 23px; height: 23px; overflow: visible; }
+.delete-confirmation-lid {
+  transform-box: view-box;
+  transform-origin: 3px 6px;
+  transform: rotate(-35deg);
+  animation: rare-delete-lid .6s cubic-bezier(.34, 1.1, .64, 1) both;
+}
+.delete-confirmation-content { flex: 1 1 auto; min-width: 0; }
+.delete-confirmation h2 { margin: 0; color: inherit; font-size: 12px; line-height: 1.5; font-weight: 650; overflow-wrap: anywhere; }
+.delete-confirmation p { margin: 3px 0 0; color: var(--feedback-muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.delete-confirmation-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: start;
+  gap: 6px;
+  padding: 7px 5px 5px;
+  border-radius: 12px;
+  background: var(--feedback-recess);
+}
+.delete-confirmation-choice { display: flex; width: 38px; flex-direction: column; align-items: center; gap: 4px; }
+.delete-confirmation-action {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--feedback-muted);
+  background: var(--feedback-paper);
+  box-shadow: 0 .5px 1px rgba(0, 0, 0, .05), 0 1px 3px rgba(0, 0, 0, .08), inset 0 .5px 0 rgba(255, 255, 255, .16);
+  cursor: pointer;
+  animation: rare-delete-choice-in .35s .09s cubic-bezier(.25, 1.2, .4, 1) both;
+  transition: transform .18s ease, background .18s ease;
+}
+.delete-confirmation-action svg { width: 15px; height: 15px; stroke-width: 3; }
+.delete-confirmation-action[data-delete-action="confirm"] { color: var(--feedback-danger); animation-delay: .15s; }
+.delete-confirmation-action:hover { background: color-mix(in srgb, var(--feedback-accent) 18%, var(--feedback-paper)); transform: scale(1.05); }
+.delete-confirmation-action:active { transform: scale(.86); }
+.delete-confirmation-choice-label { max-width: 100%; font-size: 11px; line-height: 1.3; text-align: center; white-space: nowrap; }
+#toast button:focus-visible,
+.delete-confirmation button:focus-visible { outline: 2px solid var(--feedback-success); outline-offset: 2px; }
+
+@keyframes rare-toast-arrive {
+  from { opacity: 0; transform: translateY(12px) scale(.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes rare-toast-icon-in {
+  from { opacity: 0; transform: scale(.65); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes rare-toast-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes rare-feedback-spin { to { transform: rotate(360deg); } }
+@keyframes rare-delete-expand { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: scale(1); } }
+@keyframes rare-delete-lid { from { transform: rotate(0); } to { transform: rotate(-35deg); } }
+@keyframes rare-delete-choice-in { from { opacity: 0; transform: translateX(-5px) scale(.8); } to { opacity: 1; transform: translateX(0) scale(1); } }
+
+@media (max-width: 520px) {
+  #toast[data-toast-region], #toast[data-toast-region].show {
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    width: calc(100vw - 24px);
+    gap: 8px;
+  }
+  #toast [data-slot="toast"] { border-radius: 18px; padding-right: 48px; min-height: 48px; }
+  #toast [data-slot="toast-close"] { top: 4px; right: 4px; width: 44px; height: 44px; }
+  #toast [data-slot="toast-action"] { min-height: 44px; }
+  .delete-confirmation { width: 360px; }
+  .delete-confirmation-tile { flex-basis: 34px; width: 34px; }
+  .delete-confirmation-choice { width: 44px; }
+  .delete-confirmation-action { width: 44px; height: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #toast [data-slot="toast"], #toast [data-slot="toast"] *,
+  .delete-confirmation, .delete-confirmation * { animation: none !important; transition: none !important; }
+}

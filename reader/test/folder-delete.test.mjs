@@ -58,12 +58,12 @@ test('React 文件夹可导航、重命名、移出书籍，并确认递归删�
   await waitFor(() => !document.querySelector('.book-item[data-id="book-move"]') && app.state.books.find((book) => book.id === 'book-move').folderId === null);
   act(() => document.querySelector('.library-breadcrumbs > button').click());
   act(() => folderMenu('重命名后的文件夹', 1));
-  assert.match(document.querySelector('.app-sheet').textContent, /删除/);
-  act(() => document.querySelector('[data-dialog-action="confirm"]').click());
+  assert.match(document.querySelector('.delete-confirmation').textContent, /删除/);
+  act(() => document.querySelector('[data-delete-action="confirm"]').click());
   await waitFor(() => !document.querySelector('[aria-label="打开文件夹 重命名后的文件夹"]'));
   assert.equal(app.state.books.some((book) => book.id === 'book-move'), true);
   act(() => folderMenu('一起删除', 1));
-  act(() => document.querySelector('[data-dialog-action="confirm"]').click());
+  act(() => document.querySelector('[data-delete-action="confirm"]').click());
   await waitFor(() => !document.querySelector('[aria-label="打开文件夹 一起删除"]'));
   assert.deepEqual(app.state.books.map((book) => book.id), ['book-move']);
   assert.equal(app.state.folders.some((folder) => folder.id === 'folder-child'), false);

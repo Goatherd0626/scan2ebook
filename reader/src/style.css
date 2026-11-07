@@ -1070,14 +1070,6 @@ body.dark .annotations-card-popover::after {
   overflow: hidden; text-overflow: ellipsis; }
 .sr-sub mark { background: var(--mark); color: inherit; }
 
-#toast {
-  position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 1100;
-  background: var(--ink); color: var(--paper); padding: 9px 22px; border-radius: 999px;
-  font-size: 13px; font-family: var(--sans); opacity: 0; transition: opacity .25s, transform .25s;
-  pointer-events: none; box-shadow: var(--shadow-float);
-}
-#toast.show { opacity: 1; }
-
 /* 空状态 */
 #empty-hint {
   color: var(--ink-3); text-align: center; padding: 50px 24px;
