@@ -10,12 +10,13 @@ Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时�
 
 | 组件 | 作用 | 从哪装 | 版本要求 |
 |---|---|---|---|
+| macOS 独立应用 | 同一界面的转换、书库和阅读；内置原生转换器 | 本地构建的 `.app` / `.dmg`，见 `desktop/README.md` | Apple Silicon，macOS ≥ 14.4 |
 | 转换器（Python CLI） | OCR + 视觉结构化，产出 JSON / HTML / `.s2e` | GitHub 仓库（pipx） | 0.1.0 |
 | 网页阅读器 | 双栏对照原文与文字、标注、书库 | npm `scan2ebook-reader`（插件会自动安装） | ≥ 0.1.0 |
 | DSH 插件 | 在 DSH 右侧栏提供转换面板 | npm `dsh-client-ui-scan2ebook`，或仓库路径 | ≥ 0.2.0（DSH Desktop ≥ 0.2.0-rc.2） |
 | DSH Skill（可选） | 让 DSH 主动唤起面板 | 仓库 `dsh-skill/scan2ebook/SKILL.md` | — |
 
-只读 `.s2e` 文件的话，只需要上表第二行的网页阅读器。
+只读 `.s2e` 文件的话，使用独立应用或网页阅读器均可。
 
 ## 你可以用它做什么
 
@@ -26,6 +27,12 @@ Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时�
 - 调整字号、行距、正文宽度，使用护眼或深色模式；
 - 在本地书库中按文件夹整理电子书；
 - 只转换 PDF 中指定的页码范围。
+
+## macOS 独立应用
+
+桌面版复用同一套前端，使用系统 WebKit、PDFKit 和 Vision，不要求安装 Python、Node 或 DSH。打开安装包，把 Scan2Ebook 拖到「应用程序」即可；转换时自行输入本次使用的 API Key。
+
+本地构建产物位于 `dist/macos/`，使用、构建和验收边界见 [桌面版说明](desktop/README.md)。首版为 Apple Silicon、macOS 14.4 起，尚未进行 Developer ID 签名和公证。原 Python CLI、本机网页版和 DSH 插件仍保留。
 
 ## 本机网页版：无需 DSH
 
@@ -40,7 +47,7 @@ Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时�
 
 Key 输入会在开始转换或离开转换页时清空，不保存到磁盘。右上角「任务」可以查看后台进度、下载历史结果及清理转换副本。刷新网页或重启服务可以找回历史；中断的任务需重新输入 Key 后重新转换。清理转换任务不影响书库中的书。关闭本地服务会停止正在运行的转换。
 
-源码安装与开发步骤见 [`reader/README.md`](reader/README.md)。现有 DSH 插件仍可继续使用。macOS 桌面端仅完成了 [Tauri 2 接入方案](docs/tauri-desktop-plan.md)，尚未构建安装包。
+源码安装与开发步骤见 [`reader/README.md`](reader/README.md)。现有 DSH 插件仍可继续使用。
 
 文件夹轮廓改编自 [Rare UI](https://rareui.com)，第三方许可和来源见 [`reader/THIRD_PARTY_NOTICES.md`](reader/THIRD_PARTY_NOTICES.md)。
 
@@ -237,7 +244,7 @@ Scan2Ebook 只是一个本地工具，**不提供也不附带任何书籍内容*
 - 网页阅读器可以在 macOS、Windows 和 Linux 的现代桌面浏览器中使用；
 - 默认多模态模型不保证对所有账户长期可用；
 - 识别结果仍可能出错，正式引用前请回到对应 PDF 页核对；
-- 当前没有面向普通用户的一键图形安装器。
+- macOS 桌面包目前为本机构建版本，尚未进行公开分发签名和公证。
 
 ## 更多资料
 

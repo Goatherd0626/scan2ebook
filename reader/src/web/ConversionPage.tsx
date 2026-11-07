@@ -32,6 +32,7 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
   const [errorField, setErrorField] = useState('');
   const [connectionMessage, setConnectionMessage] = useState('');
   const restored = useRef(false);
+  const sourceRevision = useRef(0);
   const currentJob = useRef<ConversionJob | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const advanced = useRef<HTMLDetailsElement>(null);
@@ -57,11 +58,13 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
   }
   useImperativeHandle(ref, () => ({
     async open(options = {}) {
+      const revision = ++sourceRevision.current;
       setActive(true); setApiKey(''); setReveal(false); showError();
       try {
         const state = await api.status();
         setAvailable(state.available === true);
         setServiceMessage(state.available ? '' : state.message || '请先启动本地转换服务');
+        if (revision !== sourceRevision.current) return;
         const target = options.jobId ? state.jobs?.find((item) => item.id === options.jobId)
           : currentJob.current ? state.jobs?.find((item) => item.id === currentJob.current?.id)
             : !restored.current ? state.jobs?.[0] : undefined;
@@ -71,12 +74,13 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
         } else if (options.jobId || currentJob.current) { reset(); }
         restored.current = true;
       } catch {
+        if (revision !== sourceRevision.current) return;
         setAvailable(false);
         setServiceMessage('转换服务未连接。请从 Scan2Ebook 本地服务打开此页面，已有电子书仍可正常阅读。');
       }
     },
     selectFile,
-    deactivate() { setActive(false); setApiKey(''); setReveal(false); },
+    deactivate() { sourceRevision.current += 1; setActive(false); setApiKey(''); setReveal(false); },
   }), [api, job, uploading, busy]);
   useEffect(() => {
     let listening = true;
@@ -121,8 +125,9 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
     showError();
     if (!/\.pdf$/i.test(file.name)) { showError('请选择 PDF 文件，已有 .s2e 电子书可从书库导入'); return; }
     if (!file.size || file.size > 512 * 1024 * 1024) { showError('PDF 应大于 0 且不超过 512 MB'); return; }
+    sourceRevision.current += 1; restored.current = true;
     setUploading(true); setUpload(null); setJob(null); currentJob.current = null;
-    try { const info = await api.upload(file); setUpload(info); setFirst('1'); setLast(String(info.pages)); }
+    try { const info = await api.upload(file); setUpload(info); setFirst('1'); setLast(String(info.pages)); setAvailable(true); setServiceMessage(''); }
     catch (failure) { showError(messageOf(failure)); }
     finally { setUploading(false); }
   }
@@ -160,6 +165,7 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
     finally { setReading(false); }
   }
   function reset() {
+    sourceRevision.current += 1;
     currentJob.current = null;
     setJob(null); setUpload(null); setFirst('1'); setLast(''); setApiKey(''); setReveal(false); showError();
     document.getElementById('conversion-drop')?.focus();

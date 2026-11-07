@@ -8,7 +8,7 @@ const { createConversionView } = await import('../src/core/conversion.js');
 const { act } = await import('react');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-function setup(t, { jobs = [], onImport = async () => 'book-1', onRead = () => {} } = {}) {
+function setup(t, { jobs = [], status = null, onImport = async () => 'book-1', onRead = () => {} } = {}) {
   const dom = new JSDOM('<main id="workspace"></main>', { url: 'http://127.0.0.1:8765/' });
   globalThis.document = dom.window.document;
   globalThis.window = dom.window;
@@ -18,7 +18,7 @@ function setup(t, { jobs = [], onImport = async () => 'book-1', onRead = () => {
     if (url.endsWith('/files/s2e')) return { ok: true, blob: async () => new Blob(['test-book']) };
     const value = url.endsWith('/uploads') ? { id: 'upload-1', name: '样书.pdf', pages: 3, size: 20 }
       : url.endsWith('/jobs') ? { id: 'job-1', status: 'running', progress: 0, message: '准备转换', files: [] }
-        : { available: true, jobs };
+        : status ? await status : { available: true, jobs };
     return { ok: true, json: async () => value };
   };
   let view;
@@ -48,6 +48,23 @@ test('选择 PDF 后显示页数、自动填写范围并更新摘要', async (t)
   assert.match(document.getElementById('conversion-file-name').textContent, /样书.pdf/);
   assert.equal(document.getElementById('conversion-end').value, '3');
   assert.match(document.getElementById('conversion-summary-pages').textContent, /3/);
+  assert.equal(document.getElementById('conversion-submit').disabled, false);
+});
+
+test('历史仍在加载时选择新 PDF，不会被旧任务覆盖', async (t) => {
+  let release;
+  const status = new Promise((resolve) => { release = resolve; });
+  const oldUpload = { id: 'old-upload', name: '历史扫描件.pdf', pages: 8, size: 30 };
+  const jobs = [{ id: 'old-job', upload: oldUpload, status: 'completed', pageStart: 2, pageEnd: 8, model: 'old-model', workers: 2, progress: 100, files: [] }];
+  const { view, upload } = setup(t, { jobs, status });
+  let opening;
+  await act(async () => { opening = view.open({ jobId: 'old-job' }); });
+  await upload();
+  await act(async () => { release({ available: true, jobs }); await opening; });
+  assert.match(document.getElementById('conversion-file-name').textContent, /样书.pdf/);
+  assert.equal(document.getElementById('conversion-start').value, '1');
+  assert.equal(document.getElementById('conversion-end').value, '3');
+  assert.equal(document.getElementById('conversion-result').hidden, true);
   assert.equal(document.getElementById('conversion-submit').disabled, false);
 });
 

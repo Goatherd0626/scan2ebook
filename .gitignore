@@ -27,3 +27,9 @@ dsh-plugin/*/node_modules/
 
 # 隔离开发工作区
 .worktrees/
+
+# macOS 桌面应用构建
+desktop/node_modules/
+desktop/src-tauri/resources/
+desktop/src-tauri/gen/
+desktop/src-tauri/target/

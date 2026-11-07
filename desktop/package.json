@@ -1,0 +1,15 @@
+{
+  "name": "scan2ebook-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri",
+    "build": "python3 scripts/build.py",
+    "prepare:assets": "python3 scripts/build.py --prepare-only",
+    "test:engine": "python3 engine/tests/run.py"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
