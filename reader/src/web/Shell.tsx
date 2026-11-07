@@ -16,7 +16,7 @@ export function Shell({ onOpenJob, onImportTask }: ShellProps = {}) {
       <div id="topbar-right"><div id="topbar-context" className="toolbar-group"><div id="plugin-toolbar" /></div><div id="topbar-trailing" className="toolbar-group">
         <TaskCenter onOpenJob={onOpenJob} onImport={onImportTask} />
         <Button id="btn-reader-tools" className="mobile-tools-toggle" variant="outline" aria-expanded="false" aria-controls="topbar-context">阅读工具</Button>
-        <Button id="btn-settings" className="icon-btn" variant="ghost" size="icon" title="设置 / 插件" aria-label="设置 / 插件"><span className="sf i-gear" /></Button>
+        <Button id="btn-settings" className="icon-btn" variant="ghost" size="icon" title="设置" aria-label="设置"><span className="sf i-gear" /></Button>
         <Button id="btn-import" className="icon-btn text-btn" variant="outline" title="添加 PDF 或 .s2e 电子书" aria-label="添加书籍"><Icon name="plus" size={17} />添加书籍</Button>
       </div></div>
     </header>
@@ -28,11 +28,15 @@ export function Shell({ onOpenJob, onImportTask }: ShellProps = {}) {
         <div id="toc-panel" className="side-panel"><div className="panel-head"><span className="panel-title">目录</span><span className="seg" id="toc-tabs"><button data-tt="toc" className="active">目录</button></span></div><div id="toc-list" className="panel-body" /></div>
         <div id="sidebar-resizer" className="layout-resizer" role="separator" aria-orientation="vertical" aria-label="调整侧边栏宽度" aria-valuemin={180} aria-valuemax={480} tabIndex={0} />
       </aside>
-      <main id="workspace" tabIndex={-1} />
+      <main id="workspace" tabIndex={-1}>
+        <section id="settings-view" aria-labelledby="settings-title" hidden>
+          <div className="settings-page-head"><h1 id="settings-title" tabIndex={-1}>设置</h1><Button id="settings-back" className="settings-back" variant="ghost"><Icon name="back" size={16} /><span>返回书库</span></Button></div>
+          <nav id="settings-nav" aria-label="设置分类" />
+          <div id="settings-content" />
+        </section>
+      </main>
     </div>
     <div id="fn-tooltip" /><div id="toast" />
-    <div id="settings-mask" hidden />
-    <div id="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="sd-title" hidden><div className="sd-head"><span className="sd-title" id="sd-title">设置 / 插件</span><Button id="sd-close" className="icon-btn" variant="ghost" size="icon" title="关闭" aria-label="关闭"><span className="sf i-xmark" /></Button></div><div id="sd-sections" /></div>
     <input type="file" id="import-input" accept=".pdf,.s2e,.zip" multiple hidden />
   </>;
 }

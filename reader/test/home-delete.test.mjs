@@ -26,7 +26,7 @@ async function waitFor(predicate) {
   assert.ok(predicate(), '等待实际界面更新');
 }
 
-test('React 书库支持增减、连续和框选；删除确认与设置焦点保持可用', async () => {
+test('React 书库支持增减、连续和框选；删除确认与设置页面返回保持可用', async () => {
   await act(() => app.init());
   assert.ok(document.querySelector('.compact-library'));
   assert.equal(document.querySelectorAll('#btn-import').length, 1);
@@ -44,15 +44,13 @@ test('React 书库支持增减、连续和框选；删除确认与设置焦点�
   assert.equal(document.querySelectorAll('.book-selection[aria-checked="true"]').length, 2);
   assert.equal(rows.every((row) => !row.hasAttribute('aria-selected')), true);
   const settingsButton = document.getElementById('btn-settings');
-  settingsButton.focus(); settingsButton.click();
-  const settings = document.getElementById('settings-dialog');
-  const close = document.getElementById('sd-close');
-  assert.equal(document.activeElement, close);
-  const focusable = [...settings.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')];
-  focusable.at(-1).focus();
-  settings.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
-  assert.equal(document.activeElement, close);
+  act(() => { settingsButton.focus(); settingsButton.click(); });
+  const settings = document.getElementById('settings-view');
+  assert.equal(document.activeElement.id, 'settings-title');
+  assert.equal(settings.hidden, false);
   settings.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  assert.equal(settings.hidden, false, '设置是页面，Escape 不关闭');
+  act(() => document.getElementById('settings-back').click());
   assert.equal(settings.hidden, true);
   assert.equal(document.activeElement, settingsButton);
   assert.equal(document.querySelectorAll('.book-selection[aria-checked="true"]').length, 2);

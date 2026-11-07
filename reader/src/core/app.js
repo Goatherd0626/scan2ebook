@@ -9,7 +9,7 @@ import { initSidebarResizer, initSplitResizer, layoutDefaults } from './layout_r
 import { createConversionView } from './conversion.js';
 import {
   bus, ui, listExtensions, isEnabled, setEnabled,
-  activateExtension, deactivateExtension, makeAppCtx, injectCore, renderToolbarWidgets, setPersistentStorage,
+  activateExtension, makeAppCtx, injectCore, renderToolbarWidgets, setPersistentStorage, selectSettingsSection,
 } from './extensions.js';
 
 const $ = (id) => document.getElementById(id);
@@ -30,6 +30,7 @@ let selectedBookId = null;
 let selectedHomeFolderId = null;
 let suppressBookClick = false;
 let conversionView = null;
+let settingsSource = { screen: 'library', bookId: null };
 
 /* ============================ 初始化 ============================ */
 /** @param {{ mountHome?: ((host: HTMLElement) => void) | null }} [options] */
@@ -78,10 +79,13 @@ export async function init({ mountHome = null } = {}) {
     },
   });
   bindDragDrop();
-  bindSettingsDialog();
+  bindSettingsPage();
 
-  // 激活插件（按启停状态）
-  for (const ext of listExtensions()) activateExtension(ext.id, appCtx);
+  // 内置功能统一启用，兼容旧版通过开关停用过的偏好。
+  for (const ext of listExtensions()) {
+    if (!isEnabled(ext.id)) setEnabled(ext.id, true);
+    activateExtension(ext.id, appCtx);
+  }
 
   bus.emit('app:ready', state);
   renderToolbarWidgets();
@@ -93,6 +97,7 @@ export async function init({ mountHome = null } = {}) {
   enableCustomTooltips();        // title → 样式化悬浮提示
   const q = new URLSearchParams(location.search).get('book');
   if (q) openBook(q);
+  else if (new URLSearchParams(location.search).get('view') === 'settings') switchSettings(new URLSearchParams(location.search).get('section'));
   else if (new URLSearchParams(location.search).get('view') === 'convert') switchConvert();
   else switchHome();
 }
@@ -335,7 +340,7 @@ function renderTabs() {
   tabs.querySelectorAll('.tab').forEach((x) => x.remove());
   // 固定「首页」标签（Zotero 式书库管理页）
   const homeBtn = document.createElement('button');
-  homeBtn.className = 'tab' + (state.activeBookId === null ? ' active' : '');
+  homeBtn.className = 'tab' + (document.body.dataset.screen === 'library' ? ' active' : '');
   homeBtn.innerHTML = '<span class="sf i-home-library"></span><span>首页</span>';
   homeBtn.addEventListener('click', switchHome);
   tabs.appendChild(homeBtn);
@@ -488,6 +493,7 @@ export async function openBook(id) {
 }
 
 function switchTab(id) {
+  const readingAnchor = document.body.dataset.screen === 'settings' && settingsSource.bookId === id ? settingsSource.readingAnchor : null;
   conversionView?.deactivate();
   setScreen('reading', id);
   state.activeBookId = id;
@@ -500,6 +506,7 @@ function switchTab(id) {
   renderToc();
   syncViewSwitch();
   bus.emit('book:switch', { bookId: id });
+  if (readingAnchor) restoreReadingAnchor(readingAnchor);
 }
 
 function switchHome() {
@@ -517,15 +524,17 @@ function switchHome() {
 
 function setScreen(screen, bookId = null) {
   document.body.dataset.screen = screen;
+  $('settings-view').hidden = screen !== 'settings';
   document.body.classList.remove('reader-tools-open');
   $('btn-reader-tools')?.setAttribute('aria-expanded', 'false');
   if (window.history?.replaceState) {
     const url = new URL(window.location.href);
-    if (screen === 'convert') url.searchParams.set('view', 'convert'); else url.searchParams.delete('view');
+    if (screen === 'convert' || screen === 'settings') url.searchParams.set('view', screen); else url.searchParams.delete('view');
+    if (screen !== 'settings') url.searchParams.delete('section');
     if (bookId) url.searchParams.set('book', bookId); else url.searchParams.delete('book');
     window.history.replaceState(null, '', url);
   }
-  for (const [id, selected] of [['nav-library', screen !== 'convert'], ['nav-convert', screen === 'convert']]) {
+  for (const [id, selected] of [['nav-library', screen === 'library' || screen === 'reading'], ['nav-convert', screen === 'convert'], ['btn-settings', screen === 'settings']]) {
     if (selected) $(id)?.setAttribute('aria-current', 'page');
     else $(id)?.removeAttribute('aria-current');
   }
@@ -688,89 +697,46 @@ function syncViewSwitch() {
   sync.setAttribute('aria-hidden', prefs.viewMode === 'split' ? 'false' : 'true');
 }
 
-function bindSettingsDialog() {
-  const dlg = $('settings-dialog');
-  const mask = $('settings-mask');
-  let source = null;
-  const focusable = () => [...dlg.querySelectorAll(
-    'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])',
-  )];
-  const open = () => {
-    source = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    mask.hidden = false;
-    dlg.hidden = false;
-    renderPluginList();
-    $('sd-close').focus();
-  };
-  const close = () => {
-    if (dlg.hidden) return;
-    mask.hidden = true;
-    dlg.hidden = true;
-    source?.focus();
-    source = null;
-  };
-  $('btn-settings').addEventListener('click', () => (dlg.hidden ? open() : close()));
-  $('sd-close').addEventListener('click', close);
-  mask.addEventListener('click', close);
-  dlg.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      event.stopPropagation();
-      close();
-      return;
-    }
-    if (event.key !== 'Tab') return;
-    const elements = focusable();
-    if (!elements.length) return;
-    const first = elements[0];
-    const last = elements.at(-1);
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  });
-  window.openSettings = open;
+function captureReadingAnchor() {
+  const panel = activeView()?.wv.querySelector('.text-panel');
+  if (!panel) return null;
+  const top = panel.getBoundingClientRect().top;
+  const item = [...panel.querySelectorAll('.text-item[data-item]')].find(el => el.getBoundingClientRect().bottom > top + 8);
+  return item ? { id: item.dataset.item, offset: item.getBoundingClientRect().top - top } : null;
 }
 
-function renderPluginList() {
-  const host = $('sd-sections');
-  // 插件管理分区（核心提供）
-  let sec = host.querySelector('.sd-section[data-plugins]');
-  if (!sec) {
-    sec = document.createElement('div');
-    sec.className = 'sd-section';
-    sec.dataset.plugins = '1';
-    sec.innerHTML = '<div class="sd-sec-title">插件</div>';
-    host.prepend(sec);
+function restoreReadingAnchor(anchor) {
+  const panel = activeView()?.wv.querySelector('.text-panel');
+  const item = panel && [...panel.querySelectorAll('.text-item[data-item]')].find(el => el.dataset.item === anchor.id);
+  if (item) panel.scrollTop += item.getBoundingClientRect().top - panel.getBoundingClientRect().top - anchor.offset;
+}
+
+function switchSettings(section = null) {
+  if (document.body.dataset.screen !== 'settings') {
+    settingsSource = { screen: document.body.dataset.screen || 'library', bookId: state.activeBookId, readingAnchor: captureReadingAnchor() };
   }
-  sec.querySelectorAll('.plugin-row').forEach((x) => x.remove());
-  for (const ext of listExtensions()) {
-    const row = document.createElement('div');
-    row.className = 'plugin-row';
-    const info = document.createElement('span');
-    info.className = 'p-info';
-    info.innerHTML = '<b>' + ext.name + '</b> <small>' + (ext.version || '') + '</small><br><span class="p-desc">' + (ext.description || '') + '</span>';
-    const tog = document.createElement('button');
-    tog.className = 'sw';
-    tog.type = 'button';
-    tog.setAttribute('role', 'switch');
-    tog.setAttribute('aria-label', ext.name);
-    const on = isEnabled(ext.id);
-    tog.classList.toggle('on', on);
-    tog.setAttribute('aria-checked', on ? 'true' : 'false');
-    tog.addEventListener('click', () => {
-      const now = !isEnabled(ext.id);
-      setEnabled(ext.id, now);
-      if (now) activateExtension(ext.id, appCtx); else deactivateExtension(ext.id);
-      renderPluginList();
-      toast('插件「' + ext.name + '」' + (now ? '已启用' : '已停用') + '（部分功能需刷新生效）');
-    });
-    row.append(info, tog);
-    sec.appendChild(row);
-  }
+  conversionView?.deactivate();
+  state.activeBookId = null;
+  setScreen('settings');
+  for (const tab of state.tabs) tab.wv.hidden = true;
+  if ($('home-view')) $('home-view').style.display = 'none';
+  selectSettingsSection(section);
+  $('settings-back').querySelector('span').textContent = settingsSource.screen === 'reading' ? '返回阅读' : settingsSource.screen === 'convert' ? '返回转换' : '返回书库';
+  renderTabs(); renderToc(); syncViewSwitch();
+  bus.emit('book:switch', { bookId: null });
+  $('settings-view').scrollTop = 0;
+  $('settings-title').focus({ preventScroll: true });
+}
+
+function bindSettingsPage() {
+  $('btn-settings').addEventListener('click', () => switchSettings());
+  $('settings-back').addEventListener('click', () => {
+    if (settingsSource.screen === 'reading' && state.tabs.some(tab => tab.bookId === settingsSource.bookId)) switchTab(settingsSource.bookId);
+    else if (settingsSource.screen === 'convert') switchConvert();
+    else switchHome();
+    $('btn-settings').focus();
+  });
+  window.openSettings = switchSettings;
 }
 
 /* ============================ 顶栏 ============================ */
@@ -815,8 +781,8 @@ function bindTopbar() {
     e.target.value = '';
   });
   document.addEventListener('keydown', (e) => {
+    if (document.body.dataset.screen === 'settings') return;
     if (e.key === 'Escape') {
-      $('settings-dialog').hidden = true; $('settings-mask').hidden = true;
       $('fn-tooltip').style.display = 'none'; hideContextBar();
       selectedBookIds.clear();
       selectedHomeFolderId = null;

@@ -59,7 +59,7 @@ console.log('=== 初始化 ===');
 console.log('书库空提示:', document.body.textContent.includes('书库为空') ? '有' : '无');
 console.log('插件工具栏部件:', document.querySelectorAll('#plugin-toolbar > *').length, '个');
 console.log('目录tab:', [...document.querySelectorAll('#toc-tabs button')].map((b) => b.textContent).join(','));
-console.log('护眼面板已创建:', !!document.getElementById('eyecare-panel'));
+console.log('阅读设置已创建:', !!document.getElementById('settings-section-typography'));
 
 /* ---- 开书渲染（绕过 File 上传，直接入库） ---- */
 import * as db from '../src/core/db.js';

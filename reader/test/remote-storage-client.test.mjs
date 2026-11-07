@@ -41,6 +41,24 @@ test('前端存储客户端通过 reader API 导入、更新并读取 PDF', asyn
     await new Promise((resolve) => setTimeout(resolve, 30));
     const snapshot = await originalFetch(`${instance.url}/__scan2ebook__/storage`).then((response) => response.json());
     assert.equal(snapshot.preferences['s2e-settings'], '{"mode":"dark"}');
+
+    let completed = 0;
+    globalThis.fetch = async (url, options) => {
+      const payload = options?.body ? JSON.parse(options.body) : null;
+      if (payload?.key === 's2e-settings' && payload.value === '{"fontSize":20}') {
+        await new Promise(resolve => setTimeout(resolve, 60));
+      }
+      const response = await originalFetch(new URL(url, instance.url), options);
+      if (payload?.key === 's2e-settings') completed++;
+      return response;
+    };
+    preferences.setItem('s2e-settings', '{"fontSize":20}');
+    preferences.setItem('s2e-settings', '{"fontSize":24}');
+    const deadline = Date.now() + 1500;
+    while (completed < 2 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal(completed, 2);
+    const latest = await originalFetch(`${instance.url}/__scan2ebook__/storage`).then(response => response.json());
+    assert.equal(latest.preferences['s2e-settings'], '{"fontSize":24}', '快速调整时，较早的慢请求不能覆盖最新设置');
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.window = originalWindow;

@@ -305,12 +305,14 @@ export async function updateBookAndAnnotations(database, book, records) {
 export function createPreferenceStorage(database) {
   if (!isRemote(database)) return localStorage;
   const cache = new Map(Object.entries(database.snapshot.preferences || {}));
+  let writes = Promise.resolve();
   return {
     getItem(key) { return cache.has(key) ? cache.get(key) : null; },
     setItem(key, value) {
       const stringValue = String(value);
       cache.set(key, stringValue);
-      command({ action: 'setPreference', key, value: stringValue }).catch((error) => {
+      // 自动保存按操作顺序提交，避免较早的慢请求覆盖新设置。
+      writes = writes.then(() => command({ action: 'setPreference', key, value: stringValue })).catch((error) => {
         console.warn('[scan2ebook] 偏好设置保存失败：', error);
       });
     },

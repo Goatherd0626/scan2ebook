@@ -65,6 +65,7 @@ const uiRegistry = {
   contextActions: [],      // {id, label/apply} 或 {id, render({selection,view,close})}
   settingsSections: [],    // {id, title, render(container)}
 };
+let activeSettingsSection = null;
 
 function addUiEntry(entries, entry, render = null) {
   if (!entry || !entry.id) throw new Error('UI 扩展项缺少 id');
@@ -141,15 +142,56 @@ export function renderTocTabs() {
 }
 
 export function renderSettingsSections() {
-  const host = document.getElementById('sd-sections');
-  if (!host) return;
-  host.innerHTML = '';
+  const host = document.getElementById('settings-content');
+  const nav = document.getElementById('settings-nav');
+  if (!host || !nav) return;
+  host.replaceChildren();
+  nav.replaceChildren();
   for (const s of uiRegistry.settingsSections) {
-    const sec = document.createElement('div');
-    sec.className = 'sd-section';
-    sec.innerHTML = '<div class="sd-sec-title">' + s.title + '</div>';
+    const link = document.createElement('a');
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', 'settings');
+    url.searchParams.set('section', s.id);
+    url.searchParams.delete('book');
+    link.href = url.href;
+    link.dataset.settingsSection = s.id;
+    link.textContent = s.title;
+    link.addEventListener('click', (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      selectSettingsSection(s.id);
+    });
+    nav.appendChild(link);
+    const sec = document.createElement('section');
+    sec.id = 'settings-section-' + s.id;
+    sec.className = 'settings-section-page';
+    const heading = document.createElement('div');
+    heading.className = 'settings-section-heading';
+    const title = document.createElement('h2');
+    title.id = sec.id + '-title';
+    title.textContent = s.title;
+    sec.setAttribute('aria-labelledby', title.id);
+    heading.appendChild(title);
+    sec.appendChild(heading);
     host.appendChild(sec);
     try { s.render(sec); } catch (e) { console.error('[settings:' + s.id + ']', e); }
+  }
+  selectSettingsSection(activeSettingsSection);
+}
+
+export function selectSettingsSection(id) {
+  activeSettingsSection = uiRegistry.settingsSections.find(s => s.id === id)?.id
+    || uiRegistry.settingsSections.find(s => s.id === activeSettingsSection)?.id
+    || uiRegistry.settingsSections[0]?.id || null;
+  for (const link of document.querySelectorAll('#settings-nav [data-settings-section]')) {
+    const selected = link.dataset.settingsSection === activeSettingsSection;
+    if (selected) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+    document.getElementById('settings-section-' + link.dataset.settingsSection).hidden = !selected;
+  }
+  if (document.body.dataset.screen === 'settings' && activeSettingsSection) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('section', activeSettingsSection);
+    window.history.replaceState(null, '', url);
   }
 }
 

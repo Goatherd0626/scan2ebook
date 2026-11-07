@@ -1,4 +1,4 @@
-/* 插件：阅读环境 —— 外观主题 + 字号/行距，记忆于 localStorage */
+/* 阅读环境模块：外观与排版设置，持久化由宿主统一处理。 */
 import { registerExtension } from '../../core/extensions.js';
 
 const DEFAULTS = { mode: 'standard', warmth: 55, fontSize: 17, lineH: 1.9, contentWidth: 100 };
@@ -32,230 +32,115 @@ function mixColor(hex1, hex2, amount) {
 registerExtension({
   id: 'eyecare',
   name: '阅读环境',
-  version: '2.0.0',
-  description: '标准 / 护眼 / 深色外观，以及字号、行距和正文宽度调节',
+  version: '2.1.0',
+  description: '外观与阅读排版',
   activate(ctx) {
     const controller = new window.AbortController();
     const listen = (target, type, handler) => target.addEventListener(type, handler, { signal: controller.signal });
-    let committed = readSettings(ctx.storage.get('s2e-settings'));
-    let draft = { ...committed };
+    let settings = readSettings(ctx.storage.get('s2e-settings'));
+    const groups = { appearance: ['mode', 'warmth'], typography: ['fontSize', 'lineH', 'contentWidth'] };
+    const preview = `<aside class="settings-preview" aria-label="阅读效果预览">
+      <span class="settings-preview-label">预览</span><div class="settings-preview-paper">
+      <h3>书页与远方</h3><p>书籍把遥远的风景带到眼前，也为日常留下一点思考的空间。</p>
+      <p>在字里行间，找到适合自己的阅读节奏。</p></div></aside>`;
+    const slider = (key, label, min, max, step = 1) => `<label class="ec-control" data-control="${key}">
+      <span class="ec-control-head"><b>${label}</b><output data-output="${key}"></output></span>
+      <input type="range" data-k="${key}" min="${min}" max="${max}" step="${step}" aria-label="${label}"></label>`;
 
-    const panel = document.createElement('div');
-    panel.id = 'eyecare-panel';
-    panel.hidden = true;
-    panel.innerHTML = `
-      <div class="ec-head">
-        <div>
-          <div class="ec-title">阅读外观</div>
-          <div class="ec-subtitle">让文字更适合长时间阅读</div>
-        </div>
-        <button class="ec-reset" type="button" title="恢复默认" aria-label="恢复默认"><span class="sf i-reset-clockwise" aria-hidden="true"></span></button>
-      </div>
-      <div class="ec-preview" aria-hidden="true">
-        <span class="ec-preview-label">正文预览</span>
-        <p>好的排版让注意力停留在文字本身。</p>
-      </div>
-      <div class="ec-mode-group" role="group" aria-label="阅读外观">
-        <button type="button" data-mode="standard">标准</button>
-        <button type="button" data-mode="eye">护眼</button>
-        <button type="button" data-mode="dark">深色</button>
-      </div>
-      <div class="ec-controls">
-        <label class="ec-control" data-control="warmth">
-          <span class="ec-control-head"><b>色温</b><output data-output="warmth"></output></span>
-          <input type="range" data-k="warmth" min="0" max="100" aria-label="护眼色温">
-        </label>
-        <label class="ec-control">
-          <span class="ec-control-head"><b>字号</b><output data-output="fontSize"></output></span>
-          <input type="range" data-k="fontSize" min="13" max="26" aria-label="正文字号">
-        </label>
-        <label class="ec-control">
-          <span class="ec-control-head"><b>行距</b><output data-output="lineH"></output></span>
-          <input type="range" data-k="lineH" min="1.4" max="2.4" step="0.05" aria-label="正文行距">
-        </label>
-        <label class="ec-control">
-          <span class="ec-control-head"><b>正文宽度</b><output data-output="contentWidth"></output></span>
-          <input type="range" data-k="contentWidth" min="60" max="100" step="5" aria-label="正文宽度">
-        </label>
-      </div>
-      <div class="ec-actions">
-        <button class="ec-cancel" type="button">取消</button>
-        <button class="ec-apply" type="button" disabled>应用</button>
-      </div>`;
-    document.body.appendChild(panel);
-
-    const toolbarButton = document.createElement('button');
-    toolbarButton.className = 'icon-btn ec-toolbar-btn';
-    toolbarButton.title = '阅读环境';
-    toolbarButton.setAttribute('aria-controls', panel.id);
-    toolbarButton.setAttribute('aria-expanded', 'false');
-    toolbarButton.innerHTML = '<span class="ec-aa">A<span>a</span></span>';
-    const removeToolbar = ctx.ui.addToolbarWidget({ id: 'eyecare', el: toolbarButton });
-    const resetIcon = panel.querySelector('.i-reset-clockwise');
-
-    const anchorPanel = () => {
-      const pw = panel.offsetWidth || 312;
-      const ph = panel.offsetHeight || 520;
-      const r = toolbarButton.getBoundingClientRect();
-      let left = Math.min(r.right - pw, window.innerWidth - pw - 12);
-      left = Math.max(12, left);
-      let top = r.bottom + 8;
-      if (top + ph > window.innerHeight - 12) top = Math.max(12, r.top - ph - 8);
-      panel.style.right = 'auto';
-      panel.style.left = left + 'px';
-      panel.style.top = top + 'px';
-    };
-
-    const setPanelOpen = (open) => {
-      draft = { ...committed };
-      panel.hidden = !open;
-      toolbarButton.classList.toggle('active', open);
-      toolbarButton.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (open) {
-        anchorPanel();
-        syncControls();
-      }
-    };
-
-    listen(toolbarButton, 'click', () => setPanelOpen(panel.hidden));
-    listen(panel, 'input', (event) => {
-      const key = event.target.dataset.k;
-      if (!key) return;
-      draft[key] = parseFloat(event.target.value);
-      syncControls();
-    });
-    listen(panel, 'click', (event) => {
-      const modeButton = event.target.closest('button[data-mode]');
-      if (modeButton) {
-        draft.mode = modeButton.dataset.mode;
-        syncControls();
-        return;
-      }
-      if (event.target.closest('.ec-reset')) {
-        resetIcon.classList.remove('is-bouncing');
-        void resetIcon.offsetWidth;  // 强制重排，让连续点击也能重新开始动画
-        resetIcon.classList.add('is-bouncing');
-        committed = { ...DEFAULTS };
-        draft = { ...DEFAULTS };
-        applyCommitted();
-        syncControls();
-        return;
-      }
-      if (event.target.closest('.ec-apply')) {
-        committed = { ...draft };
-        applyCommitted();
-        setPanelOpen(false);
-        return;
-      }
-      if (event.target.closest('.ec-cancel')) {
-        setPanelOpen(false);
-      }
-    });
-    listen(document, 'keydown', (event) => {
-      if (event.key === 'Escape' && !panel.hidden) setPanelOpen(false);
-    });
-    listen(resetIcon, 'animationend', () => resetIcon.classList.remove('is-bouncing'));
-
-    const removeSettings = ctx.ui.addSettingsSection({
-      id: 'eyecare',
-      title: '阅读环境',
-      render(section) {
-        section.appendChild(Object.assign(document.createElement('div'), {
-          className: 'p-desc',
-          textContent: '使用顶栏 Aa 按钮切换标准、护眼或深色外观，并调整正文字号、行距和宽度。设置自动记忆。',
-        }));
-        const reset = document.createElement('button');
-        reset.className = 'mini';
-        reset.textContent = '恢复默认';
-        reset.addEventListener('click', () => {
-          committed = { ...DEFAULTS };
-          draft = { ...DEFAULTS };
-          applyCommitted();
-          if (!panel.hidden) syncControls();
-        });
-        section.appendChild(reset);
-      },
-    });
-
-    function themeColors(settings) {
-      if (settings.mode === 'dark') return { paper: '#1e1d18', ink: '#ddd5c2' };
+    function themeColors() {
+      if (settings.mode === 'dark') return { paper: '#1e211b', ink: '#f0f2e9' };
       if (settings.mode === 'eye') {
         const amount = 0.22 + settings.warmth / 100 * 0.58;
-        return {
-          paper: mixColor('#fbf8f0', '#edddba', amount),
-          ink: mixColor('#312d26', '#4b3f2e', amount * 0.55),
-        };
+        return { paper: mixColor('#fbf8f0', '#edddba', amount), ink: mixColor('#312d26', '#4b3f2e', amount * 0.55) };
       }
       return { paper: '#fbf8f0', ink: '#2e2920' };
     }
 
-    function applyCommitted() {
+    function applySettings(persist = true) {
       const root = document.documentElement.style;
-      document.body.classList.toggle('dark', committed.mode === 'dark');
-      root.removeProperty('--paper');
-      root.removeProperty('--ink');
-      if (committed.mode === 'eye') {
-        // 护眼模式只轻柔地温暖文字纸面，避免整页发黄和对比度骤降。
-        const colors = themeColors(committed);
-        root.setProperty('--paper', colors.paper);
-        root.setProperty('--ink', colors.ink);
+      document.body.classList.toggle('dark', settings.mode === 'dark');
+      root.removeProperty('--paper'); root.removeProperty('--ink');
+      if (settings.mode === 'eye') {
+        const colors = themeColors();
+        root.setProperty('--paper', colors.paper); root.setProperty('--ink', colors.ink);
       }
-      root.setProperty('--font-size', committed.fontSize + 'px');
-      root.setProperty('--line-h', String(committed.lineH));
-      root.setProperty('--content-width', committed.contentWidth + '%');
-      document.body.style.filter = '';  // 清除 v1 亮度设置可能留下的行内样式
-      ctx.storage.set('s2e-settings', JSON.stringify(committed));
+      root.setProperty('--font-size', settings.fontSize + 'px');
+      root.setProperty('--line-h', String(settings.lineH));
+      root.setProperty('--content-width', settings.contentWidth + '%');
+      document.body.style.filter = '';
+      if (persist) ctx.storage.set('s2e-settings', JSON.stringify(settings));
+      syncControls();
     }
 
     function syncControls() {
-      panel.querySelectorAll('button[data-mode]').forEach((button) => {
-        const active = button.dataset.mode === draft.mode;
-        button.classList.toggle('active', active);
-        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      const host = document.getElementById('settings-content');
+      if (!host) return;
+      host.querySelectorAll('button[data-mode]').forEach(button => {
+        const active = button.dataset.mode === settings.mode;
+        button.setAttribute('aria-pressed', String(active));
       });
-      panel.querySelectorAll('input[type="range"]').forEach((input) => {
-        const value = draft[input.dataset.k];
+      host.querySelectorAll('input[data-k]').forEach(input => {
+        const value = settings[input.dataset.k];
         input.value = value;
-        const min = Number(input.min), max = Number(input.max);
-        input.style.setProperty('--per', ((value - min) / (max - min) * 100) + '%');
+        input.style.setProperty('--per', ((value - Number(input.min)) / (Number(input.max) - Number(input.min)) * 100) + '%');
       });
-      const warmth = panel.querySelector('[data-k="warmth"]');
-      const warmthControl = panel.querySelector('[data-control="warmth"]');
-      const warmthEnabled = draft.mode === 'eye';
-      warmth.disabled = !warmthEnabled;
-      warmthControl.classList.toggle('is-disabled', !warmthEnabled);
-      panel.querySelector('[data-output="warmth"]').textContent = Math.round(draft.warmth) + '%';
-      panel.querySelector('[data-output="fontSize"]').textContent = Math.round(draft.fontSize) + ' px';
-      panel.querySelector('[data-output="lineH"]').textContent = draft.lineH.toFixed(2) + '×';
-      panel.querySelector('[data-output="contentWidth"]').textContent = Math.round(draft.contentWidth) + '%';
-      syncPreview();
-      panel.querySelector('.ec-apply').disabled = Object.keys(DEFAULTS)
-        .every((key) => draft[key] === committed[key]);
+      const outputs = { warmth: Math.round(settings.warmth) + '%', fontSize: Math.round(settings.fontSize) + ' px',
+        lineH: settings.lineH.toFixed(2) + '×', contentWidth: Math.round(settings.contentWidth) + '%' };
+      host.querySelectorAll('[data-output]').forEach(output => { output.textContent = outputs[output.dataset.output]; });
+      const warmth = host.querySelector('[data-control="warmth"]');
+      if (warmth) warmth.hidden = settings.mode !== 'eye';
+      const colors = themeColors();
+      host.querySelectorAll('.settings-preview-paper').forEach(paper => {
+        paper.style.backgroundColor = colors.paper; paper.style.color = colors.ink;
+        paper.style.setProperty('--font-size', settings.fontSize + 'px');
+        paper.style.setProperty('--line-h', String(settings.lineH));
+        paper.style.setProperty('--content-width', settings.contentWidth + '%');
+      });
     }
 
-    function syncPreview() {
-      const preview = panel.querySelector('.ec-preview');
-      const colors = themeColors(draft);
-      preview.dataset.mode = draft.mode;
-      preview.style.backgroundColor = colors.paper;
-      preview.style.color = colors.ink;
-      preview.style.setProperty('--font-size', draft.fontSize + 'px');
-      preview.style.setProperty('--line-h', String(draft.lineH));
-      preview.style.setProperty('--content-width', draft.contentWidth + '%');
-    }
-
-    applyCommitted();
-    syncControls();
-
+    const removeSections = Object.keys(groups).map(id => ctx.ui.addSettingsSection({
+      id, title: id === 'appearance' ? '外观' : '阅读排版',
+      render(section) {
+        const reset = document.createElement('button');
+        reset.className = 'settings-reset'; reset.type = 'button'; reset.dataset.reset = id;
+        reset.textContent = '恢复默认';
+        reset.setAttribute('aria-label', '恢复' + (id === 'appearance' ? '外观' : '阅读排版') + '默认设置');
+        section.querySelector('.settings-section-heading').appendChild(reset);
+        const layout = document.createElement('div'); layout.className = 'settings-form-layout';
+        const controls = id === 'appearance' ? `<div class="settings-modes" role="group" aria-label="外观模式">
+          ${[['standard', '浅色'], ['eye', '护眼'], ['dark', '深色']].map(([mode, label]) => `<button type="button" data-mode="${mode}" aria-pressed="false"><span class="mode-sample" aria-hidden="true"><i></i><i></i><i></i></span><span>${label}</span></button>`).join('')}
+          </div>${slider('warmth', '纸张色温', 0, 100)}`
+          : slider('fontSize', '字号', 13, 26) + slider('lineH', '行距', 1.4, 2.4, 0.05) + slider('contentWidth', '正文宽度', 60, 100, 5)
+            + '<p class="settings-note">用于电子书的文字视图，PDF 原页保持原样。</p>';
+        layout.innerHTML = '<div class="settings-controls">' + controls + '</div>' + preview;
+        section.appendChild(layout);
+        listen(section, 'input', event => {
+          const key = event.target.dataset.k;
+          if (!key) return;
+          settings[key] = Number(event.target.value);
+          applySettings(false);
+        });
+        listen(section, 'change', event => {
+          if (event.target.dataset.k) applySettings();
+        });
+        listen(section, 'click', event => {
+          const mode = event.target.closest('button[data-mode]');
+          if (mode) { settings.mode = mode.dataset.mode; applySettings(); }
+          if (event.target.closest('[data-reset]')) {
+            for (const key of groups[id]) settings[key] = DEFAULTS[key];
+            applySettings();
+          }
+        });
+        syncControls();
+      },
+    }));
+    applySettings();
     return () => {
       controller.abort();
-      removeSettings();
-      removeToolbar();
-      panel.remove();
-      document.body.classList.remove('dark');
-      document.body.style.filter = '';
+      removeSections.forEach(remove => remove());
+      document.body.classList.remove('dark'); document.body.style.filter = '';
       const root = document.documentElement.style;
-      ['--paper', '--ink', '--font-size', '--line-h', '--content-width'].forEach((key) => root.removeProperty(key));
+      ['--paper', '--ink', '--font-size', '--line-h', '--content-width'].forEach(key => root.removeProperty(key));
     };
   },
 });

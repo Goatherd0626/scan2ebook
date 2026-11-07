@@ -72,12 +72,13 @@ test('搜索结果弹层裁切横向内容但保留纵向独立滚动', () => {
   assert.doesNotMatch(searchDropCss, /(?:^|[;{]\s*)overflow:\s*hidden/);
 });
 
-test('设置与页面编辑器对话框带标签且关闭按钮使用 xmark 图标', () => {
+test('设置为带标题与分类导航的普通页面，正文编辑器保留对话框标签', () => {
   const dom = new JSDOM(indexHtml);
-  const dialog = dom.window.document.getElementById('settings-dialog');
-  assert.equal(dialog.getAttribute('role'), 'dialog');
-  assert.equal(dialog.getAttribute('aria-labelledby'), 'sd-title');
-  assert.ok(dialog.querySelector('.sf.i-xmark'), '设置对话框关闭按钮应使用 xmark 图标');
+  const page = dom.window.document.getElementById('settings-view');
+  assert.equal(page.getAttribute('aria-labelledby'), 'settings-title');
+  assert.equal(page.hasAttribute('aria-modal'), false);
+  assert.equal(dom.window.document.getElementById('settings-dialog'), null);
+  assert.equal(page.querySelector('#settings-nav').getAttribute('aria-label'), '设置分类');
   const editorSource = read('src/plugins/editor/index.js');
   assert.match(editorSource, /aria-labelledby="page-editor-title"/);
 });

@@ -211,7 +211,7 @@ registerExtension({
     });
     listen(document, 'keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
-        if (document.body.dataset.screen === 'convert') return;
+        if (document.body.dataset.screen === 'convert' || document.body.dataset.screen === 'settings') return;
         e.preventDefault();
         const libraryInput = document.body.dataset.screen === 'library' && document.getElementById('library-filter');
         if (libraryInput) { libraryInput.focus(); libraryInput.select(); return; }

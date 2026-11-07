@@ -1,6 +1,6 @@
 # 阅读器插件开发指南
 
-阅读器（`reader/`）采用**插件架构**：核心只做书库/双视图/事件总线/插件管理器，
+阅读器（`reader/`）采用**插件架构**：核心负责书库/双视图/设置页面/事件总线，
 功能全部由 `reader/src/plugins/` 下的插件提供。本文档说明如何开发一个新插件。
 
 ## 一、最小示例
@@ -16,7 +16,7 @@ registerExtension({
   version: '1.0.0',
   description: '一句话说明这个插件做什么',
   activate(ctx) {
-    // 插件激活时执行（应用启动时 / 在设置里手动启用时）
+    // 插件激活时执行（应用启动时 / 内部重新加载时）
     ctx.toast('hello 插件已激活');
     const offBookOpen = ctx.bus.on('book:open', ({ book, bookId }) => {
       console.log('打开的书：', bookId, book.meta.title);
@@ -51,16 +51,16 @@ import './hello/index.js';
 | 字段 | 必填 | 说明 |
 |---|---|---|
 | `id` | ✅ | 唯一标识，只能包含小写字母、数字和连字符；非法或重复 ID 会注册失败 |
-| `name` | 建议 | 显示名（设置里可见） |
+| `name` | 建议 | 内部模块名称 |
 | `version` | 可选 | 版本号 |
-| `description` | 可选 | 插件描述（设置里可见） |
-| `enabled` | 可选 | 默认是否启用（默认 true） |
+| `description` | 可选 | 开发参考描述 |
+| `enabled` | 可选 | 内部生命周期默认状态；发行应用中的内置功能统一启用 |
 | `activate(ctx)` | 建议 | 激活回调，收到应用级 ctx；应返回 `cleanup()` 清理函数 |
 | `deactivate(ctx)` | 可选 | 兼容性的额外停用回调；通常使用 `activate` 返回的清理函数即可 |
 
-插件在设置（⚙ → 插件）里可**启停**，状态通过 `ctx.storage` 持久化到
-统一 reader 数据目录（key 为 `s2e-plugin:<id>`）。同一插件不会被重复激活；停用时核心先执行 `activate`
-返回的清理函数，再调用可选的 `deactivate(ctx)`。内置插件支持即时启停，无需刷新。
+发行应用不显示插件列表或启停开关；内置功能统一启用，并兼容旧版保存过的关闭状态。
+模块边界和程序化生命周期接口仍保留，供开发和测试使用。同一插件不会被重复激活；内部停用时先执行 `activate`
+返回的清理函数，再调用可选的 `deactivate(ctx)`。
 
 ### 生命周期约定
 
@@ -103,10 +103,10 @@ activate(ctx) {
 | `ctx.ui` | UI 扩展点（见下节） |
 | `ctx.db` | **绑定好的库 API**：书库 CRUD，`getBookPdf(book)`、`getAnnotations(bookId) / replaceAnnotations(bookId, records)`，以及同时保存正文与标注的 `updateBookAndAnnotations(book, records)` —— 无需管理底层存储 |
 | `ctx.state` | 核心状态：`books / folders / tabs / activeBookId / batchMode`（注意：`loadLibrary()` 刷新后 books 数组元素是新的对象引用） |
-| `ctx.getView()` | 返回当前活动书的视图 `{ bookId, wv, pdfView, textView, model, prefs, applyPrefs, setPrefs }`；首页时可能为 null |
+| `ctx.getView()` | 返回当前活动书的视图 `{ bookId, wv, pdfView, textView, model, prefs, applyPrefs, setPrefs }`；书库、转换和设置页面中为 null |
 | `ctx.toast(msg)` | 全局提示 |
 | `ctx.openBook(id)` | 打开书库中的一本书 |
-| `ctx.storage` | `get(k)/set(k,v)`（localStorage 安全包装） |
+| `ctx.storage` | `get(k)/set(k,v)`（统一偏好存储；本地服务写入按操作顺序提交） |
 
 ## 四、事件总线
 
@@ -133,7 +133,7 @@ activate(ctx) {
 | `ctx.ui.addTocTab({ id, title, onShow })` | 在左侧目录面板加 tab，返回注销函数；插件仍需自行创建和删除 `#tab-body-<id>` |
 | `ctx.ui.addContextAction({ id, label, apply(text, view) })` | 添加简单的选中文字按钮，返回注销函数 |
 | `ctx.ui.addContextAction({ id, render })` | 添加富选区 UI；`render({ selection, view, close })` 返回 DOM，可使用 `selection.range/quote/rect` |
-| `ctx.ui.addSettingsSection({ id, title, render(sec) })` | 往 ⚙ 设置对话框加分区，返回注销函数 |
+| `ctx.ui.addSettingsSection({ id, title, render(sec) })` | 在独立设置页面中注册一个分类子页，返回注销函数 |
 
 同一扩展点内的 `id` 必须唯一。所有注销函数均可安全地重复调用，但插件通常只需
 在自己的 `cleanup()` 中调用一次。
@@ -145,7 +145,7 @@ activate(ctx) {
 | `plugins/footnotes` | 渲染事件、现有视图补处理，以及停用时恢复原始标记 |
 | `plugins/search` | 顶栏 widget、全局快捷键与 `AbortController` 集中清理 |
 | `plugins/bookmarks` | `addTocTab`、自有 DOM 清理与 `ctx.db.updateBook` 持久化 |
-| `plugins/eyecare` | 多个 UI 扩展点、CSS 状态回滚与 `ctx.storage` 持久化 |
+| `plugins/eyecare` | 外观 / 排版分类、即时预览、按分类重置与 `ctx.storage` 持久化 |
 | `plugins/progress` | 事件退订，以及停用时取消尚未执行的防抖保存 |
 | `plugins/annotations` | 富选区 UI、CSS Custom Highlight、统一书库标注数据、右侧栏与 `.s2e` sidecar 导出 |
 | `plugins/editor` | 页面级 items 编辑、保存影响提示、正文/标注原子更新与历史注释归档 |

@@ -117,7 +117,7 @@ test('现有插件停用后清理 DOM、事件和待执行进度保存，并可�
   assert.equal(document.querySelectorAll('#search-wrap').length, 1);
   assert.equal(document.querySelectorAll('#find-strip').length, 1);
   assert.equal(document.querySelectorAll('#tab-body-bookmarks').length, 1);
-  assert.equal(document.querySelectorAll('#eyecare-panel').length, 1);
+  assert.equal(document.querySelectorAll('#settings-nav [data-settings-section]').length, 2);
 
   const body = document.createElement('p');
   body.className = 'body';
@@ -159,7 +159,7 @@ test('现有插件停用后清理 DOM、事件和待执行进度保存，并可�
   assert.equal(progressWrites, 0, '停用进度插件应取消待执行的保存');
   assert.equal(document.querySelectorAll('#search-wrap, #find-strip, #search-drop').length, 0);
   assert.equal(document.querySelectorAll('#tab-body-bookmarks').length, 0);
-  assert.equal(document.querySelectorAll('#eyecare-panel').length, 0);
+  assert.equal(document.querySelectorAll('#settings-nav [data-settings-section]').length, 0);
   assert.equal(body.querySelectorAll('sup.fnref').length, 0);
   assert.match(body.textContent, /⟦1⟧/);
 
@@ -167,7 +167,7 @@ test('现有插件停用后清理 DOM、事件和待执行进度保存，并可�
   assert.equal(document.querySelectorAll('#search-wrap').length, 1);
   assert.equal(document.querySelectorAll('#find-strip').length, 1);
   assert.equal(document.querySelectorAll('#tab-body-bookmarks').length, 1);
-  assert.equal(document.querySelectorAll('#eyecare-panel').length, 1);
+  assert.equal(document.querySelectorAll('#settings-nav [data-settings-section]').length, 2);
   assert.equal(body.querySelectorAll('sup.fnref').length, 1);
 
   for (const id of pluginIds) setPluginOn(id, false, ctx);

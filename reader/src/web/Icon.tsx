@@ -2,6 +2,7 @@ import type { SVGProps } from 'react';
 
 const paths = {
   arrow: 'M5 12h14m-6-6 6 6-6 6',
+  back: 'M19 12H5m6-6-6 6 6 6',
   diagonal: 'M6 18 18 6M6 6h12v12',
   plus: 'M12 5v14M5 12h14',
   search: 'm20 20-4-4M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0',

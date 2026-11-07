@@ -24,6 +24,7 @@ registerExtension({
   activate(ctx) {
     let mode = false;
     let activeEditor = null;
+    let editorBookId = null;
     const cleanups = [];
 
     const toggle = document.createElement('button');
@@ -79,6 +80,7 @@ registerExtension({
       })) return false;
       activeEditor.destroy();
       activeEditor = null;
+      editorBookId = null;
       return true;
     }
 
@@ -89,6 +91,7 @@ registerExtension({
       ctx.toast(mode ? '编辑模式已开启：点击文字页内容开始编辑' : '编辑模式已关闭');
     });
     const onEditorKeydown = (event) => {
+      if (document.body.dataset.screen === 'settings') return;
       if (event.key !== 'Escape' || !mode || activeEditor) return;
       mode = false;
       updateToggle();
@@ -171,10 +174,16 @@ registerExtension({
           }
         },
       });
+      editorBookId = bookId;
     }
 
     cleanups.push(ctx.bus.on('page:select', ({ bookId, page }) => openPage(bookId, page)));
-    cleanups.push(ctx.bus.on('book:switch', () => { closeEditor(true); updateToggle(); }));
+    cleanups.push(ctx.bus.on('book:switch', ({ bookId }) => {
+      if (document.body.dataset.screen === 'settings') activeEditor?.setSuspended(true);
+      else if (activeEditor && bookId === editorBookId) activeEditor.setSuspended(false);
+      else closeEditor(true);
+      updateToggle();
+    }));
     cleanups.push(ctx.bus.on('book:close', () => closeEditor(true)));
     updateToggle();
 
@@ -218,6 +227,8 @@ function createPageEditor({ view, page, items, impact, onCancel, onSave }) {
   const impactEl = overlay.querySelector('.page-editor-impact');
   const errorEl = overlay.querySelector('.page-editor-error');
   const saveButton = overlay.querySelector('[data-action="save-page"]');
+  let lastFocus = dialog;
+  overlay.addEventListener('focusin', event => { lastFocus = event.target; }, { signal: controller.signal });
   impactEl.hidden = !(impact.affectedHighlights || impact.affectedNotes);
   impactEl.textContent = impactEl.hidden ? ''
     : '本页关联 ' + impact.affectedHighlights + ' 处高亮、' + impact.affectedNotes
@@ -359,6 +370,7 @@ function createPageEditor({ view, page, items, impact, onCancel, onSave }) {
     if (event.target === overlay) onCancel();
   }, { signal: controller.signal });
   document.addEventListener('keydown', (event) => {
+    if (overlay.hidden) return;
     if (event.key === 'Escape') onCancel();
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') saveButton.click();
   }, { signal: controller.signal });
@@ -369,6 +381,15 @@ function createPageEditor({ view, page, items, impact, onCancel, onSave }) {
 
   return {
     isDirty,
+    setSuspended(suspended) {
+      overlay.hidden = suspended;
+      if (!suspended) {
+        place();
+        queueMicrotask(() => {
+          if (overlay.isConnected && !overlay.hidden) (lastFocus.isConnected ? lastFocus : dialog).focus();
+        });
+      }
+    },
     destroy() { controller.abort(); overlay.remove(); },
   };
 }
