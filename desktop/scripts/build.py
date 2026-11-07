@@ -57,7 +57,8 @@ def prepare() -> None:
     run(RESOURCES / "scan2ebook-engine", "--self-check")
     run("/usr/bin/codesign", "--force", "--sign", "-", RESOURCES / "scan2ebook-engine")
     icons = BUILD / "desktop-icons"
-    run("xcrun", "swift", "-module-cache-path", BUILD / "swift-module-cache", DESKTOP / "scripts" / "make-icon.swift", icons)
+    run("xcrun", "swift", "-module-cache-path", BUILD / "swift-module-cache", DESKTOP / "scripts" / "make-icon.swift",
+        icons, ROOT / "reader" / "src" / "assets" / "brand" / "app-icon-1024.png")
     iconset = icons / "Scan2Ebook.iconset"
     iconset.mkdir(parents=True, exist_ok=True)
     for size in [16, 32, 128, 256, 512]:

@@ -43,8 +43,11 @@ body[data-screen="convert"] #topbar-context { display: none; }
 #layout { gap: 0; padding: 0; }
 #sidebar { display: flex; flex-direction: column; min-width: 180px; border: 0; border-right: 1px solid var(--line); border-radius: 0; background: var(--lg-glass); box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .app-brand { display: flex; align-items: center; gap: 11px; flex-shrink: 0; padding: 25px 21px 26px; color: var(--ink); text-decoration: none; }
-.brand-mark { font-size: 32px; line-height: 1; letter-spacing: -3.5px; font-weight: 800; }
-.brand-mark > span { color: #738d28; }
+.brand-mark { display: block; flex: 0 0 64px; width: 64px; height: 32px; }
+.brand-image { display: block; width: 100%; height: 100%; object-fit: contain; }
+.brand-image-dark { display: none; }
+body.dark .brand-image-light { display: none; }
+body.dark .brand-image-dark { display: block; }
 .app-brand strong { display: block; font-size: 12px; font-weight: 650; letter-spacing: -.4px; }
 .app-nav { display: grid; gap: 7px; margin: 0 13px 22px; }
 .app-nav button { display: flex; align-items: center; justify-content: flex-start; gap: 12px; width: 100%; min-height: 44px; padding: 10px 14px; border-radius: 5px; color: var(--ink-2); text-align: left; font-size: 12px; transition: background 150ms, color 150ms; }

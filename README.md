@@ -51,6 +51,8 @@ Key 输入会在开始转换或离开转换页时清空，不保存到磁盘。�
 
 文件夹轮廓改编自 [Rare UI](https://rareui.com)，第三方许可和来源见 [`reader/THIRD_PARTY_NOTICES.md`](reader/THIRD_PARTY_NOTICES.md)。
 
+字标和应用图标沿用 `s2e.`，设计资源与比较方案见 [品牌资源](design/brand/README.md)。
+
 ## 使用 DSH：让 AI 帮你安装
 
 你不需要懂 Python、npm 或终端命令。把下面这段话原样发给一个能操作你电脑终端的 AI 助手（DSH、Codex、Claude Code 都可以），它会自己读完仓库里的安装说明并把一切装好：

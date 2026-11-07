@@ -4,8 +4,8 @@
 
 ## 产物
 
-- `dist/macos/Scan2Ebook.app`，约 6.19 MiB。
-- `dist/macos/Scan2Ebook_0.1.0_aarch64.dmg`，约 2.37 MiB。
+- `dist/macos/Scan2Ebook.app`，字标更新后约 6.27 MiB。
+- `dist/macos/Scan2Ebook_0.1.0_aarch64.dmg`，字标更新后约 2.52 MiB。
 - DMG 可只读挂载，包含应用和指向「应用程序」的安装入口；复制后的应用通过本机签名校验。
 - Rust 与 Swift 可执行文件只依赖系统库；包内不含 Python、Node、Chromium 或开发环境。
 - 使用本机临时签名，未进行 Developer ID 签名和 Apple 公证，也未发布远端版本。
@@ -36,3 +36,9 @@
 ## 复验入口
 
 构建与测试命令见 [桌面版说明](../desktop/README.md)。测试入口将应用路径解析为真实路径，符合 Tauri 在 macOS 对可执行路径的软链接限制；未开启放宽该限制的危险特性。
+
+## 字标更新
+
+采用 `s2e.` 延续版，统一网页侧栏、浏览器图标与 macOS 图标；另保留圆角和衬线两版比较方案，见 [品牌资源](../design/brand/README.md)。字形已转为 SVG 路径，不增加运行时字体或依赖。
+
+本次更新通过类型检查、图标与响应布局相关的 3 项现有测试，以及 ego-browser 中的深浅配色检查。应用与 DMG 已重新构建并通过本机签名校验。上文的转换器、存储与付费接口验收边界继续适用。
