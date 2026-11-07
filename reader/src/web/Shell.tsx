@@ -2,8 +2,8 @@ import { Button } from '../components/ui/button';
 import { Icon } from './Icon';
 import { TaskCenter } from './TaskCenter';
 
-const wordmarkLight = new URL('../assets/brand/wordmark.svg', import.meta.url).href;
-const wordmarkDark = new URL('../assets/brand/inverse.svg', import.meta.url).href;
+const logoLight = new URL('../assets/brand/logo.svg', import.meta.url).href;
+const logoDark = new URL('../assets/brand/logo-inverse.svg', import.meta.url).href;
 
 type ShellProps = { onOpenJob?: (id: string) => unknown; onImportTask?: (file: File, id: string) => Promise<string> };
 
@@ -22,7 +22,7 @@ export function Shell({ onOpenJob, onImportTask }: ShellProps = {}) {
     </header>
     <div id="layout">
       <aside id="sidebar">
-        <a className="app-brand" href="./" aria-label="Scan2Ebook 首页" onClick={(event) => { event.preventDefault(); document.getElementById('nav-library')?.click(); }}><span className="brand-mark" aria-hidden="true"><img className="brand-image brand-image-light" src={wordmarkLight} alt="" /><img className="brand-image brand-image-dark" src={wordmarkDark} alt="" /></span><strong>Scan2Ebook</strong></a>
+        <a className="app-brand" href="./" aria-label="Scan2Ebook 首页" onClick={(event) => { event.preventDefault(); document.getElementById('nav-library')?.click(); }}><span className="brand-mark" aria-hidden="true"><img className="brand-image brand-image-light" src={logoLight} alt="" /><img className="brand-image brand-image-dark" src={logoDark} alt="" /></span></a>
         <nav className="app-nav" aria-label="主要导航"><Button id="nav-library" variant="ghost" aria-current="page"><span className="sf i-home-library" aria-hidden="true" />我的书库</Button><Button id="nav-convert" variant="ghost"><span className="sf i-pdf" aria-hidden="true" />转换 PDF</Button></nav>
         <div id="library-panel" className="side-panel"><div className="panel-head"><span className="panel-title">书库</span></div><div id="library-tree" className="panel-body" /></div>
         <div id="toc-panel" className="side-panel"><div className="panel-head"><span className="panel-title">目录</span><span className="seg" id="toc-tabs"><button data-tt="toc" className="active">目录</button></span></div><div id="toc-list" className="panel-body" /></div>
