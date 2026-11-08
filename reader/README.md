@@ -1,6 +1,6 @@
 # Scan2Ebook Reader
 
-在本机浏览器里管理书库、阅读 `.s2e` 电子书，也可以直接转换扫描 PDF，无需 DSH。只阅读不需要 Python 或 API Key；转换需要本机 Python 转换器、macOS OCR 和用户自行输入的 DeepSeek API Key。
+在本机浏览器里管理书库、阅读 `.s2e` 电子书，也可以直接转换扫描 PDF，无需 DSH。运行时不需要 Python。转换与 macOS App 共用 Swift 原生引擎，使用系统 PDFKit / Vision；用户自行输入本次使用的 DeepSeek API Key。网页版仍需 Node.js 本机服务，原生 PDF 转换要求 macOS 14.4 及以上和匹配架构的引擎。
 
 ## 启动当前仓库的改版
 
@@ -10,7 +10,7 @@
 npm start
 ```
 
-首次从源码准备前端时，在本目录执行 `npm ci`、`npm run build`。源码构建工具要求 Node.js 20.19.x 或 22.12 及以上版本。Python 转换器按仓库根目录说明安装；源码目录中存在可用的 `.venv` 时，本地服务会优先调用它，否则查找已安装的 `scan2ebook` 命令。
+首次从源码准备时，在本目录执行 `npm ci`、`npm run build`、`npm run build:engine`。源码构建需要 Node.js 20.19.x 或 22.12 及以上版本，以及 macOS Xcode 工具链；使用已打包引擎时无需安装构建工具。默认先查找包内对应架构的原生引擎，也可复用仓库已构建资源或已安装 Scan2Ebook App 的引擎，不再查找 `.venv` 或旧 `scan2ebook` Python 命令。
 
 浏览器访问 `http://127.0.0.1:8765`。点击「添加书籍」：PDF 会自动进入转换页，`.s2e` 或电子书 ZIP 会直接导入书库。转换前可预览原页、确认页码，再输入本次 Key 后开始；完成后可下载结果或直接加入书库阅读。Key 不存储，重试需要重新输入。文件只上传到本机服务，转换时选中页面会发送给所选模型服务。
 
@@ -26,17 +26,20 @@ npm start
 npm run typecheck
 npm test
 npm run build
+npm run build:engine
 ```
 
 开发时先启动本地服务，再运行 `npm run dev`；Vite 将本地 API 转发到 `127.0.0.1:8765`。只运行 Vite 或静态预览不能提供真实转换服务。
 
 操作提示统一使用 Toast；删除、导航和通知的后续开发约定见 [前端交互约定](../docs/frontend-ui.md)。
 
-自动化验证使用隔离的 `--data-dir` 和 `test/fixtures/converter.mjs` 模拟进程，不调用真实模型，也不读取用户书库。Tauri 后续方案见 [`../docs/tauri-desktop-plan.md`](../docs/tauri-desktop-plan.md)。
+自动化验证使用隔离的 `--data-dir` 和 `test/fixtures/converter.mjs` 模拟进程，不调用真实模型，也不读取用户书库。默认原生引擎的完整本机验收可运行 `npm run test:native -- --pdf /path/to/self-made.pdf`：使用自制 PDF、仅回环模拟模型和隔离数据目录，验证真实 Swift 引擎、下载及取消清理。桌面版见 [`../desktop/README.md`](../desktop/README.md)。
 
 ## 安装
 
-需要 Node.js 20.19 或更高版本。
+本次原生更新尚未执行 npm 发布；请先使用当前仓库或自行构建的本地 npm 包。下面的包名安装方式用于已发布版本，不代表包含本次改动。
+
+需要 Node.js 20.19 或更高版本；转换还需 macOS 14.4 及以上和包内对应处理器架构的引擎。其他平台可使用书库与阅读。
 
 ```bash
 npm install --global scan2ebook-reader
@@ -92,6 +95,8 @@ Windows 默认使用 `%APPDATA%/Scan2Ebook Reader/`，Linux 默认使用用户�
 阅读器会在这里保存导入的电子书、阅读进度、文件夹、书签、高亮、注释和界面设置。建议保留原始 `.s2e` 文件，并定期备份整个数据目录。备份前请先关闭阅读器。
 
 ## 支持平台
+
+PDF 原生转换目前支持 macOS 14.4 及以上，发布包只支持实际包含的处理器架构；当前已验证 Apple Silicon。下列其他平台支持书库和阅读，不提供 Python 自动回退。
 
 - macOS；
 - Windows；

@@ -11,7 +11,8 @@ Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时�
 | 组件 | 作用 | 从哪装 | 版本要求 |
 |---|---|---|---|
 | macOS 独立应用 | 同一界面的转换、书库和阅读；内置原生转换器 | 本地构建的 `.app` / `.dmg`，见 `desktop/README.md` | Apple Silicon，macOS ≥ 14.4 |
-| 转换器（Python CLI） | OCR + 视觉结构化，产出 JSON / HTML / `.s2e` | GitHub 仓库（pipx） | 0.1.0 |
+| 原生转换器（Swift） | 本机网页与 App 共用 OCR 和结构化引擎，无需 Python | 随本机网页包 / App 构建，见 `reader/native/README.md` | macOS ≥ 14.4，使用实际打包架构 |
+| 旧转换器（Python CLI） | 兼容原有命令行和 DSH 工作流 | GitHub 仓库（pipx） | 0.1.0 |
 | 网页阅读器 | 双栏对照原文与文字、标注、书库 | npm `scan2ebook-reader`（插件会自动安装） | ≥ 0.1.0 |
 | DSH 插件 | 在 DSH 右侧栏提供转换面板 | npm `dsh-client-ui-scan2ebook`，或仓库路径 | ≥ 0.2.0（DSH Desktop ≥ 0.2.0-rc.2） |
 | DSH Skill（可选） | 让 DSH 主动唤起面板 | 仓库 `dsh-skill/scan2ebook/SKILL.md` | — |
@@ -36,7 +37,7 @@ Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时�
 
 ## 本机网页版：无需 DSH
 
-当前仓库的网页改版已将**书库、PDF 转换和阅读器**放进同一个界面。先在本机启动服务，再用浏览器操作；转换仍使用 Mac 上的 Python OCR，不是把一个 HTML 文件双击打开后直接转换。
+当前仓库的网页改版已将**书库、PDF 转换和阅读器**放进同一个界面。先在本机启动服务，再用浏览器操作。网页和 App 共用 Swift 原生转换引擎，使用 macOS 的 PDFKit / Vision，不再调用 Python。网页版仍需要本机服务，不是离线打开一个 HTML 文件就能转换。
 
 本项目依赖和网页已经构建好时，双击根目录的 **`打开 Scan2Ebook.command`**。浏览器打开后：
 
@@ -45,9 +46,9 @@ Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时�
 3. 输入本次使用的 DeepSeek API Key，点击「开始转换」。
 4. 完成后下载 `.s2e`、JSON、HTML，或点击「加入书库并阅读」。
 
-Key 输入会在开始转换或离开转换页时清空，不保存到磁盘。右上角「任务」可以查看后台进度、下载历史结果及清理转换副本。刷新网页或重启服务可以找回历史；中断的任务需重新输入 Key 后重新转换。清理转换任务不影响书库中的书。关闭本地服务会停止正在运行的转换。
+Key 输入会在开始转换或离开转换页时清空，不保存到磁盘。右上角铃铛可以查看通知和后台进度、下载历史结果及清理转换副本。刷新网页或重启服务可以找回历史；中断的任务需重新输入 Key 后重新转换。清理转换任务不影响书库中的书。关闭本地服务会停止正在运行的转换。
 
-源码安装与开发步骤见 [`reader/README.md`](reader/README.md)。现有 DSH 插件仍可继续使用。
+本次原生同步以当前仓库和本地构建为准，尚未执行 npm 发布。源码安装与开发步骤见 [`reader/README.md`](reader/README.md)。原 DSH 工作流仍使用原有 Python CLI，与本机网页、App 的原生引擎分开。
 
 文件夹轮廓改编自 [Rare UI](https://rareui.com)，第三方许可和来源见 [`reader/THIRD_PARTY_NOTICES.md`](reader/THIRD_PARTY_NOTICES.md)。
 

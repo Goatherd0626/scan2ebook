@@ -11,14 +11,14 @@ import { createConversionManager } from '../lib/conversion.js';
 const API = '/__scan2ebook__/conversion';
 const key = 'test-only-placeholder';
 
-async function setup(t) {
+async function setup(t, converterOptions = {}) {
   const root = await mkdtemp(join(tmpdir(), 's2e-conversion-test-'));
   const distDir = join(root, 'dist');
   await mkdir(distDir);
   await writeFile(join(distDir, 'index.html'), '<title>Test</title>');
   const options = {
     port: 0, distDir, storageDir: join(root, 'data'),
-    conversionOptions: { command: process.execPath, args: [fileURLToPath(new URL('./fixtures/converter.mjs', import.meta.url))] },
+    conversionOptions: { command: process.execPath, args: [fileURLToPath(new URL('./fixtures/converter.mjs', import.meta.url))], ...converterOptions },
   };
   let app = await createReaderServer(options);
   t.after(() => app.close());
@@ -107,6 +107,23 @@ test('拒绝同时启动第二个任务，取消后不误报完成并可再次�
   assert.deepEqual(cancelled.files, []);
   const second = await request('/jobs', { ...args, model: 'test-success' }).then((r) => r.json());
   assert.equal((await settled(request, second.id)).status, 'completed');
+});
+
+test('取消网页转换会终止同组子进程并清理原生引擎的工作目录', { skip: process.platform === 'win32' }, async t => {
+  const { app, upload, request } = await setup(t, { args: [fileURLToPath(new URL('./fixtures/converter-tree.mjs', import.meta.url))] });
+  const { value } = await upload();
+  const job = await request('/jobs', { uploadId: value.id, apiKey: key }).then(response => response.json());
+  const output = join(app.storageDir, 'conversions', 'jobs', job.id);
+  let ready = false;
+  for (let i = 0; i < 100 && !ready; i++) {
+    ready = await stat(join(output, 'child-ready')).then(() => true, () => false);
+    if (!ready) await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.equal(ready, true, '等待转换子进程安装信号处理器');
+  const cancelled = await request('/jobs/' + job.id + '/cancel', {}).then(response => response.json());
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(await readFile(join(output, 'child-stopped'), 'utf8'), 'stopped');
+  assert.equal((await readdir(output)).some(name => name.startsWith('.work-')), false);
 });
 
 test('失败提示会遮蔽 Key，保留源文件以便重试，刷新可读回任务', async (t) => {
@@ -207,6 +224,8 @@ test('意外停止留下的运行任务恢复为中断，重新转换仍需输�
   const stateFile = join(root, 'data/conversions/state.json');
   const running = await readFile(stateFile, 'utf8');
   await app.close();
+  const work = join(root, 'data/conversions/jobs', started.id, '.work-interrupted');
+  await mkdir(work);
   await writeFile(stateFile, running);
   await restart();
   const recovered = await request('/jobs/' + started.id).then((r) => r.json());
@@ -214,6 +233,7 @@ test('意外停止留下的运行任务恢复为中断，重新转换仍需输�
   assert.match(recovered.message, /服务已停止，请重新转换/);
   assert.match(recovered.error, /服务已停止，请重新转换/);
   assert.ok(recovered.finishedAt >= recovered.startedAt);
+  assert.equal(await stat(work).then(() => true, () => false), false);
   assert.equal((await request('/jobs', { uploadId: value.id })).status, 400);
   const next = await request('/jobs', { uploadId: value.id, apiKey: key }).then((r) => r.json());
   assert.equal((await settled(request, next.id)).status, 'completed');

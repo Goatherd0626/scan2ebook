@@ -1,22 +1,38 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { access, lstat, mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { delimiter, dirname, join, resolve, basename } from 'node:path';
+import { lstat, mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { join, basename } from 'node:path';
 import { createInterface } from 'node:readline';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { fileURLToPath } from 'node:url';
+import { resolveConverter, converterUnavailableMessage } from './native-engine.js';
 
 export const CONVERSION_PATH = '/__scan2ebook__/conversion';
 const MAX_PDF_BYTES = 512 * 1024 * 1024;
-const SOURCE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const problem = (message, statusCode = 400) => Object.assign(new Error(message), { statusCode });
 const FILE_KINDS = ['s2e', 'json', 'html'];
 const STATUSES = ['running', 'completed', 'failed', 'cancelled', 'interrupted'];
 const STAGES = ['start', 'ocr', 'structure', 'finalize', 'complete'];
 const VALID_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const CONVERSION_ERROR = '转换进程已退出，请检查模型、API Key 和账户额度后重试';
+
+function signalProcess(child, signal) {
+  if (!child?.pid) return;
+  try {
+    if (process.platform === 'win32') child.kill(signal);
+    else process.kill(-child.pid, signal);
+  } catch (error) { if (error.code !== 'ESRCH') throw error; }
+}
+
+async function cleanWorkDirectories(directory) {
+  let entries;
+  try { entries = await readdir(directory, { withFileTypes: true }); }
+  catch (error) { if (error.code === 'ENOENT') return; throw error; }
+  for (const entry of entries) {
+    if (entry.isDirectory() && entry.name.startsWith('.work-')) await rm(join(directory, entry.name), { recursive: true, force: true });
+  }
+}
 
 function json(response, status, value) {
   const body = Buffer.from(JSON.stringify(value));
@@ -46,21 +62,6 @@ async function payload(request) {
   catch { throw problem('请求内容无法读取'); }
 }
 
-async function resolveConverter(options) {
-  if (options.command) return { command: options.command, args: options.args || [] };
-  const python = join(SOURCE_ROOT, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-  try {
-    await access(python);
-    await access(join(SOURCE_ROOT, 'scan2ebook/cli.py'));
-    return { command: python, args: ['-m', 'scan2ebook'], cwd: SOURCE_ROOT };
-  } catch {}
-  for (const directory of (process.env.PATH || '').split(delimiter)) {
-    const command = join(directory, 'scan2ebook');
-    try { await access(command); return { command, args: [] }; } catch {}
-  }
-  return null;
-}
-
 function inspect(converter, file) {
   return new Promise((resolveInspect, reject) => {
     const child = spawn(converter.command, [...converter.args, 'inspect', file], { cwd: converter.cwd, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -68,7 +69,7 @@ function inspect(converter, file) {
     const timer = setTimeout(() => { child.kill(); reject(problem('读取 PDF 超时，请检查文件后重试')); }, 30_000);
     child.stdout.on('data', (chunk) => { if (text.length < 64 * 1024) text += chunk; });
     child.stderr.resume();
-    child.once('error', () => { clearTimeout(timer); reject(problem('转换器无法启动，请检查 Python 转换器是否已安装', 503)); });
+    child.once('error', () => { clearTimeout(timer); reject(problem('原生转换器无法启动，请检查安装后重启本地服务', 503)); });
     child.once('close', (code) => {
       clearTimeout(timer);
       try {
@@ -203,6 +204,7 @@ export async function createConversionManager({ directory, ...options }) {
         job.status = 'interrupted'; job.message = '服务已停止，请重新转换'; job.error = job.message;
         job.finishedAt = Date.now(); job.files = [];
       }
+      await cleanWorkDirectories(job.out);
       await refreshFiles(job);
       jobs.set(job.id, job);
     }
@@ -210,7 +212,7 @@ export async function createConversionManager({ directory, ...options }) {
   }
 
   async function upload(request) {
-    if (!converter) throw problem('尚未安装 Python 转换器，安装后重启本地服务即可转换；现有电子书仍可阅读', 503);
+    if (!converter) throw problem(converterUnavailableMessage(), 503);
     if (request.headers['content-type']?.split(';')[0] !== 'application/pdf') throw problem('请选择 PDF 文件', 415);
     let name;
     try { name = basename(decodeURIComponent(request.headers['x-s2e-filename'] || '扫描书.pdf')); }
@@ -246,7 +248,7 @@ export async function createConversionManager({ directory, ...options }) {
 
   async function start(args) {
     if (closing) throw problem('转换服务正在退出，请重新启动后再试', 503);
-    if (!converter) throw problem('尚未安装 Python 转换器', 503);
+    if (!converter) throw problem(converterUnavailableMessage(), 503);
     if (cleaning) throw problem('正在清理转换记录，请稍后再试', 409);
     if (starting || [...jobs.values()].some((job) => job.child)) throw problem('已有任务正在转换，请等待完成或先取消', 409);
     const upload = uploads.get(args.uploadId);
@@ -281,8 +283,8 @@ export async function createConversionManager({ directory, ...options }) {
       const child = spawn(converter.command, [...converter.args, upload.file, '-o', out,
         '--page-start', String(first), '--page-end', String(last), '--vision-model', model,
         '--workers', String(workers), '--progress-json'], {
-        cwd: converter.cwd, stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env, DEEPSEEK_API_KEY: apiKey, PYTHONUNBUFFERED: '1' },
+        cwd: converter.cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32',
+        env: { ...process.env, DEEPSEEK_API_KEY: apiKey },
       });
       job.child = child;
       jobs.set(id, job);
@@ -304,7 +306,7 @@ export async function createConversionManager({ directory, ...options }) {
         } catch {}
       });
       child.once('error', () => {
-        job.status = 'failed'; job.error = '转换器无法启动，请检查 Python 转换器是否已安装';
+        job.status = 'failed'; job.error = '原生转换器无法启动，请检查安装后重启本地服务';
         job.message = '转换未能开始'; job.finishedAt = Date.now();
         persist();
       });
@@ -331,6 +333,7 @@ export async function createConversionManager({ directory, ...options }) {
             job.status = 'completed'; job.progress = 100; job.stage = 'complete'; job.message = '电子书已准备好';
           }
         } finally {
+          await cleanWorkDirectories(job.out).catch(() => {});
           delete job.child;
           await persist().catch(() => {});
           resolveClosed();
@@ -344,9 +347,11 @@ export async function createConversionManager({ directory, ...options }) {
   async function cancel(job) {
     if (job.status === 'running') {
       job.status = 'cancelled'; job.message = '已取消，文件已保留，可重新转换'; job.finishedAt = Date.now();
-      job.child?.kill('SIGTERM');
-      const timer = setTimeout(() => job.child?.kill('SIGKILL'), 3000);
-      try { await Promise.all([job.closed, persist()]); } finally { clearTimeout(timer); }
+      const child = job.child;
+      signalProcess(child, 'SIGTERM');
+      const timer = setTimeout(() => signalProcess(child, 'SIGKILL'), 3000);
+      try { await Promise.all([job.closed, persist()]); }
+      finally { clearTimeout(timer); signalProcess(child, 'SIGKILL'); }
     }
     if (job.child) await job.closed;
     return publicJob(job);
@@ -387,8 +392,8 @@ export async function createConversionManager({ directory, ...options }) {
         const path = pathname.slice(CONVERSION_PATH.length);
         if ((path === '' || path === '/') && request.method === 'GET') {
           if ((await Promise.all([...jobs.values()].map(refreshFiles))).some(Boolean)) await persist();
-          json(response, 200, { available: !!converter, maxFileBytes: MAX_PDF_BYTES,
-            message: converter ? '转换服务已就绪' : '尚未安装 Python 转换器，请安装后重启本地服务',
+          json(response, 200, { available: !!converter, engine: converter?.kind || null, maxFileBytes: MAX_PDF_BYTES,
+            message: converter ? '转换服务已就绪' : converterUnavailableMessage(),
             jobs: [...jobs.values()].reverse().map(publicJob) });
         } else if (path === '/uploads' && request.method === 'POST') {
           json(response, 201, await upload(request));

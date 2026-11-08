@@ -26,6 +26,8 @@ python3 desktop/scripts/build.py
 
 脚本构建同一份 `reader/src`，编译 Swift 引擎，执行离线 OCR 自检，生成 `.app` 与 `.dmg`，并复制到 `dist/macos/`。`--app-only` 可只生成应用。构建默认使用无 Finder 自动化的模式，不要求授予 Finder 控制权限。
 
+Swift 引擎通过 `reader/scripts/build-native-engine.mjs` 统一构建，同时供本机网页版与 App 使用；两端的转换运行时均不需要 Python。原生同步和网页回环验收见 [验收记录](../docs/native-web-verification-20261108.md)。
+
 若项目 `build/toolchain/` 内存在 Rust 工具链，脚本会仅对本次构建设置相应环境，不修改系统 PATH。生成资源在 `src-tauri/resources/`，Cargo 产物在 `build/desktop-target/`，均不提交 Git。
 
 ## 验证

@@ -39,7 +39,7 @@ def toolchain_environment() -> dict[str, str]:
 def prepare() -> None:
     if platform.system() != "Darwin":
         raise SystemExit("此构建需要 macOS 与 Xcode。")
-    architecture = {"arm64": "arm64", "x86_64": "x86_64"}.get(platform.machine())
+    architecture = {"arm64": "arm64", "x86_64": "x64"}.get(platform.machine())
     if not architecture:
         raise SystemExit("尚不支持当前处理器架构。")
     run("npm", "run", "build", cwd=ROOT / "reader")
@@ -49,13 +49,10 @@ def prepare() -> None:
     shutil.copytree(ROOT / "reader" / "dist", RESOURCES / "frontend")
     for source in [ROOT / "LICENSE", ROOT / "reader" / "THIRD_PARTY_NOTICES.md"]:
         shutil.copy2(source, RESOURCES / source.name)
-    sources = sorted((DESKTOP / "engine").glob("*.swift"))
-    if not sources:
-        raise SystemExit("尚未找到 Swift 转换引擎源码。")
-    run("xcrun", "swiftc", "-parse-as-library", "-O", "-whole-module-optimization", "-target", f"{architecture}-apple-macosx14.4",
-        "-module-cache-path", BUILD / "swift-module-cache", *sources, "-o", RESOURCES / "scan2ebook-engine")
+    run("node", ROOT / "reader" / "scripts" / "build-native-engine.mjs", "--arch", architecture)
+    shutil.copy2(ROOT / "reader" / "native" / f"darwin-{architecture}" / "scan2ebook-engine",
+                 RESOURCES / "scan2ebook-engine")
     run(RESOURCES / "scan2ebook-engine", "--self-check")
-    run("/usr/bin/codesign", "--force", "--sign", "-", RESOURCES / "scan2ebook-engine")
     icons = BUILD / "desktop-icons"
     run("xcrun", "swift", "-module-cache-path", BUILD / "swift-module-cache", DESKTOP / "scripts" / "make-icon.swift",
         icons, ROOT / "reader" / "src" / "assets" / "brand" / "app-icon-1024.png")

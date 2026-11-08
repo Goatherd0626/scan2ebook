@@ -2,7 +2,7 @@
 
 仅依赖 Foundation、AppKit、PDFKit、Vision、CoreGraphics 和系统 `/usr/bin/ditto`。桌面产物不包含或调用 Python、Node、PyObjC；Python 仅用于开发时启动回环假模型测试。
 
-构建：`sh desktop/engine/build.sh /tmp/scan2ebook-engine`。目标为 arm64 / macOS 13.0，实际运行验证环境为 macOS 26.6.2；未在 macOS 13 真机验证。
+构建：`sh desktop/engine/build.sh /tmp/scan2ebook-engine`。此命令与桌面打包均调用 `reader/scripts/build-native-engine.mjs`，复用网页端相同的引擎产物及本机临时签名。默认构建当前 Node 架构，最低系统版本为 macOS 14.4；可用第二个参数 `arm64` 或 `x64` 指定目标。构建需要 Node 与系统 Xcode 工具链，运行引擎不需要 Node。交叉编译不代表已在对应处理器上验证运行。
 
 CLI：
 

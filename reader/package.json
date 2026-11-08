@@ -15,6 +15,7 @@
     "bin",
     "lib",
     "dist",
+    "native",
     "README.md",
     "THIRD_PARTY_NOTICES.md",
     "LICENSE"
@@ -28,14 +29,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:engine": "node scripts/build-native-engine.mjs",
     "preview": "vite preview",
     "start": "node ./bin/scan2ebook-reader.js",
-    "prepack": "npm run build",
+    "prepack": "npm run build && npm run build:engine",
     "prepublishOnly": "npm test && npm run pack:check",
     "test": "node --import tsx --test test/*.test.mjs",
     "test:smoke": "node --import tsx test/reader-smoke.mjs",
+    "test:native": "node test/native-web-smoke.mjs",
     "test:package": "node scripts/verify-package.mjs",
-    "pack:check": "npm run build && npm run test:package",
+    "pack:check": "npm run build && npm run build:engine && npm run test:package",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
