@@ -25,9 +25,9 @@ async function waitFor(predicate) {
   while (!predicate() && Date.now() < deadline) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 5)); });
   assert.ok(predicate(), '等待文件夹操作完成');
 }
-function folderMenu(name, index) {
+function folderMenu(name, label) {
   const summary = [...document.querySelectorAll('.folder-more summary')].find((element) => element.getAttribute('aria-label') === '文件夹操作 ' + name);
-  summary.click(); summary.closest('details').querySelectorAll('button')[index].click();
+  summary.click(); [...summary.closest('details').querySelectorAll('button')].find(button => button.textContent === label).click();
 }
 
 test('React 文件夹可导航、重命名、移出书籍，并确认递归删除', async () => {
@@ -37,12 +37,12 @@ test('React 文件夹可导航、重命名、移出书籍，并确认递归删�
   assert.equal(document.querySelectorAll('.book-item').length, 1);
   assert.match(document.querySelector('.library-breadcrumbs').textContent, /保留电子书/);
   act(() => document.querySelector('.library-breadcrumbs > button').click());
-  act(() => folderMenu('保留电子书', 0));
+  act(() => folderMenu('保留电子书', '文件夹详情'));
   const name = document.querySelector('[data-folder-key="name"]');
   name.click();
-  const input = name.querySelector('input');
+  const input = document.querySelector('.name-editor input');
   input.value = '重命名后的文件夹';
-  act(() => input.dispatchEvent(new window.Event('blur')));
+  act(() => document.querySelector('[data-name-action="save"]').click());
   await waitFor(() => document.querySelector('[aria-label="打开文件夹 重命名后的文件夹"]'));
   assert.ok(document.querySelector('[aria-label="打开文件夹 重命名后的文件夹"]'));
   act(() => document.querySelector('[aria-label="打开文件夹 重命名后的文件夹"]').click());
@@ -57,12 +57,12 @@ test('React 文件夹可导航、重命名、移出书籍，并确认递归删�
   act(() => document.querySelector('.library-breadcrumbs > button').dispatchEvent(drop));
   await waitFor(() => !document.querySelector('.book-item[data-id="book-move"]') && app.state.books.find((book) => book.id === 'book-move').folderId === null);
   act(() => document.querySelector('.library-breadcrumbs > button').click());
-  act(() => folderMenu('重命名后的文件夹', 1));
+  act(() => folderMenu('重命名后的文件夹', '删除文件夹'));
   assert.match(document.querySelector('.delete-confirmation').textContent, /删除/);
   act(() => document.querySelector('[data-delete-action="confirm"]').click());
   await waitFor(() => !document.querySelector('[aria-label="打开文件夹 重命名后的文件夹"]'));
   assert.equal(app.state.books.some((book) => book.id === 'book-move'), true);
-  act(() => folderMenu('一起删除', 1));
+  act(() => folderMenu('一起删除', '删除文件夹'));
   act(() => document.querySelector('[data-delete-action="confirm"]').click());
   await waitFor(() => !document.querySelector('[aria-label="打开文件夹 一起删除"]'));
   assert.deepEqual(app.state.books.map((book) => book.id), ['book-move']);

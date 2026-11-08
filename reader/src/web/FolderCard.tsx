@@ -9,9 +9,10 @@ type Props = {
   name: string; count: number; onOpen: () => void;
   onDrop: (event: DragEvent<HTMLElement>) => void;
   onDetails: () => void; onDelete: (anchor: HTMLElement | null) => void;
+  onRename: (anchor: HTMLElement | null) => void;
 };
 
-export function FolderCard({ name, count, onOpen, onDrop, onDetails, onDelete }: Props) {
+export function FolderCard({ name, count, onOpen, onDrop, onDetails, onDelete, onRename }: Props) {
   return <article className="folder-card" onDragOver={(event) => {
     if (!event.dataTransfer.types.includes('text/s2e-book')) return;
     event.preventDefault(); event.dataTransfer.dropEffect = 'move'; event.currentTarget.classList.add('drag-over');
@@ -29,6 +30,6 @@ export function FolderCard({ name, count, onOpen, onDrop, onDetails, onDelete }:
     </button>
     <details className="folder-more" name="folder-actions" onKeyDown={(event) => {
       if (event.key === 'Escape') { event.stopPropagation(); event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); }
-    }}><summary aria-label={'文件夹操作 ' + name}><Icon name="more" size={18} /></summary><div className="book-menu"><button onClick={(event) => { event.currentTarget.closest('details')!.open = false; onDetails(); }}>文件夹详情</button><button className="danger" onClick={(event) => { const menu = event.currentTarget.closest('details')!; menu.open = false; onDelete(menu.querySelector('summary')); }}>删除文件夹</button></div></details>
+    }}><summary aria-label={'文件夹操作 ' + name}><Icon name="more" size={18} /></summary><div className="book-menu"><button onClick={event => { const menu = event.currentTarget.closest('details')!; menu.open = false; onRename(menu.querySelector('summary')); }}>重命名</button><button onClick={(event) => { event.currentTarget.closest('details')!.open = false; onDetails(); }}>文件夹详情</button><button className="danger" onClick={(event) => { const menu = event.currentTarget.closest('details')!; menu.open = false; onDelete(menu.querySelector('summary')); }}>删除文件夹</button></div></details>
   </article>;
 }

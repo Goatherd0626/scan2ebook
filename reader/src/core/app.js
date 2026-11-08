@@ -5,6 +5,7 @@ import * as db from './db.js';
 import { parseAnnotationSidecar } from './annotation_format.js';
 import { confirmSheet, promptSheet, selectSheet, showToast } from './dialogs.js';
 import { confirmDelete, cancelDeleteConfirmation } from './delete-confirm.js';
+import { editName, cancelNameEditor } from './name-editor.js';
 import { buildRenderModel, PdfView, TextView, pdfjsLib } from './views.js';
 import { initSidebarResizer, initSplitResizer, layoutDefaults } from './layout_resize.js';
 import { createConversionView } from './conversion.js';
@@ -30,9 +31,11 @@ const expandedHomeFolders = new Set();
 let selectionAnchorId = null;
 let selectedBookId = null;
 let selectedHomeFolderId = null;
+let detailsOpen = false;
 let suppressBookClick = false;
 let conversionView = null;
 let deletingLibrary = false;
+const collapsedSidebarFolders = new Set();
 let settingsSource = { screen: 'library', bookId: null };
 
 /* ============================ 初始化 ============================ */
@@ -70,6 +73,7 @@ export async function init({ mountHome = null } = {}) {
   $('workspace').addEventListener('click', (event) => {
     if (event.target.closest('.dp-close')) {
       event.stopPropagation();
+      detailsOpen = false;
       $('detail-panel').hidden = true;
     }
   });
@@ -145,7 +149,7 @@ function bookRow(b) {
   t.title = '双击编辑标题';
   t.addEventListener('dblclick', (event) => {
     event.stopPropagation();
-    startMetaEdit(row, b, t);
+    renameBook(b.id, row);
   });
   row.appendChild(t);
   const meta = document.createElement('span');
@@ -156,6 +160,9 @@ function bookRow(b) {
     selectBookFromEvent(e, b.id, [...document.querySelectorAll('#library-tree .book-row')].map((item) => item.dataset.id));
   });
   row.addEventListener('dblclick', () => openBook(b.id));
+  row.addEventListener('keydown', event => {
+    if (event.key === 'F2') { event.preventDefault(); event.stopPropagation(); renameBook(b.id, row); }
+  });
   // 拖拽：把书拖到侧边栏文件夹（或首页行）
   cover.draggable = true;
   row.addEventListener('dragstart', (event) => setDraggedBooks(event, b.id));
@@ -166,27 +173,13 @@ function appendBookGroup(parent, books) {
   for (const b of books) parent.appendChild(bookRow(b));
 }
 
-async function startMetaEdit(row, book, titleEl) {
-  const input = document.createElement('input');
-  input.className = 'b-title-input';
-  input.value = book.meta.title || '';
-  titleEl.replaceWith(input);
-  input.focus(); input.select();
-  const done = async () => {
-    book.meta.title = input.value.trim() || book.s2eName || '未命名';
-    await db.updateBook(state.db, book);
-    renderLibrary();
-    refreshTabTitles();
-    toast({ type: 'success', message: '书名已更新' });
-  };
-  input.addEventListener('blur', done);
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') input.blur(); });
-}
-
 function appendFolder(parent, folder) {
   const row = document.createElement('div');
   row.className = 'folder-row';
   row.dataset.id = folder.id;
+  const toggle = document.createElement('button');
+  toggle.type = 'button'; toggle.className = 'folder-toggle';
+  toggle.setAttribute('aria-controls', 'folder-children-' + folder.id);
   const caret = document.createElement('span');
   caret.className = 'f-caret'; caret.textContent = '▾';
   const icon = document.createElement('span');
@@ -194,8 +187,17 @@ function appendFolder(parent, folder) {
   const name = document.createElement('span');
   name.className = 'f-name'; name.textContent = folder.name;
   name.title = '双击重命名';
-  name.addEventListener('dblclick', () => startFolderRename(row, folder, name));
-  row.append(caret, icon, name);
+  name.addEventListener('dblclick', event => { event.stopPropagation(); renameFolder(folder.id, rename); });
+  toggle.append(caret, icon, name);
+  const rename = document.createElement('button');
+  rename.type = 'button'; rename.className = 'folder-rename';
+  rename.setAttribute('aria-label', '重命名文件夹 ' + folder.name);
+  rename.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15l-1 6Z"/></svg>';
+  rename.addEventListener('click', () => renameFolder(folder.id, rename));
+  toggle.addEventListener('keydown', event => {
+    if (event.key === 'F2') { event.preventDefault(); event.stopPropagation(); renameFolder(folder.id, rename); }
+  });
+  row.append(toggle, rename);
   // 拖拽入文件夹：把书（首页行/侧边栏书行）拖到文件夹上松手即移动
   row.addEventListener('dragover', (e) => {
     if (e.dataTransfer.types.includes('text/s2e-book')) {
@@ -214,31 +216,50 @@ function appendFolder(parent, folder) {
     await loadLibrary(); renderLibrary(); renderHome();
     toast({ type: 'success', message: '已将 ' + ids.length + ' 本电子书移入「' + folder.name + '」' });
   });
-  row.addEventListener('click', () => {
-    const ch = parent.querySelector(':scope > .folder-children');
-    if (ch) { ch.hidden = !ch.hidden; caret.textContent = ch.hidden ? '▸' : '▾'; }
-  });
   parent.appendChild(row);
   const children = document.createElement('div');
   children.className = 'folder-children';
+  children.id = 'folder-children-' + folder.id;
+  const syncExpanded = () => {
+    children.hidden = collapsedSidebarFolders.has(folder.id);
+    row.classList.toggle('collapsed', children.hidden);
+    toggle.setAttribute('aria-expanded', String(!children.hidden));
+    caret.textContent = children.hidden ? '▸' : '▾';
+  };
+  toggle.addEventListener('click', () => {
+    if (collapsedSidebarFolders.has(folder.id)) collapsedSidebarFolders.delete(folder.id); else collapsedSidebarFolders.add(folder.id);
+    syncExpanded();
+  });
+  syncExpanded();
   for (const f of state.folders.filter((x) => x.parentId === folder.id)) appendFolder(children, f);
   appendBookGroup(children, state.books.filter((b) => b.folderId === folder.id));
-  if (children.childElementCount) parent.appendChild(children);
+  parent.appendChild(children);
 }
 
-async function startFolderRename(row, folder, nameEl) {
-  const input = document.createElement('input');
-  input.className = 'b-title-input';
-  input.value = folder.name;
-  nameEl.replaceWith(input);
-  input.focus(); input.select();
-  const done = async () => {
-    folder.name = input.value.trim() || '未命名';
-    await db.addFolder(state.db, folder);
-    renderLibrary();
-  };
-  input.addEventListener('blur', done);
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === 'Escape') input.blur(); });
+function renameFolder(id, anchor = null) {
+  const folder = state.folders.find(item => item.id === id);
+  if (!folder) return;
+  return editName({ anchor, title: '重命名文件夹', value: folder.name,
+    returnFocus: () => [...document.querySelectorAll('.folder-row')].find(row => row.dataset.id === id)?.querySelector('.folder-rename'),
+    onSave: async name => {
+      await db.addFolder(state.db, { ...folder, name });
+      await loadLibrary(); renderLibrary(); renderHome();
+      toast({ type: 'success', message: '文件夹名称已更新' });
+    },
+  });
+}
+
+function renameBook(id, anchor = null) {
+  const book = state.books.find(item => item.id === id);
+  if (!book) return;
+  return editName({ anchor, title: '修改书名', value: book.meta.title || book.s2eName || '',
+    returnFocus: () => [...document.querySelectorAll('#library-tree .book-row')].find(row => row.dataset.id === id),
+    onSave: async title => {
+      await db.updateBook(state.db, { ...book, meta: { ...book.meta, title } });
+      await loadLibrary(); renderLibrary(); renderHome(); refreshTabTitles();
+      toast({ type: 'success', message: '书名已更新' });
+    },
+  });
 }
 
 /* ============================ 导入 ============================ */
@@ -423,7 +444,13 @@ function createBookView(book) {
   }, book.prefs || {});
   const prefs = book.prefs;
   view.prefs = prefs;   // 供顶栏视图工具条读取
-  const persistPrefs = () => { book.prefs = prefs; db.updateBook(state.db, book).catch(() => {}); };
+  const persistPrefs = () => {
+    book.prefs = prefs;
+    // 书库刷新会更换记录对象，保存视图偏好时合并当前元数据，避免写回旧书名。
+    const current = state.books.find(item => item.id === book.id) || book;
+    current.prefs = prefs;
+    db.updateBook(state.db, current).catch(() => {});
+  };
   let splitResizer = null;
   const applyPrefs = () => {
     wv.dataset.mode = prefs.viewMode;
@@ -532,6 +559,7 @@ function switchHome() {
 
 function setScreen(screen, bookId = null) {
   cancelDeleteConfirmation();
+  cancelNameEditor();
   document.body.dataset.screen = screen;
   $('settings-view').hidden = screen !== 'settings';
   document.body.classList.remove('reader-tools-open');
@@ -791,7 +819,7 @@ function bindTopbar() {
   });
   document.addEventListener('keydown', (e) => {
     if (document.body.dataset.screen === 'settings') return;
-    if (e.target.closest?.('.delete-confirmation, [data-toast-region], .task-drawer')) return;
+    if (e.target.closest?.('.delete-confirmation, .name-editor, [data-toast-region], .task-drawer')) return;
     if (e.key === 'Escape') {
       $('fn-tooltip').style.display = 'none'; hideContextBar();
       selectedBookIds.clear();
@@ -867,6 +895,7 @@ async function deleteSelectedFolder(folder, anchor = null) {
     }
     for (const id of [...folderIds].reverse()) await db.deleteFolder(state.db, id);
     folderIds.forEach((id) => expandedHomeFolders.delete(id));
+    folderIds.forEach((id) => collapsedSidebarFolders.delete(id));
     selectedHomeFolderId = null;
     selectionAnchorId = null;
     await loadLibrary();
@@ -962,6 +991,7 @@ function syncBookSelectionUI() {
 
 function selectBookFromEvent(event, id, orderedIds) {
   if (suppressBookClick) { suppressBookClick = false; return; }
+  detailsOpen = false;
   selectedHomeFolderId = null;
   const anchorIndex = orderedIds.indexOf(selectionAnchorId);
   const currentIndex = orderedIds.indexOf(id);
@@ -1086,7 +1116,8 @@ async function deleteSelectedBooks(requestedIds = [...selectedBookIds], anchor =
 function renderDetail() {
   const panel = $('detail-panel');
   if (!panel) return;
-  panel.hidden = false;
+  panel.hidden = !detailsOpen;
+  if (!detailsOpen) return;
   if (selectedHomeFolderId) {
     const folder = state.folders.find((item) => item.id === selectedHomeFolderId);
     if (folder) {
@@ -1165,37 +1196,11 @@ function dpField(label, key, value, editable = true) {
 function bindFolderNameEdit(folder) {
   const box = document.querySelector('#detail-panel [data-folder-key="name"]');
   if (!box) return;
-  box.addEventListener('click', (event) => {
-    if (event.target.closest('input')) return;
-    const current = folder.name || '未命名';
-    box.classList.add('editing');
-    box.textContent = '';
-    const input = document.createElement('input');
-    input.className = 'dp-inline';
-    input.value = current;
-    box.appendChild(input);
-    input.focus();
-    input.select();
-    const finish = (save) => async () => {
-      if (input.dataset.done) return;
-      input.dataset.done = '1';
-      const nextName = input.value.trim() || current;
-      if (save && nextName !== current) {
-        folder.name = nextName;
-        await db.addFolder(state.db, folder);
-        await loadLibrary();
-        renderLibrary();
-        renderHome();
-        toast({ type: 'success', message: '文件夹名称已更新' });
-      } else {
-        renderDetail();
-      }
-    };
-    input.addEventListener('blur', finish(true));
-    input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') input.blur();
-      if (event.key === 'Escape') finish(false)();
-    });
+  box.tabIndex = 0; box.setAttribute('role', 'button');
+  box.setAttribute('aria-label', '重命名文件夹 ' + folder.name);
+  box.addEventListener('click', () => renameFolder(folder.id, box));
+  box.addEventListener('keydown', event => {
+    if (['Enter', ' ', 'F2'].includes(event.key)) { event.preventDefault(); event.stopPropagation(); renameFolder(folder.id, box); }
   });
 }
 
@@ -1271,25 +1276,30 @@ export const readerBridge = {
   selectBook: (event, id) => selectBookFromEvent(event, id, visibleHomeBookIds($('home-table'))),
   selectBookOnly(event, id) {
     selectBookFromEvent(event, id, visibleHomeBookIds($('home-table')));
-    $('detail-panel').hidden = true;
   },
   toggleBookSelection(id) {
     selectBookFromEvent({ metaKey: true }, id, visibleHomeBookIds($('home-table')));
-    $('detail-panel').hidden = true;
   },
-  showBookDetails(id) { selectBookFromEvent({}, id, visibleHomeBookIds($('home-table'))); },
+  showBookDetails(id) {
+    selectBookFromEvent({}, id, visibleHomeBookIds($('home-table')));
+    detailsOpen = true; renderDetail();
+  },
   showFolderDetails(id) {
+    detailsOpen = true;
     selectedHomeFolderId = id; selectedBookIds.clear(); selectionAnchorId = null; syncBookSelectionUI();
   },
   clearSelection() {
+    detailsOpen = false;
     selectedBookIds.clear(); selectedHomeFolderId = null; selectionAnchorId = null; syncBookSelectionUI();
   },
   selectAllVisible() {
+    detailsOpen = false;
     selectedBookIds.clear();
     visibleHomeBookIds($('home-table')).forEach((id) => selectedBookIds.add(id));
-    selectedHomeFolderId = null; syncBookSelectionUI(); $('detail-panel').hidden = true;
+    selectedHomeFolderId = null; syncBookSelectionUI();
   },
   selectFolder(id) {
+    detailsOpen = false;
     selectedHomeFolderId = id;
     selectedBookIds.clear(); selectionAnchorId = null;
     if (expandedHomeFolders.has(id)) expandedHomeFolders.delete(id); else expandedHomeFolders.add(id);
@@ -1303,6 +1313,10 @@ export const readerBridge = {
     await loadLibrary(); renderLibrary(); renderHome();
   },
   deleteSelection: deleteCurrentHomeSelection,
+  /** @param {string} id @param {HTMLElement | null} [anchor] */
+  renameFolder(id, anchor = null) { return renameFolder(id, anchor); },
+  /** @param {string} id @param {HTMLElement | null} [anchor] */
+  renameBook(id, anchor = null) { return renameBook(id, anchor); },
   /** @param {string} id @param {HTMLElement | null} [anchor] */
   deleteBook(id, anchor = null) { return deleteSelectedBooks([id], anchor); },
   /** @param {string} id @param {HTMLElement | null} [anchor] */

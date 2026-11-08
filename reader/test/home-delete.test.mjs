@@ -84,7 +84,11 @@ test('React 书库支持增减、连续和框选；删除确认与设置页面�
   await act(async () => { document.querySelector('[data-delete-action="confirm"]').click(); await waitFor(() => app.state.books.length === 1); });
   assert.equal((await dbApi.getBooks(app.state.db)).length, 1);
   const sidebarRow = document.querySelector('#library-tree .book-row');
-  act(() => { sidebarRow.click(); sidebarRow.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true })); });
+  act(() => sidebarRow.click());
+  assert.equal(document.getElementById('detail-panel').hidden, true, '侧栏选择也不应挤出详情面板');
+  act(() => app.readerBridge.showLibrary());
+  assert.equal(document.getElementById('detail-panel').hidden, true, '回到书库不能重新打开未请求的详情');
+  act(() => sidebarRow.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true })));
   assert.match(document.querySelector('.delete-confirmation').textContent, /移出/);
   await act(async () => { document.querySelector('[data-delete-action="confirm"]').click(); await waitFor(() => app.state.books.length === 0); });
   assert.equal((await dbApi.getBooks(app.state.db)).length, 0);

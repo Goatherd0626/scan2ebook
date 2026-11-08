@@ -4,8 +4,8 @@
 
 ## 产物
 
-- `dist/macos/Scan2Ebook.app`，Rare UI 交互更新后约 6.25 MiB。
-- `dist/macos/Scan2Ebook_0.1.0_aarch64.dmg`，Rare UI 交互更新后约 2.40 MiB。
+- `dist/macos/Scan2Ebook.app`，字号与重命名更新后约 6.26 MiB。
+- `dist/macos/Scan2Ebook_0.1.0_aarch64.dmg`，字号与重命名更新后约 2.40 MiB。
 - DMG 可只读挂载，包含应用和指向「应用程序」的安装入口；复制后的应用通过本机签名校验。
 - Rust 与 Swift 可执行文件只依赖系统库；包内不含 Python、Node、Chromium 或开发环境。
 - 使用本机临时签名，未进行 Developer ID 签名和 Apple 公证，也未发布远端版本。
@@ -57,3 +57,7 @@
 ## Rare UI 交互更新
 
 Toast、就地删除、Bounce Sidebar、Gooey Nav 与通知铃铛的行为和浏览器验证结果见 [2026-11-08 验收记录](rare-ui-verification-20261108.md)。App 与安装包已同步构建；继续共用同一套前端，不增加运行时依赖。
+
+## 字号与重命名更新
+
+主导航放大至 16px 并加粗选中项，侧栏书名改为 14px 双行信息布局。文件夹和书名共用直接改名框，文件夹三点菜单无需经过详情；修复误折叠、Esc 误保存、草稿丢失和旧书名回写，详情只按显式操作打开。160 项前端测试及浏览器验证结果见 [字号与重命名验收](readability-verification-20261108.md)。
