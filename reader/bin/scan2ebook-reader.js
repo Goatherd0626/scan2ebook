@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { helpText, parseCliArgs } from '../lib/options.js';
-import { READER_VERSION, startReader } from '../lib/server.js';
+import { READER_VERSION, probeReader, startReader } from '../lib/server.js';
 import { defaultStorageDir } from '../lib/storage.js';
 
 async function main() {
@@ -24,6 +24,12 @@ async function main() {
   }
 
   try {
+    if (options.endpoint) {
+      const { status, url, apiVersion, edition, pid } = await probeReader(options);
+      if (status !== 'reader' || !apiVersion) throw new Error('请先启动支持本机接口的 Scan2Ebook');
+      console.log(JSON.stringify({ url, apiVersion, edition, pid }));
+      return;
+    }
     const reader = await startReader(options);
     if (reader.reused) {
       console.log(`📖 scan2ebook 阅读器已在运行：${reader.url}`);

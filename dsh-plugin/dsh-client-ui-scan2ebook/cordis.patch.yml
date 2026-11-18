@@ -1,8 +1,0 @@
-- insert:
-    - id: scan2ebook
-      name: 'dsh-client-ui-scan2ebook'
-      config:
-        defaultPort: 8765
-        defaultVisionModel: 'deepseek-flash'
-        estimatedPricePerRequest: 0.001
-        scan2ebookCommand: 'scan2ebook'

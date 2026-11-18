@@ -15,6 +15,8 @@ use uuid::Uuid;
 
 const API: &str = "/__scan2ebook__/conversion";
 const STORAGE: &str = "/__scan2ebook__/storage";
+const API_VERSION: u32 = 1;
+const EDITION: &str = "macos";
 const MAX_PDF: u64 = 512 * 1024 * 1024;
 const KINDS: [&str; 3] = ["s2e", "json", "html"];
 const FAILURE: &str = "转换进程已退出，请检查模型、API Key 和账户额度后重试";
@@ -655,7 +657,10 @@ fn route(request: &mut Request, shared: &Arc<Shared>, storage: &Storage, dist: &
     let method = request.method().clone();
     if path == "/__scan2ebook__/health" {
         if method != Method::Get && method != Method::Head { return Err(ApiError::new(405, "不支持此操作")); }
-        return Ok(json_response(200, json!({"app":"scan2ebook-reader","version":env!("CARGO_PKG_VERSION"),"storageDir":storage.directory})));
+        return Ok(json_response(200, json!({
+            "app": "scan2ebook-reader", "version": env!("CARGO_PKG_VERSION"), "storageDir": storage.directory,
+            "apiVersion": API_VERSION, "edition": EDITION, "pid": std::process::id()
+        })));
     }
     if path == STORAGE {
         if method != Method::Get && method != Method::Head { return Err(ApiError::new(405, "不支持此操作")); }
@@ -686,11 +691,17 @@ fn route(request: &mut Request, shared: &Arc<Shared>, storage: &Storage, dist: &
             let args = payload(request, 16 * 1024)?;
             return Ok(json_response(200, shared.remove(None, args["keepUploadId"].as_str())?));
         }
-        if let Some(id) = path.strip_prefix("/uploads/").and_then(|path| path.strip_suffix("/pdf")) {
+        if let Some(upload_path) = path.strip_prefix("/uploads/") {
+            let (id, pdf) = match upload_path.split_once('/') {
+                None => (upload_path, false),
+                Some((id, "pdf")) => (id, true),
+                _ => return Err(ApiError::new(404, "找不到此转换接口")),
+            };
             if method != Method::Get { return Err(ApiError::new(405, "不支持此操作")); }
             let state = shared.state.lock().unwrap();
             let upload = state.uploads.get(id).ok_or_else(|| ApiError::new(404, "找不到这份 PDF，请重新选择文件"))?;
-            return file_response(&shared.upload_path(upload), "application/pdf", "no-store");
+            if pdf { return file_response(&shared.upload_path(upload), "application/pdf", "no-store"); }
+            return Ok(json_response(200, json!(upload)));
         }
         if let Some(job_path) = path.strip_prefix("/jobs/") {
             let parts: Vec<&str> = job_path.split('/').collect();
@@ -721,8 +732,27 @@ fn route(request: &mut Request, shared: &Arc<Shared>, storage: &Storage, dist: &
     file_response(&target, mime(&target), cache)
 }
 
+fn automation_descriptor(url: &str) -> Value {
+    json!({ "url": url, "apiVersion": API_VERSION, "edition": EDITION, "pid": std::process::id() })
+}
+
+fn with_automation_lock(path: &Path, update: impl FnOnce(&Path) -> ApiResult<()>) -> ApiResult<()> {
+    #[cfg(unix)]
+    let _lock = {
+        use std::os::fd::AsRawFd;
+        // 锁定数据目录，避免另一实例在核对归属后、删除前替换发现文件。
+        let directory = File::open(path.parent().unwrap())?;
+        if unsafe { libc::flock(directory.as_raw_fd(), libc::LOCK_EX) } != 0 {
+            return Err(io::Error::last_os_error().into());
+        }
+        directory
+    };
+    update(path)
+}
+
 pub struct Backend {
     pub url: String,
+    automation_path: Option<PathBuf>,
     shared: Arc<Shared>, server: Option<Arc<Server>>, listener: Option<JoinHandle<()>>, stopping: Arc<AtomicBool>,
 }
 
@@ -752,7 +782,15 @@ pub fn start(data_dir: PathBuf, dist_dir: PathBuf, converter_command: Vec<String
             }
         }
     });
-    Ok(Backend { url, shared, server: Some(server), listener: Some(listener), stopping })
+    let path = data_dir.join("automation.json");
+    let automation_path = match with_automation_lock(&path, |path| atomic_json(path, &automation_descriptor(&url))) {
+        Ok(()) => Some(path),
+        Err(error) => {
+            eprintln!("Scan2Ebook 无法写入自动化发现文件 {}：{}", path.display(), error.message);
+            None
+        }
+    };
+    Ok(Backend { url, automation_path, shared, server: Some(server), listener: Some(listener), stopping })
 }
 
 impl Backend {
@@ -760,6 +798,17 @@ impl Backend {
     pub fn shutdown(&mut self) {
         if let Some(server) = self.server.take() {
             self.stopping.store(true, Ordering::Release);
+            if let Some(path) = self.automation_path.take() {
+                let result = with_automation_lock(&path, |path| {
+                    if read_json(path, Value::Null)? == automation_descriptor(&self.url) {
+                        fs::remove_file(path)?;
+                    }
+                    Ok(())
+                });
+                if let Err(error) = result {
+                    eprintln!("Scan2Ebook 无法清理自动化发现文件 {}：{}", path.display(), error.message);
+                }
+            }
             server.unblock();
             if let Some(listener) = self.listener.take() { let _ = listener.join(); }
             drop(server);
@@ -891,6 +940,67 @@ mod tests {
         assert_eq!(fixture.request("POST", &format!("{API}/uploads"), b"", &[("content-type", "application/pdf"), ("content-length", "536870913")]).status, 413);
         let health = fixture.request("GET", "/__scan2ebook__/health", b"", &[]).json();
         assert_eq!(health["app"], "scan2ebook-reader");
+    }
+
+    #[test]
+    fn automation_descriptor_matches_health_and_is_removed_on_shutdown() {
+        let mut fixture = Fixture::new();
+        let path = fixture.root.join("data/automation.json");
+        let descriptor: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert_eq!(descriptor, json!({
+            "url":fixture.backend.url, "apiVersion":1, "edition":"macos", "pid":std::process::id()
+        }));
+        #[cfg(unix)] {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        }
+        let health = fixture.request("GET", "/__scan2ebook__/health", b"", &[]);
+        assert_eq!(health.status, 200);
+        assert_eq!(health.json(), json!({
+            "app":"scan2ebook-reader", "version":env!("CARGO_PKG_VERSION"),
+            "storageDir":fixture.root.join("data"), "apiVersion":1, "edition":"macos", "pid":std::process::id()
+        }));
+        fixture.backend.shutdown();
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn shutdown_leaves_a_replacement_automation_descriptor_in_place() {
+        let mut fixture = Fixture::new();
+        let data = fixture.root.join("data");
+        let path = data.join("automation.json");
+        let mut replacement = start(data, fixture.root.join("dist"), fixture.command.clone()).unwrap();
+        fixture.backend.shutdown();
+        let descriptor: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert_eq!(descriptor["url"], replacement.url);
+        replacement.shutdown();
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn automation_descriptor_write_failure_leaves_backend_usable() {
+        let mut fixture = Fixture::new();
+        fixture.backend.shutdown();
+        let path = fixture.root.join("data/automation.json");
+        fs::create_dir_all(&path).unwrap();
+        fixture.restart();
+        assert_eq!(fixture.request("GET", "/__scan2ebook__/health", b"", &[]).status, 200);
+        fixture.backend.shutdown();
+        assert!(path.is_dir());
+    }
+
+    #[test]
+    fn uploaded_pdf_metadata_is_available_after_restart() {
+        let mut fixture = Fixture::new();
+        let upload = fixture.upload();
+        let path = format!("{API}/uploads/{}", upload["id"].as_str().unwrap());
+        fixture.restart();
+        let metadata = fixture.request("GET", &path, b"", &[]);
+        assert_eq!(metadata.status, 200);
+        assert_eq!(metadata.json(), upload);
+        assert_eq!(fixture.request("GET", &path, b"", &[("origin", "https://attacker.invalid")]).status, 403);
+        assert_eq!(fixture.request("GET", upload["url"].as_str().unwrap(), b"", &[]).body, b"%PDF-1.7\nDesktop fixture");
+        assert_eq!(fixture.request("GET", &format!("{API}/uploads/{}", Uuid::new_v4()), b"", &[]).status, 404);
     }
 
     #[test]

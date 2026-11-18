@@ -173,16 +173,20 @@ test('服务关闭时拒绝尚未开始和随后到达的转换请求', async (t
   assert.equal((await send('/jobs', args)).status, 503);
 });
 
-test('上传预览仅提供已选择 PDF 的同源副本', async (t) => {
+test('上传后可从同源读取准备好的 PDF 元数据与预览', async (t) => {
   const { upload, app, request } = await setup(t);
   const { value } = await upload();
   assert.equal(value.url, API + '/uploads/' + value.id + '/pdf');
+  const metadata = await request('/uploads/' + value.id);
+  assert.equal(metadata.status, 200);
+  assert.deepEqual(await metadata.json(), value);
   const preview = await fetch(app.url + value.url);
   assert.equal(preview.status, 200);
   assert.equal(preview.headers.get('content-type'), 'application/pdf');
   assert.equal(preview.headers.get('cache-control'), 'no-store');
   assert.equal(await preview.text(), '%PDF-1.7\nTest PDF');
   assert.equal((await fetch(app.url + value.url, { headers: { origin: 'https://example.invalid' } })).status, 403);
+  assert.equal((await request('/uploads/not-authorized')).status, 404);
   assert.equal((await request('/uploads/not-authorized/pdf')).status, 404);
   assert.equal((await request('/uploads/%2e%2e%2fprivate/pdf')).status, 404);
 });

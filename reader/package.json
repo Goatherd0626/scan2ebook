@@ -1,8 +1,8 @@
 {
   "name": "scan2ebook-reader",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Local browser reader for page-anchored .s2e ebooks.",
+  "description": "Convert scanned PDFs and read page-anchored .s2e ebooks in a local browser.",
   "license": "MIT",
   "bin": {
     "scan2ebook-reader": "./bin/scan2ebook-reader.js"
@@ -17,6 +17,7 @@
     "dist",
     "native",
     "README.md",
+    "AUTOMATION.md",
     "THIRD_PARTY_NOTICES.md",
     "LICENSE"
   ],

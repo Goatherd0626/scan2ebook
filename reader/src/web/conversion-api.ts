@@ -21,6 +21,7 @@ export function conversionApi(fetchImpl: typeof fetch = (...args) => fetch(...ar
   return {
     status: () => request<Capabilities>(''),
     upload: (file: File) => request<Upload>('/uploads', { method: 'POST', headers: { 'content-type': 'application/pdf', 'x-s2e-filename': encodeURIComponent(file.name) }, body: file }),
+    uploadInfo: (id: string) => request<Upload>('/uploads/' + encodeURIComponent(id)),
     start: (options: StartOptions) => post<ConversionJob>('/jobs', options),
     job: (id: string) => request<ConversionJob>('/jobs/' + id),
     cancel: (id: string) => post<ConversionJob>('/jobs/' + id + '/cancel', {}),

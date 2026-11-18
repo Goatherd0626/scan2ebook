@@ -7,7 +7,7 @@ import { conversionApi, notifyTasksChanged, type ConversionJob, type Upload } fr
 import { Icon } from './Icon';
 import { PdfPreview } from './PdfPreview';
 
-export type ConversionOpen = { jobId?: string; file?: File };
+export type ConversionOpen = { jobId?: string; file?: File; uploadId?: string; pageStart?: string; pageEnd?: string };
 export type ConversionHandle = {
   open: (options?: ConversionOpen) => Promise<void>;
   getDraftUploadId: () => Promise<string | undefined>;
@@ -75,6 +75,15 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
         if (revision !== sourceRevision.current) return;
         setAvailable(state.available === true);
         setServiceMessage(state.available ? '' : state.message || '请先启动本地转换服务');
+        if (options.uploadId) {
+          try {
+            const info = await api.uploadInfo(options.uploadId);
+            if (revision === sourceRevision.current) prepareDraft(info, options.pageStart, options.pageEnd);
+          } catch (failure) {
+            if (revision === sourceRevision.current) toastError(messageOf(failure));
+          }
+          return;
+        }
         const id = options.jobId ?? currentJob.current?.id;
         const target = id ? state.jobs.find(item => item.id === id)
           : !upload && !pendingUpload.current ? state.jobs.find(item => item.status === 'running') : undefined;
@@ -137,6 +146,15 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
     }
   }, [job?.id]);
 
+  function prepareDraft(source: Upload, pageStart = '1', pageEnd = String(source.pages)) {
+    currentJob.current = null;
+    setJob(null);
+    setUpload(source);
+    setFirst(pageStart);
+    setLast(pageEnd);
+    showError();
+  }
+
   async function selectFile(file?: File) {
     if (!file) return;
     if (pendingUpload.current) return;
@@ -147,10 +165,8 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
     setUploading(true);
     pendingUpload.current = api.upload(file);
     try {
-      const info = await pendingUpload.current;
-      currentJob.current = null;
-      setJob(null); setUpload(info); setFirst('1'); setLast(String(info.pages));
-      setAvailable(true); setServiceMessage(''); showError();
+      prepareDraft(await pendingUpload.current);
+      setAvailable(true); setServiceMessage('');
     } catch (failure) {
       toastError(messageOf(failure));
     } finally {

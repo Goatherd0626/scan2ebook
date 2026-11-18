@@ -27,6 +27,16 @@ export function validatePort(value) {
   return port;
 }
 
+export function isLoopbackRequest({ headers }) {
+  const { host, origin } = headers;
+  if (!/^(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/i.test(host || '') || headers['sec-fetch-site'] === 'cross-site') return false;
+  if (!origin) return true;
+  try {
+    const source = new URL(origin);
+    return source.protocol === 'http:' && source.host === host.toLowerCase();
+  } catch { return false; }
+}
+
 export function parseCliArgs(argv) {
   const options = {
     host: DEFAULT_HOST,
@@ -40,6 +50,7 @@ export function parseCliArgs(argv) {
     const arg = argv[index];
     if (arg === '--help' || arg === '-h') options.help = true;
     else if (arg === '--version' || arg === '-v') options.version = true;
+    else if (arg === '--endpoint') options.endpoint = true;
     else if (arg === '--no-open') options.openBrowser = false;
     else if (arg === '--data-dir') options.storageDir = readValue(argv, index++, '--data-dir');
     else if (arg.startsWith('--data-dir=')) options.storageDir = arg.slice('--data-dir='.length);
@@ -66,6 +77,7 @@ export function helpText() {
   --port <port>   监听端口（默认 8765）
   --data-dir <dir> 覆盖数据目录（默认使用系统应用数据目录）
   --no-open       启动后不自动打开浏览器
+  --endpoint      输出运行中的服务地址与接口版本（JSON）
   -h, --help      显示帮助
   -v, --version   显示版本
 

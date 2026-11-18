@@ -101,10 +101,16 @@ export async function init({ mountHome = null } = {}) {
   $('workspace').appendChild(conversionView.element);
   enableCustomTooltips();        // title → 样式化悬浮提示
   initNavigationMotion();
-  const q = new URLSearchParams(location.search).get('book');
-  if (q) openBook(q);
-  else if (new URLSearchParams(location.search).get('view') === 'settings') switchSettings(new URLSearchParams(location.search).get('section'));
-  else if (new URLSearchParams(location.search).get('view') === 'convert') switchConvert();
+  const query = new URLSearchParams(location.search);
+  const book = query.get('book');
+  if (book) openBook(book);
+  else if (query.get('view') === 'settings') switchSettings(query.get('section'));
+  else if (query.get('view') === 'convert') switchConvert({
+    jobId: query.get('job') || undefined,
+    uploadId: query.get('upload') || undefined,
+    pageStart: query.get('pageStart') ?? undefined,
+    pageEnd: query.get('pageEnd') ?? undefined,
+  });
   else switchHome();
 }
 
@@ -573,6 +579,7 @@ function setScreen(screen, bookId = null) {
     if (screen === 'convert' || screen === 'settings') url.searchParams.set('view', screen); else url.searchParams.delete('view');
     if (screen !== 'settings') url.searchParams.delete('section');
     if (bookId) url.searchParams.set('book', bookId); else url.searchParams.delete('book');
+    for (const key of ['job', 'upload', 'pageStart', 'pageEnd']) url.searchParams.delete(key);
     window.history.replaceState(null, '', url);
   }
   for (const [id, selected] of [['nav-library', screen === 'library' || screen === 'reading'], ['nav-convert', screen === 'convert'], ['btn-settings', screen === 'settings']]) {
@@ -585,16 +592,15 @@ function setScreen(screen, bookId = null) {
   }
 }
 
-/** @param {{ jobId?: string, file?: File } | Event | null} [options] */
-async function switchConvert(options = null) {
+/** @param {import('../web/ConversionPage').ConversionOpen} [options] */
+async function switchConvert(options) {
   state.activeBookId = null;
   setScreen('convert');
   for (const tab of state.tabs) tab.wv.hidden = true;
   if ($('home-view')) $('home-view').style.display = 'none';
   renderTabs(); renderToc(); syncViewSwitch();
   bus.emit('book:switch', { bookId: null });
-  const request = options && ('jobId' in options || 'file' in options) ? options : undefined;
-  await conversionView?.open(request);
+  await conversionView?.open(options);
 }
 
 function closeTab(id) {
@@ -816,7 +822,7 @@ function bindTopbar() {
     switchHome();
     window.dispatchEvent(new window.Event('s2e:library-home'));
   });
-  $('nav-convert')?.addEventListener('click', switchConvert);
+  $('nav-convert')?.addEventListener('click', () => switchConvert());
   $('btn-library').addEventListener('click', () => {
     document.body.classList.toggle('sidebar-hidden');
     $('btn-library').classList.toggle('active', !document.body.classList.contains('sidebar-hidden'));
@@ -1292,7 +1298,7 @@ export const readerBridge = {
   subscribe: (listener) => bus.on('library:change', listener),
   openBook,
   importBook: () => $('import-input').click(),
-  showConversion: (jobId) => switchConvert(typeof jobId === 'string' ? { jobId } : null),
+  showConversion: (jobId) => switchConvert(typeof jobId === 'string' ? { jobId } : undefined),
   getDraftUploadId: () => conversionView?.getDraftUploadId(),
   showLibrary: switchHome,
   importConversion: importFile,

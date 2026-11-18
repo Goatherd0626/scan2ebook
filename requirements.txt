@@ -1,5 +1,0 @@
-ocrmac
-pillow
-pymupdf
-openai
-tqdm

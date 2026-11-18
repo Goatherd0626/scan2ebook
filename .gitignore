@@ -1,4 +1,4 @@
-# Python
+# Python 构建与辅助脚本
 .venv/
 __pycache__/
 *.pyc
@@ -21,16 +21,14 @@ vendor/*.zip
 .DS_Store
 
 # 前端构建产物与依赖
-reader/node_modules/
+node_modules/
 reader/dist/
 reader/native/darwin-*/scan2ebook-engine
-dsh-plugin/*/node_modules/
 
 # 隔离开发工作区
 .worktrees/
 
 # macOS 桌面应用构建
-desktop/node_modules/
 desktop/src-tauri/resources/
 desktop/src-tauri/gen/
 desktop/src-tauri/target/

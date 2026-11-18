@@ -8,7 +8,7 @@ const { createConversionView } = await import('../src/core/conversion.js');
 const { act } = await import('react');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-function setup(t, { jobs = [], status = null, onImport = async () => 'book-1' } = {}) {
+function setup(t, { jobs = [], status = null, preparedUpload, onImport = async () => 'book-1' } = {}) {
   const dom = new JSDOM('<main id="workspace"></main>', { url: 'http://127.0.0.1:8765/' });
   globalThis.document = dom.window.document;
   globalThis.window = dom.window;
@@ -16,6 +16,7 @@ function setup(t, { jobs = [], status = null, onImport = async () => 'book-1' } 
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url, options });
     if (url.endsWith('/files/s2e')) return { ok: true, blob: async () => new Blob(['test-book']) };
+    if (preparedUpload && url.endsWith('/uploads/' + preparedUpload.id)) return { ok: true, json: async () => preparedUpload };
     const value = url.endsWith('/uploads') ? { id: 'upload-1', name: '样书.pdf', pages: 3, size: 20 }
       : url.endsWith('/jobs') ? { id: 'job-1', status: 'running', progress: 0, message: '准备转换', files: [] }
         : status ? await status : { available: true, jobs };
@@ -49,6 +50,18 @@ test('选择 PDF 后显示页数、自动填写范围并更新摘要', async (t)
   assert.equal(document.getElementById('conversion-end').value, '3');
   assert.match(document.getElementById('conversion-summary-pages').textContent, /3/);
   assert.equal(document.getElementById('conversion-submit').disabled, false);
+});
+
+test('准备好的 PDF 带入指定页码并等待用户确认', async (t) => {
+  const preparedUpload = { id: 'prepared', name: 'AI 准备的样书.pdf', pages: 5, size: 20 };
+  const { view, submit, calls } = setup(t, { preparedUpload });
+  await act(() => view.open({ uploadId: preparedUpload.id, pageStart: '2', pageEnd: '4' }));
+  assert.equal(document.getElementById('conversion-file-name').textContent, preparedUpload.name);
+  assert.equal(document.getElementById('conversion-summary-pages').textContent, '第 2–4 页 · 共 3 页');
+  assert.equal(await view.getDraftUploadId(), preparedUpload.id);
+  await submit();
+  assert.equal(document.activeElement.id, 'conversion-key');
+  assert.equal(calls.some(call => call.options.method === 'POST'), false);
 });
 
 test('历史仍在加载时选择新 PDF，不会被旧任务覆盖', async (t) => {

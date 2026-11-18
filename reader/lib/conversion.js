@@ -7,6 +7,7 @@ import { createInterface } from 'node:readline';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { resolveConverter, converterUnavailableMessage } from './native-engine.js';
+import { isLoopbackRequest } from './options.js';
 
 export const CONVERSION_PATH = '/__scan2ebook__/conversion';
 const MAX_PDF_BYTES = 512 * 1024 * 1024;
@@ -38,15 +39,6 @@ function json(response, status, value) {
   const body = Buffer.from(JSON.stringify(value));
   response.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'content-length': body.length });
   response.end(body);
-}
-
-function sameOrigin(request) {
-  if (request.headers['sec-fetch-site'] === 'cross-site') return false;
-  if (!request.headers.origin) return true;
-  try {
-    const origin = new URL(request.headers.origin);
-    return origin.protocol === 'http:' && origin.host === request.headers.host;
-  } catch { return false; }
 }
 
 async function payload(request) {
@@ -389,8 +381,9 @@ export async function createConversionManager({ directory, ...options }) {
     async handle(request, response, pathname) {
       if (pathname !== CONVERSION_PATH && !pathname.startsWith(CONVERSION_PATH + '/')) return false;
       try {
-        if (!sameOrigin(request)) throw problem('拒绝跨源访问转换服务', 403);
+        if (!isLoopbackRequest(request)) throw problem('拒绝跨源访问转换服务', 403);
         const path = pathname.slice(CONVERSION_PATH.length);
+        const source = path.match(/^\/uploads\/([^/]+)(\/pdf)?$/);
         if ((path === '' || path === '/') && request.method === 'GET') {
           if ((await Promise.all([...jobs.values()].map(refreshFiles))).some(Boolean)) await persist();
           json(response, 200, { available: !!converter, engine: converter?.kind || null, maxFileBytes: MAX_PDF_BYTES,
@@ -404,10 +397,11 @@ export async function createConversionManager({ directory, ...options }) {
           const body = await payload(request);
           const finished = [...jobs.values()].filter((job) => job.status !== 'running' && !job.child);
           json(response, 200, await removeJobs(finished, { allUnused: true, keepUploadId: body?.keepUploadId }));
-        } else if (/^\/uploads\/[^/]+\/pdf$/.test(path) && request.method === 'GET') {
-          const upload = uploads.get(path.split('/')[2]);
+        } else if (source && request.method === 'GET') {
+          const upload = uploads.get(source[1]);
           if (!upload) throw problem('找不到这份 PDF，请重新选择文件', 404);
-          await sendFile(response, upload.file, { 'content-type': 'application/pdf' });
+          if (source[2]) await sendFile(response, upload.file, { 'content-type': 'application/pdf' });
+          else json(response, 200, publicUpload(upload));
         } else {
           const match = path.match(/^\/jobs\/([^/]+)(?:\/(cancel|files)(?:\/(s2e|json|html))?)?$/);
           const job = match && jobs.get(match[1]);

@@ -10,9 +10,11 @@
 2. 转换 PDF 时确认页码，输入自己本次使用的 DeepSeek API Key。
 3. 完成后阅读或下载电子书。任务中心保留转换历史，并提供取消和清理。
 
-首版为 Apple Silicon，最低 macOS 14.4；实际验收机器为 macOS 26.6.2。应用使用本机临时签名，尚未进行 Apple Developer ID 签名和公证，未作为公开分发版本发布。Intel 尚未验收。
+当前构建面向 Apple Silicon，最低 macOS 14.4，实际验收系统为 macOS 27.2.1。应用使用本机临时签名，公开分发需要 Developer ID 签名和公证。
 
 桌面书库位于 `~/Library/Application Support/com.scan2ebook.desktop/`，与原网页阅读器的 `Scan2Ebook Reader/` 目录分开，不自动修改或迁移原书库。已有电子书可通过「添加书籍」导入。Key 输入在开始任务或离开转换页时清空，只传入转换子进程的临时环境，不进入配置、历史、日志或命令行。退出应用会停止进行中的转换；完成的结果保留，中断任务可以重新转换。
+
+AI 工具可从应用数据目录读取 `automation.json`，再查询书库、准备 PDF 或获取转换结果。 [本机接口说明](../reader/AUTOMATION.md)
 
 ## 开发与构建
 

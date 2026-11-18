@@ -5,7 +5,7 @@ import { dirname, extname, isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { openBrowser as openSystemBrowser } from './open-browser.js';
-import { DEFAULT_HOST, DEFAULT_PORT, validateHost, validatePort } from './options.js';
+import { DEFAULT_HOST, DEFAULT_PORT, isLoopbackRequest, validateHost, validatePort } from './options.js';
 import { ReaderStorage, defaultStorageDir } from './storage.js';
 import { createConversionManager } from './conversion.js';
 
@@ -64,17 +64,6 @@ function sendJson(response, statusCode, value, options = {}) {
   }, options);
 }
 
-function sameOriginRequest(request) {
-  const origin = request.headers.origin;
-  if (!origin) return true;
-  try {
-    const parsed = new URL(origin);
-    return parsed.protocol === 'http:' && parsed.host === request.headers.host;
-  } catch {
-    return false;
-  }
-}
-
 async function readRequestBody(request, limit) {
   const chunks = [];
   let size = 0;
@@ -118,12 +107,17 @@ export function createRequestHandler({
   return async (request, response) => {
     const pathname = new URL(request.url || '/', 'http://reader.local').pathname;
     if (conversion && await conversion.handle(request, response, pathname)) return;
+    if (pathname.startsWith('/__scan2ebook__/') && !isLoopbackRequest(request)) {
+      sendJson(response, 403, { error: '拒绝跨源访问本地服务' });
+      return;
+    }
     if (pathname === HEALTH_PATH) {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
         send(response, 405, 'Method Not Allowed', { allow: 'GET, HEAD', 'content-type': 'text/plain; charset=utf-8' });
         return;
       }
-      const body = JSON.stringify({ app: READER_APP_ID, version, storageDir: storage?.storageDir || null });
+      const body = JSON.stringify({ app: READER_APP_ID, version, storageDir: storage?.storageDir || null,
+        apiVersion: 1, edition: 'web', pid: process.pid });
       send(response, 200, body, {
         'cache-control': 'no-store',
         'content-type': 'application/json; charset=utf-8',
@@ -158,10 +152,6 @@ export function createRequestHandler({
         return;
       }
       if (request.method === 'PUT') {
-        if (!sameOriginRequest(request)) {
-          sendJson(response, 403, { error: '拒绝跨源写入' });
-          return;
-        }
         try {
           await storage.writePdf(bookId, await readRequestBody(request, 1024 * 1024 * 1024));
           sendJson(response, 200, { ok: true });
@@ -179,7 +169,7 @@ export function createRequestHandler({
         send(response, 405, 'Method Not Allowed', { allow: 'POST', 'content-type': 'text/plain; charset=utf-8' });
         return;
       }
-      if (!sameOriginRequest(request) || request.headers['content-type']?.split(';')[0] !== 'application/json') {
+      if (request.headers['content-type']?.split(';')[0] !== 'application/json') {
         sendJson(response, 403, { error: '拒绝跨源或非 JSON 写入' });
         return;
       }
@@ -281,7 +271,8 @@ export async function probeReader({ host = DEFAULT_HOST, port = DEFAULT_PORT, ti
     if (!response.ok) return { status: 'occupied', url };
     const body = await response.json().catch(() => null);
     return body?.app === READER_APP_ID
-      ? { status: 'reader', url, version: body.version, storageDir: body.storageDir || null }
+      ? { status: 'reader', url, version: body.version, storageDir: body.storageDir || null,
+        apiVersion: body.apiVersion, edition: body.edition, pid: body.pid }
       : { status: 'occupied', url };
   } catch {
     return { status: 'free', url };

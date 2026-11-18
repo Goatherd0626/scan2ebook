@@ -1,13 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { createServer as createHttpServer, request as httpRequest } from 'node:http';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import {
   HEALTH_PATH,
   PortInUseError,
+  READER_VERSION,
   createReaderServer,
   startReader,
 } from '../lib/server.js';
@@ -25,9 +29,9 @@ async function makeStorage() {
   return mkdtemp(join(tmpdir(), 'scan2ebook-reader-storage-'));
 }
 
-function rawRequest(port, path, method = 'GET') {
+function rawRequest(port, path, method = 'GET', headers) {
   return new Promise((resolve, reject) => {
-    const request = httpRequest({ host: '127.0.0.1', port, path, method }, (response) => {
+    const request = httpRequest({ host: '127.0.0.1', port, path, method, headers }, (response) => {
       let body = '';
       response.setEncoding('utf8');
       response.on('data', (chunk) => { body += chunk; });
@@ -47,7 +51,8 @@ test('serves health, index and immutable Vite assets', async () => {
   try {
     const health = await fetch(`${instance.url}${HEALTH_PATH}`);
     assert.deepEqual(await health.json(), {
-      app: 'scan2ebook-reader', version: '0.1.0', storageDir: instance.storageDir,
+      app: 'scan2ebook-reader', version: READER_VERSION, storageDir: instance.storageDir,
+      apiVersion: 1, edition: 'web', pid: process.pid,
     });
     assert.equal(health.headers.get('cache-control'), 'no-store');
 
@@ -64,6 +69,19 @@ test('serves health, index and immutable Vite assets', async () => {
     const asset = await fetch(`${instance.url}/assets/app-test.mjs`);
     assert.equal(asset.headers.get('content-type'), 'text/javascript; charset=utf-8');
     assert.equal(asset.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+  } finally {
+    await instance.close();
+  }
+});
+
+test('endpoint 查询报告当前 Web 服务，拒绝非本机 Host 和跨源书库读取', async () => {
+  const instance = await createReaderServer({ port: 0, distDir: await makeDist(), storageDir: await makeStorage() });
+  try {
+    const cli = fileURLToPath(new URL('../bin/scan2ebook-reader.js', import.meta.url));
+    const { stdout } = await promisify(execFile)(process.execPath, [cli, '--port', String(instance.port), '--endpoint']);
+    assert.deepEqual(JSON.parse(stdout), { url: instance.url, apiVersion: 1, edition: 'web', pid: process.pid });
+    assert.equal((await rawRequest(instance.port, HEALTH_PATH, 'GET', { host: 'example.invalid' })).status, 403);
+    assert.equal((await rawRequest(instance.port, '/__scan2ebook__/storage', 'GET', { origin: 'https://example.invalid' })).status, 403);
   } finally {
     await instance.close();
   }
