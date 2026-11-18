@@ -32,9 +32,18 @@ test('React 书库支持增减、连续和框选；删除确认与设置页面�
   assert.equal(document.querySelectorAll('#btn-import').length, 1);
   assert.equal(document.getElementById('batch-bar'), null, '只保留首页一处批量操作');
   assert.equal(document.getElementById('home-batch-bar').hidden, true);
-  const rows = [...document.querySelectorAll('#home-table .book-item')];
+  let rows = [...document.querySelectorAll('#home-table .book-item')];
   act(() => rows[0].querySelector('.book-selection').click());
   assert.equal(document.getElementById('detail-panel').hidden, true, '勾选书籍不弹出详情');
+  const secondMenu = rows[1].querySelector('summary');
+  act(() => {
+    secondMenu.click();
+    [...rows[1].querySelectorAll('.book-menu button')].find(button => button.textContent === '移动到文件夹').click();
+  });
+  assert.equal(document.getElementById('detail-panel').hidden, true);
+  document.querySelector('.app-sheet select').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  assert.equal(document.activeElement, secondMenu);
+  assert.deepEqual(app.readerBridge.snapshot().selectedIds, ['book-a']);
   act(() => { rows[0].querySelector('summary').click(); rows[0].querySelector('.book-menu button').click(); });
   assert.match(document.getElementById('detail-panel').textContent, /第一本/);
   document.querySelector('.dp-close').click();
@@ -42,6 +51,18 @@ test('React 书库支持增减、连续和框选；删除确认与设置页面�
   assert.equal(document.querySelectorAll('.book-selection[aria-checked="true"]').length, 3);
   act(() => rows[1].querySelector('.book-open').dispatchEvent(new window.MouseEvent('click', { bubbles: true, metaKey: true })));
   assert.equal(document.querySelectorAll('.book-selection[aria-checked="true"]').length, 2);
+  const search = document.getElementById('library-filter');
+  const setSearch = value => act(() => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(search, value);
+    search.dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
+  setSearch('第一本');
+  assert.match(document.querySelector('#home-batch-bar > span').textContent, /已选 1 本/);
+  act(() => document.getElementById('home-delete').click());
+  assert.match(document.querySelector('.delete-confirmation').textContent, /第一本/);
+  act(() => document.querySelector('[data-delete-action="cancel"]').click());
+  setSearch('');
+  rows = [...document.querySelectorAll('#home-table .book-item')];
   assert.equal(rows.every((row) => !row.hasAttribute('aria-selected')), true);
   const settingsButton = document.getElementById('btn-settings');
   act(() => { settingsButton.focus(); settingsButton.click(); });

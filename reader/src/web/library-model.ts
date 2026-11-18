@@ -34,18 +34,33 @@ export function continueReading(books: BookRecord[]): BookRecord | null {
     .sort((a, b) => (b.progress?.at || 0) - (a.progress?.at || 0))[0] || null;
 }
 
+function folderScope(folders: FolderRecord[], folderId?: string | null) {
+  if (!folderId) return null;
+  const ids = new Set([folderId]);
+  for (const id of ids) {
+    for (const folder of folders) if (folder.parentId === id) ids.add(folder.id);
+  }
+  return ids;
+}
+
+export function filterFolders(folders: FolderRecord[], { folderId = null, query }: LibraryFilter) {
+  const term = query?.trim().toLocaleLowerCase();
+  if (!term) return folders.filter(folder => (folder.parentId || null) === folderId);
+  const scope = folderScope(folders, folderId);
+  return folders.filter(folder => folder.id !== folderId && (!scope || scope.has(folder.id))
+    && folder.name.toLocaleLowerCase().includes(term));
+}
+
 export function filterLibrary(books: BookRecord[], folders: FolderRecord[], filter: LibraryFilter = {}) {
   const query = filter.query?.trim().toLocaleLowerCase() || '';
-  const folderIds = new Set(filter.folderId ? [filter.folderId] : []);
-  if (filter.folderId) {
-    for (const id of folderIds) folders.filter((f) => f.parentId === id).forEach((f) => folderIds.add(f.id));
-  }
+  const scope = folderScope(folders, filter.folderId);
   const result = books.filter((book) => {
-    if (filter.folderId && (!book.folderId || !folderIds.has(book.folderId))) return false;
+    if (scope && (!book.folderId || !scope.has(book.folderId))) return false;
     if (filter.status === 'unread' && readingPosition(book).position) return false;
     if (filter.status === 'reading' && !readingPosition(book).position) return false;
-    const folder = folders.find((f) => f.id === book.folderId);
-    return !query || [book.meta.title, book.meta.author, book.meta.publisher, book.s2eName, folder?.name]
+    if (!query) return true;
+    const path = folderTrail(folders, book.folderId);
+    return [book.meta.title, book.meta.author, book.meta.publisher, book.s2eName, ...path.map(folder => folder.name)]
       .some((value) => value?.toLocaleLowerCase().includes(query));
   });
   const collator = new Intl.Collator('zh-CN', { numeric: true });

@@ -27,9 +27,7 @@ export const state = {
 
 let appCtx = null;
 const selectedBookIds = new Set();
-const expandedHomeFolders = new Set();
 let selectionAnchorId = null;
-let selectedBookId = null;
 let selectedHomeFolderId = null;
 let detailsOpen = false;
 let suppressBookClick = false;
@@ -99,7 +97,7 @@ export async function init({ mountHome = null } = {}) {
 
   createTopbarViewSwitch();     // 视图工具条（顶栏搜索框右侧，仅开书时显示）
   createHomeView(mountLibrary);
-  conversionView = createConversionView({ onImport: importFile, onRead: openBook });
+  conversionView = createConversionView({ onImport: importFile });
   $('workspace').appendChild(conversionView.element);
   enableCustomTooltips();        // title → 样式化悬浮提示
   initNavigationMotion();
@@ -129,7 +127,7 @@ function emptyLib() {
   d.id = 'empty-hint';
   d.className = 'library-empty-compact';
   d.innerHTML = '<span class="sf i-home-library" aria-hidden="true"></span>'
-    + '<span>暂无电子书</span><small>可在首页或上方按钮导入</small>';
+    + '<span>暂无电子书</span>';
   return d;
 }
 
@@ -157,7 +155,7 @@ function bookRow(b) {
   meta.textContent = (b.meta.author || '').slice(0, 8) + ' · ' + (b.bookJson.pages ? b.bookJson.pages.length : '?') + '页';
   row.appendChild(meta);
   row.addEventListener('click', (e) => {
-    selectBookFromEvent(e, b.id, [...document.querySelectorAll('#library-tree .book-row')].map((item) => item.dataset.id));
+    selectBookFromEvent(e, b.id, visibleBookIds('#library-tree .book-row'));
   });
   row.addEventListener('dblclick', () => openBook(b.id));
   row.addEventListener('keydown', event => {
@@ -207,14 +205,9 @@ function appendFolder(parent, folder) {
     }
   });
   row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
-  row.addEventListener('drop', async (e) => {
+  row.addEventListener('drop', (e) => {
     row.classList.remove('drag-over');
-    const ids = draggedBookIds(e);
-    if (!ids.length) return;
-    e.preventDefault();
-    await db.moveBooks(state.db, ids, folder.id);
-    await loadLibrary(); renderLibrary(); renderHome();
-    toast({ type: 'success', message: '已将 ' + ids.length + ' 本电子书移入「' + folder.name + '」' });
+    dropBooks(e, folder.id);
   });
   parent.appendChild(row);
   const children = document.createElement('div');
@@ -359,39 +352,51 @@ export async function revealPdfSource(view, page) {
   }
 }
 
-function renderTabs() {
-  const tabs = $('tabs');
-  const empty = $('tabs-empty');
-  tabs.querySelectorAll('.tab').forEach((x) => x.remove());
-  // 固定「首页」标签（Zotero 式书库管理页）
-  const homeBtn = document.createElement('button');
-  homeBtn.className = 'tab' + (document.body.dataset.screen === 'library' ? ' active' : '');
-  homeBtn.dataset.navKey = 'library';
-  if (document.body.dataset.screen === 'library') homeBtn.setAttribute('aria-current', 'page');
-  homeBtn.innerHTML = '<span class="sf i-home-library"></span><span>首页</span>';
-  homeBtn.addEventListener('click', switchHome);
-  tabs.appendChild(homeBtn);
-  for (const t of state.tabs) {
-    const book = state.books.find((b) => b.id === t.bookId);
-    if (!book) continue;
-    const btn = document.createElement('button');
-    btn.className = 'tab' + (t.bookId === state.activeBookId ? ' active' : '');
-    btn.dataset.navKey = t.bookId;
-    if (t.bookId === state.activeBookId) btn.setAttribute('aria-current', 'page');
-    const title = document.createElement('span');
-    title.textContent = book.meta.title || book.s2eName || '书';
-    title.style.overflow = 'hidden'; title.style.textOverflow = 'ellipsis';
-    title.style.maxWidth = '130px';
-    const x = document.createElement('span');
-    x.className = 'tab-x';
-    x.setAttribute('aria-label', '关闭标签');
-    x.innerHTML = '<span class="sf i-xmark" aria-hidden="true"></span>';
-    x.addEventListener('click', (e) => { e.stopPropagation(); closeTab(t.bookId); });
-    btn.append(title, x);
-    btn.addEventListener('click', () => switchTab(t.bookId));
-    tabs.appendChild(btn);
+function createTab(key) {
+  const tab = document.createElement('div');
+  tab.className = 'tab';
+  tab.dataset.navKey = key;
+  const open = document.createElement('button');
+  open.type = 'button';
+  open.className = 'tab-open';
+  open.innerHTML = '<span class="tab-label"></span>';
+  tab.append(open);
+  if (key === 'library') {
+    open.insertAdjacentHTML('afterbegin', '<span class="sf i-home-library" aria-hidden="true"></span>');
+    open.addEventListener('click', switchHome);
+  } else {
+    open.addEventListener('click', () => switchTab(key));
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'tab-x';
+    close.innerHTML = '<span class="sf i-xmark" aria-hidden="true"></span>';
+    close.addEventListener('click', () => closeTab(key));
+    tab.append(close);
   }
-  empty.hidden = state.tabs.length > 0;
+  return tab;
+}
+
+function renderTabs() {
+  const host = $('tabs');
+  const existing = new Map([...host.children].map(tab => [tab.dataset.navKey, tab]));
+  const titles = new Map([['library', '首页']]);
+  for (const { bookId } of state.tabs) {
+    const book = state.books.find(book => book.id === bookId);
+    if (book) titles.set(bookId, book.meta.title || book.s2eName || '书');
+  }
+  const active = document.body.dataset.screen === 'library' ? 'library' : state.activeBookId;
+  for (const [key, title] of titles) {
+    const tab = existing.get(key) || host.appendChild(createTab(key));
+    existing.delete(key);
+    tab.classList.toggle('active', key === active);
+    const open = tab.querySelector('.tab-open');
+    if (key === active) open.setAttribute('aria-current', 'page');
+    else open.removeAttribute('aria-current');
+    const label = open.querySelector('.tab-label');
+    if (label.textContent !== title) label.textContent = title;
+    tab.querySelector('.tab-x')?.setAttribute('aria-label', '关闭 ' + title);
+  }
+  for (const tab of existing.values()) tab.remove();
 }
 
 function createBookView(book) {
@@ -516,7 +521,6 @@ export async function openBook(id) {
   if (!book) return;
   const view = createBookView(book);
   state.tabs.push(view);
-  renderTabs();
   switchTab(id);
   bus.emit('book:open', { view, book, bookId: id, model: view.model });
   if (book.progress && book.progress.page) {
@@ -596,6 +600,7 @@ async function switchConvert(options = null) {
 function closeTab(id) {
   const i = state.tabs.findIndex((t) => t.bookId === id);
   if (i < 0) return;
+  const restoreFocus = document.activeElement?.closest('#tabs .tab')?.dataset.navKey === id;
   const [t] = state.tabs.splice(i, 1);
   t.cleanup?.();
   t.wv.remove();
@@ -603,8 +608,13 @@ function closeTab(id) {
   if (state.activeBookId === id) {
     const next = state.tabs[Math.min(i, state.tabs.length - 1)];
     if (next) switchTab(next.bookId); else switchHome();
+  } else {
+    renderTabs();
   }
-  renderTabs();
+  if (restoreFocus) {
+    const next = $('tabs').querySelector('.tab-open[aria-current]');
+    (next || $('tabs').querySelector('.tab:last-child .tab-open'))?.focus();
+  }
 }
 
 function refreshTabTitles() { renderTabs(); }
@@ -822,23 +832,15 @@ function bindTopbar() {
     if (e.target.closest?.('.delete-confirmation, .name-editor, [data-toast-region], .task-drawer')) return;
     if (e.key === 'Escape') {
       $('fn-tooltip').style.display = 'none'; hideContextBar();
-      selectedBookIds.clear();
-      selectedHomeFolderId = null;
-      selectionAnchorId = null;
-      syncBookSelectionUI();
+      clearBookSelection();
     }
-    if (['Delete', 'Backspace'].includes(e.key) && (selectedBookIds.size || selectedHomeFolderId)
-        && (state.activeBookId === null || e.target.closest?.('#library-panel'))
-        && !e.target.closest?.('input, textarea, select, [contenteditable="true"]')) {
-      e.preventDefault();
-      deleteCurrentHomeSelection();
-    }
+    if (['Delete', 'Backspace'].includes(e.key)) deleteSelectionFromKeyboard(e);
   });
   bindBookMarquee($('library-tree'), '.book-row');
   bindRootDropTarget(document.querySelector('#library-panel > .panel-head'));
 }
 
-async function selectFolder() {
+async function selectFolder(anchor) {
   const choices = [{ value: '', label: '书库根目录' }, ...state.folders.map((folder) => {
     const names = [folder.name];
     let parent = state.folders.find((item) => item.id === folder.parentId);
@@ -849,6 +851,7 @@ async function selectFolder() {
     return { value: folder.id, label: names.join(' / ') };
   })];
   const pick = await selectSheet({
+    anchor,
     title: '移动电子书',
     label: '目标文件夹',
     confirmLabel: '移动',
@@ -894,7 +897,6 @@ async function deleteSelectedFolder(folder, anchor = null) {
       });
     }
     for (const id of [...folderIds].reverse()) await db.deleteFolder(state.db, id);
-    folderIds.forEach((id) => expandedHomeFolders.delete(id));
     folderIds.forEach((id) => collapsedSidebarFolders.delete(id));
     selectedHomeFolderId = null;
     selectionAnchorId = null;
@@ -923,19 +925,19 @@ function renderHome() {
     if (!state.books.some((book) => book.id === id)) selectedBookIds.delete(id);
   }
   if (selectedHomeFolderId && !state.folders.some((folder) => folder.id === selectedHomeFolderId)) selectedHomeFolderId = null;
-  selectedBookId = selectedBookIds.size === 1 ? [...selectedBookIds][0] : null;
   bus.emit('library:change');
   renderDetail();
 }
 
-function visibleHomeBookIds(table) {
-  return [...table.querySelectorAll('.ht-row')]
-    .filter((row) => !row.hidden && row.style.display !== 'none')
-    .map((row) => row.dataset.id);
+function visibleBookIds(selector) {
+  return [...document.querySelectorAll(selector)]
+    .filter(row => !row.closest('[hidden]'))
+    .map(row => row.dataset.id);
 }
 
 function setDraggedBooks(event, fallbackId) {
-  const ids = selectedBookIds.has(fallbackId) ? [...selectedBookIds] : [fallbackId];
+  const selector = event.currentTarget.closest('#library-tree') ? '#library-tree .book-row' : '#home-table .ht-row';
+  const ids = selectedBookIds.has(fallbackId) ? visibleBookIds(selector).filter(id => selectedBookIds.has(id)) : [fallbackId];
   event.dataTransfer.setData('text/s2e-books', JSON.stringify(ids));
   event.dataTransfer.setData('text/s2e-book', ids[0]);
   event.dataTransfer.effectAllowed = 'move';
@@ -950,6 +952,32 @@ function draggedBookIds(event) {
   return id ? [id] : [];
 }
 
+async function moveBooksTo(ids, folderId) {
+  const requested = new Set(ids);
+  const moving = state.books.filter(book => requested.has(book.id) && (book.folderId || null) !== folderId);
+  if (!moving.length) return;
+  const folder = state.folders.find(item => item.id === folderId);
+  if (folderId && !folder) {
+    toast({ type: 'error', message: '找不到目标文件夹，请重新选择' });
+    return;
+  }
+  try {
+    await db.moveBooks(state.db, moving.map(book => book.id), folderId);
+    await loadLibrary(); renderLibrary(); renderHome();
+    const destination = folder ? `「${folder.name}」` : '书库根目录';
+    toast({ type: 'success', message: `已将 ${moving.length} 本电子书移到${destination}` });
+  } catch (error) {
+    toast({ type: 'error', message: '电子书未能移动', description: error.message });
+  }
+}
+
+function dropBooks(event, folderId) {
+  const ids = draggedBookIds(event);
+  if (!ids.length) return;
+  event.preventDefault();
+  return moveBooksTo(ids, folderId);
+}
+
 function bindRootDropTarget(target) {
   if (!target) return;
   target.classList.add('root-drop-target');
@@ -960,33 +988,29 @@ function bindRootDropTarget(target) {
     target.classList.add('drag-over');
   });
   target.addEventListener('dragleave', () => target.classList.remove('drag-over'));
-  target.addEventListener('drop', async (event) => {
+  target.addEventListener('drop', (event) => {
     target.classList.remove('drag-over');
-    const ids = draggedBookIds(event);
-    if (!ids.length) return;
-    event.preventDefault();
-    await db.moveBooks(state.db, ids, null);
-    await loadLibrary();
-    renderLibrary();
-    renderHome();
-    toast({ type: 'success', message: '已将 ' + ids.length + ' 本电子书移到书库根目录' });
+    dropBooks(event, null);
   });
 }
 
 function syncBookSelectionUI() {
-  document.querySelectorAll('.book-row, .ht-row').forEach((row) => {
+  document.querySelectorAll('#library-tree .book-row').forEach((row) => {
     const selected = selectedBookIds.has(row.dataset.id);
     row.classList.toggle('selected', selected);
-    if (row.getAttribute('role') !== 'listitem') row.setAttribute('aria-selected', selected ? 'true' : 'false');
+    row.setAttribute('aria-selected', String(selected));
     row.draggable = selected;
   });
-  selectedBookId = selectedBookIds.size === 1 ? [...selectedBookIds][0] : null;
-  const homeDelete = $('home-delete');
-  if (homeDelete) homeDelete.disabled = !selectedBookIds.size && !selectedHomeFolderId;
-  const homeBatch = $('home-batch-bar');
-  if (homeBatch) homeBatch.hidden = selectedBookIds.size === 0;
   renderDetail();
   bus.emit('library:change');
+}
+
+function clearBookSelection() {
+  detailsOpen = false;
+  selectedBookIds.clear();
+  selectedHomeFolderId = null;
+  selectionAnchorId = null;
+  syncBookSelectionUI();
 }
 
 function selectBookFromEvent(event, id, orderedIds) {
@@ -1015,7 +1039,7 @@ function bindBookMarquee(container, rowSelector) {
   let pending = null;
   let marquee = null;
   container.addEventListener('pointerdown', (event) => {
-    const blockedTarget = event.target.closest?.('.folder-row, .book-row[draggable="true"], .ht-row[draggable="true"], button, input, textarea, select, .b-cover[draggable="true"]');
+    const blockedTarget = event.target.closest?.('.folder-row, .book-row[draggable="true"], .ht-row[draggable="true"], button, summary, input, textarea, select, .b-cover[draggable="true"]');
     if (event.button !== 0 || blockedTarget) return;
     const base = (event.metaKey || event.ctrlKey) ? new Set(selectedBookIds) : new Set();
     pending = {
@@ -1065,26 +1089,28 @@ function bindBookMarquee(container, rowSelector) {
       if (selectedBookIds.size === 1) selectionAnchorId = [...selectedBookIds][0];
       syncBookSelectionUI();
     } else if (pending && !pending.startedOnRow && !pending.base.size) {
-      selectedBookIds.clear();
-      selectedHomeFolderId = null;
-      syncBookSelectionUI();
+      clearBookSelection();
     }
     pending = null;
   });
 }
 
 /* ---- 右侧详情面板（Zotero Info 风格：左标签右值，面板内编辑） ---- */
-/** @param {HTMLElement | null} [anchor] */
-async function deleteCurrentHomeSelection(anchor = null) {
-  if (selectedHomeFolderId) {
-    const folder = state.folders.find((item) => item.id === selectedHomeFolderId);
-    if (folder) await deleteSelectedFolder(folder, anchor);
-    return;
-  }
-  await deleteSelectedBooks([...selectedBookIds], anchor);
+function deleteSelectionFromKeyboard(event) {
+  const inSidebar = event.target.closest?.('#library-panel');
+  if (!inSidebar && document.body.dataset.screen !== 'library') return;
+  if (event.target.closest?.('input, textarea, select, [contenteditable="true"], .app-sheet')) return;
+  const selector = inSidebar ? '#library-tree .book-row' : '#home-table .ht-row';
+  const ids = visibleBookIds(selector).filter(id => selectedBookIds.has(id));
+  const folder = !inSidebar && state.folders.find(item => item.id === selectedHomeFolderId);
+  if (!folder && !ids.length) return;
+  event.preventDefault();
+  if (folder) deleteSelectedFolder(folder);
+  else deleteSelectedBooks(ids);
 }
 
-async function deleteSelectedBooks(requestedIds = [...selectedBookIds], anchor = null) {
+/** @param {string[]} requestedIds @param {HTMLElement | null} [anchor] */
+async function deleteSelectedBooks(requestedIds, anchor = null) {
   if (deletingLibrary) return;
   const ids = requestedIds.filter((id) => state.books.some((book) => book.id === id));
   if (!ids.length) return;
@@ -1102,11 +1128,9 @@ async function deleteSelectedBooks(requestedIds = [...selectedBookIds], anchor =
       if (state.tabs.some((tab) => tab.bookId === id)) closeTab(id);
     });
     selectionAnchorId = null;
-    selectedBookId = null;
     await loadLibrary();
     renderLibrary();
     renderHome();
-    renderDetail();
     toast({ type: 'success', message: '已移出 ' + ids.length + ' 本电子书' });
   } catch (error) {
     toast({ type: 'error', message: error.message || '电子书未能移出，请重试' });
@@ -1149,7 +1173,7 @@ function renderDetail() {
       </div>`;
     return;
   }
-  const book = state.books.find((b) => b.id === selectedBookId);
+  const book = state.books.find(b => selectedBookIds.has(b.id));
   if (!book) {
     panel.innerHTML = `
       <div class="dp-head"><span class="dp-title">详细信息</span><button type="button" class="dp-close icon-btn" title="关闭详细信息" aria-label="关闭详细信息"><span class="sf i-xmark"></span></button></div>
@@ -1257,53 +1281,39 @@ async function ctxDbSave(book) {
   await db.updateBook(state.db, book);
   await loadLibrary(); renderLibrary(); renderHome();
   refreshTabTitles();
-  renderDetail();
   toast({ type: 'success', message: '已保存' });
 }
 /* ============================ 工具 ============================ */
 export const readerBridge = {
   snapshot: () => ({
     books: state.books, folders: state.folders,
-    selectedIds: [...selectedBookIds], selectedFolderId: selectedHomeFolderId,
-    expandedIds: [...expandedHomeFolders],
+    selectedIds: [...selectedBookIds],
   }),
   subscribe: (listener) => bus.on('library:change', listener),
   openBook,
   importBook: () => $('import-input').click(),
   showConversion: (jobId) => switchConvert(typeof jobId === 'string' ? { jobId } : null),
+  getDraftUploadId: () => conversionView?.getDraftUploadId(),
   showLibrary: switchHome,
   importConversion: importFile,
-  selectBook: (event, id) => selectBookFromEvent(event, id, visibleHomeBookIds($('home-table'))),
-  selectBookOnly(event, id) {
-    selectBookFromEvent(event, id, visibleHomeBookIds($('home-table')));
-  },
+  selectBook: (event, id) => selectBookFromEvent(event, id, visibleBookIds('#home-table .ht-row')),
   toggleBookSelection(id) {
-    selectBookFromEvent({ metaKey: true }, id, visibleHomeBookIds($('home-table')));
+    selectBookFromEvent({ metaKey: true }, id, visibleBookIds('#home-table .ht-row'));
   },
   showBookDetails(id) {
-    selectBookFromEvent({}, id, visibleHomeBookIds($('home-table')));
+    selectBookFromEvent({}, id, visibleBookIds('#home-table .ht-row'));
     detailsOpen = true; renderDetail();
   },
   showFolderDetails(id) {
     detailsOpen = true;
     selectedHomeFolderId = id; selectedBookIds.clear(); selectionAnchorId = null; syncBookSelectionUI();
   },
-  clearSelection() {
-    detailsOpen = false;
-    selectedBookIds.clear(); selectedHomeFolderId = null; selectionAnchorId = null; syncBookSelectionUI();
-  },
+  clearSelection: clearBookSelection,
   selectAllVisible() {
     detailsOpen = false;
     selectedBookIds.clear();
-    visibleHomeBookIds($('home-table')).forEach((id) => selectedBookIds.add(id));
+    visibleBookIds('#home-table .ht-row').forEach(id => selectedBookIds.add(id));
     selectedHomeFolderId = null; syncBookSelectionUI();
-  },
-  selectFolder(id) {
-    detailsOpen = false;
-    selectedHomeFolderId = id;
-    selectedBookIds.clear(); selectionAnchorId = null;
-    if (expandedHomeFolders.has(id)) expandedHomeFolders.delete(id); else expandedHomeFolders.add(id);
-    syncBookSelectionUI();
   },
   /** @param {string | null} [parentId] */
   async createFolder(parentId = null) {
@@ -1312,33 +1322,23 @@ export const readerBridge = {
     await db.addFolder(state.db, { id: crypto.randomUUID(), name: name.trim(), parentId: typeof parentId === 'string' ? parentId : null });
     await loadLibrary(); renderLibrary(); renderHome();
   },
-  deleteSelection: deleteCurrentHomeSelection,
+  deleteBooks: deleteSelectedBooks,
   /** @param {string} id @param {HTMLElement | null} [anchor] */
   renameFolder(id, anchor = null) { return renameFolder(id, anchor); },
   /** @param {string} id @param {HTMLElement | null} [anchor] */
   renameBook(id, anchor = null) { return renameBook(id, anchor); },
   /** @param {string} id @param {HTMLElement | null} [anchor] */
-  deleteBook(id, anchor = null) { return deleteSelectedBooks([id], anchor); },
-  /** @param {string} id @param {HTMLElement | null} [anchor] */
   deleteFolder(id, anchor = null) {
     const folder = state.folders.find(item => item.id === id);
     return folder ? deleteSelectedFolder(folder, anchor) : Promise.resolve();
   },
-  async moveSelection() {
-    const folder = await selectFolder();
-    if (folder === undefined) return;
-    await db.moveBooks(state.db, [...selectedBookIds], folder);
-    await loadLibrary(); renderLibrary(); renderHome();
+  /** @param {string[]} ids @param {HTMLElement} anchor */
+  async moveBooks(ids, anchor) {
+    const folder = await selectFolder(anchor);
+    if (folder !== undefined) await moveBooksTo(ids, folder);
   },
   dragBooks: setDraggedBooks,
-  async dropBooks(event, folderId) {
-    const ids = draggedBookIds(event);
-    if (!ids.length) return;
-    event.preventDefault();
-    await db.moveBooks(state.db, ids, folderId);
-    if (folderId) expandedHomeFolders.add(folderId);
-    await loadLibrary(); renderLibrary(); renderHome();
-  },
+  dropBooks,
 };
 
 export function enableCustomTooltips(root = document) {

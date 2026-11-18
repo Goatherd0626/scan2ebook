@@ -162,20 +162,6 @@ body.dark #find-strip { background: rgba(32, 30, 25, .92); border-color: rgba(25
 #topbar-right { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 #btn-library.active { background: var(--accent); color: #fff; }
 
-#tabs { display: flex; gap: 4px; overflow-x: auto; flex: 1 1 auto; min-width: 100px; align-items: center; }
-#tabs-empty { color: var(--ink-3); font-size: 12px; padding: 0 6px; }
-.tab {
-  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px;
-  border-radius: var(--r-sm); background: transparent; color: var(--ink-2);
-  font-size: 13px; max-width: 190px; white-space: nowrap;
-  transition: background .15s, color .15s;
-}
-.tab:hover { background: var(--panel-2); }
-.tab.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-card);
-  font-weight: 600; }
-.tab .tab-x { color: var(--ink-3); font-size: 14px; padding: 0 2px; border-radius: 4px; }
-.tab .tab-x:hover { color: var(--danger); background: rgba(176, 72, 58, .1); }
-
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-sm);
   overflow: visible; background: var(--surface); }
 .seg button:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }

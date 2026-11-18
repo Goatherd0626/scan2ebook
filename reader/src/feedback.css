@@ -236,6 +236,20 @@ body.dark {
   .delete-confirmation-action { width: 44px; height: 44px; }
 }
 
+body:has(.task-drawer-mask) #toast[data-toast-region] {
+  bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+@media (max-width: 899px) {
+  body:has(.task-drawer .delete-confirmation) #toast[data-toast-region] { visibility: hidden; }
+}
+@media (min-width: 900px) {
+  body:has(.task-drawer-mask) #toast[data-toast-region] {
+    left: 18px;
+    right: auto;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #toast [data-slot="toast"], #toast [data-slot="toast"] *,
   .delete-confirmation, .delete-confirmation * { animation: none !important; transition: none !important; }

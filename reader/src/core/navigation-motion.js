@@ -73,16 +73,14 @@ function neckPath(gap, span) {
 }
 
 function gooeyNavigation(host) {
-  let values = new Map(), frame = null;
+  let values = new Map(), frame = null, seamCount = 0;
   const prefix = 'gooey-' + ++nextId;
-  function seam(button, index) {
-    let svg = button.querySelector('[data-gooey-seam]');
-    if (svg) return svg;
-    svg = document.createElementNS(SVG, 'svg');
+  function createSeam(button) {
+    const svg = document.createElementNS(SVG, 'svg');
     svg.dataset.gooeySeam = ''; svg.setAttribute('aria-hidden', 'true');
     svg.setAttribute('preserveAspectRatio', 'none');
     const defs = document.createElementNS(SVG, 'defs'), gradient = document.createElementNS(SVG, 'linearGradient');
-    gradient.id = prefix + '-' + index; gradient.setAttribute('x1', '0'); gradient.setAttribute('x2', '1');
+    gradient.id = prefix + '-' + ++seamCount; gradient.setAttribute('x1', '0'); gradient.setAttribute('x2', '1');
     for (const offset of ['0', '1']) {
       const stop = document.createElementNS(SVG, 'stop'); stop.setAttribute('offset', offset); gradient.appendChild(stop);
     }
@@ -93,17 +91,18 @@ function gooeyNavigation(host) {
   }
   const disconnect = observeNavigation(host, '.tab', animate => {
     if (frame !== null) window.cancelAnimationFrame(frame);
-    const buttons = [...host.querySelectorAll('.tab')];
+    const buttons = [...host.querySelectorAll('.tab')].filter(button => window.getComputedStyle(button).display !== 'none');
     const active = buttons.findIndex(button => button.classList.contains('active'));
     const span = parseFloat(window.getComputedStyle(host).getPropertyValue('--gooey-separation')) || 14;
     const open = edge => edge === 0 || edge === buttons.length || edge === active || edge - 1 === active;
     const visible = host.getBoundingClientRect().width > 0;
     const entries = buttons.map((button, index) => {
       const key = button.dataset.navKey || String(index), target = index === 0 ? 0 : open(index) ? span : -1;
-      const svg = index > 0 ? seam(button, index) : null;
+      const svg = button.querySelector('[data-gooey-seam]') || (index > 0 ? createSeam(button) : null);
       button.style.borderTopLeftRadius = button.style.borderBottomLeftRadius = open(index) ? '10px' : '0';
       button.style.borderTopRightRadius = button.style.borderBottomRightRadius = open(index + 1) ? '10px' : '0';
       if (svg) {
+        svg.style.display = index > 0 ? '' : 'none';
         svg.setAttribute('viewBox', `0 0 ${span} 100`); svg.style.width = span + 'px';
         const stops = svg.querySelectorAll('stop');
         stops[0].style.stopColor = index - 1 === active ? 'var(--gooey-active)' : 'var(--gooey-base)';
@@ -124,7 +123,15 @@ function gooeyNavigation(host) {
         values.set(entry.key, gap);
       }
       if (t < 1) frame = window.requestAnimationFrame(paint);
-      else { frame = null; host.dataset.motion = 'still'; }
+      else {
+        frame = null;
+        host.dataset.motion = 'still';
+        if (active < 0 || !visible) return;
+        const viewport = host.getBoundingClientRect();
+        const tab = buttons[active].getBoundingClientRect();
+        if (tab.right > viewport.right) host.scrollLeft += Math.ceil(tab.right - viewport.right);
+        else if (tab.left < viewport.left) host.scrollLeft -= Math.ceil(viewport.left - tab.left);
+      }
     };
     paint(started);
   });

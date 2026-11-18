@@ -5,16 +5,20 @@ import { TaskCenter } from './TaskCenter';
 const logoLight = new URL('../assets/brand/logo.svg', import.meta.url).href;
 const logoDark = new URL('../assets/brand/logo-inverse.svg', import.meta.url).href;
 
-type ShellProps = { onOpenJob?: (id: string) => unknown; onImportTask?: (file: File, id: string) => Promise<string> };
+type ShellProps = {
+  onOpenJob?: (id: string) => unknown;
+  onImportTask?: (file: File, id: string) => Promise<string>;
+  getDraftUploadId?: () => Promise<string | undefined> | undefined;
+};
 
-export function Shell({ onOpenJob, onImportTask }: ShellProps = {}) {
+export function Shell({ onOpenJob, onImportTask, getDraftUploadId }: ShellProps = {}) {
   return <>
     <a className="skip-link" href="#workspace">跳到主要内容</a>
     <header id="topbar">
       <div id="topbar-leading" className="toolbar-group"><Button id="btn-library" className="icon-btn" variant="ghost" size="icon" title="显示或隐藏左侧栏" aria-label="显示或隐藏左侧栏" aria-pressed="true"><span className="sf i-sidebar-left" /></Button></div>
-      <div id="topbar-document" className="toolbar-group"><nav id="tabs" className="gooey-nav" data-navigation="gooey" aria-label="已打开的页面"><span id="tabs-empty">你的数字书桌</span></nav></div>
+      <div id="topbar-document" className="toolbar-group"><nav id="tabs" data-navigation="gooey" aria-label="已打开的页面" /></div>
       <div id="topbar-right"><div id="topbar-context" className="toolbar-group"><div id="plugin-toolbar" /></div><div id="topbar-trailing" className="toolbar-group">
-        <TaskCenter onOpenJob={onOpenJob} onImport={onImportTask} />
+        <TaskCenter onOpenJob={onOpenJob} onImport={onImportTask} getDraftUploadId={getDraftUploadId} />
         <Button id="btn-reader-tools" className="mobile-tools-toggle" variant="outline" aria-expanded="false" aria-controls="topbar-context">阅读工具</Button>
         <Button id="btn-settings" className="icon-btn" variant="ghost" size="icon" title="设置" aria-label="设置"><span className="sf i-gear" /></Button>
         <Button id="btn-import" className="icon-btn text-btn" variant="outline" title="添加 PDF 或 .s2e 电子书" aria-label="添加书籍"><Icon name="plus" size={17} />添加书籍</Button>

@@ -2,14 +2,20 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, 
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card } from '../components/ui/card';
+import { showToast } from '../core/dialogs.js';
 import { conversionApi, notifyTasksChanged, type ConversionJob, type Upload } from './conversion-api';
 import { Icon } from './Icon';
 import { PdfPreview } from './PdfPreview';
 
 export type ConversionOpen = { jobId?: string; file?: File };
-export type ConversionHandle = { open: (options?: ConversionOpen) => Promise<void>; selectFile: (file: File) => Promise<void>; deactivate: () => void };
-export type ConversionProps = { onImport?: (file: File, sourceJobId?: string) => Promise<string>; onRead?: (id: string) => unknown; fetchImpl?: typeof fetch };
+export type ConversionHandle = {
+  open: (options?: ConversionOpen) => Promise<void>;
+  getDraftUploadId: () => Promise<string | undefined>;
+  deactivate: () => void;
+};
+export type ConversionProps = { onImport?: (file: File, sourceJobId?: string) => Promise<string>; fetchImpl?: typeof fetch };
 const messageOf = (error: unknown) => error instanceof Error ? error.message : '操作未完成，请重试';
+const toastError = (message: string) => showToast({ type: 'error', message });
 
 export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(function ConversionPage({ onImport, fetchImpl }, ref) {
   const api = useMemo(() => conversionApi(fetchImpl), [fetchImpl]);
@@ -31,9 +37,9 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
   const [error, setError] = useState('');
   const [errorField, setErrorField] = useState('');
   const [connectionMessage, setConnectionMessage] = useState('');
-  const restored = useRef(false);
   const sourceRevision = useRef(0);
   const currentJob = useRef<ConversionJob | null>(null);
+  const pendingUpload = useRef<Promise<Upload> | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const advanced = useRef<HTMLDetailsElement>(null);
   const busy = submitting || job?.status === 'running';
@@ -60,36 +66,48 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
     async open(options = {}) {
       const revision = ++sourceRevision.current;
       setActive(true); setApiKey(''); setReveal(false); showError();
+      if (options.file) {
+        await selectFile(options.file);
+        return;
+      }
       try {
         const state = await api.status();
+        if (revision !== sourceRevision.current) return;
         setAvailable(state.available === true);
         setServiceMessage(state.available ? '' : state.message || '请先启动本地转换服务');
-        if (revision !== sourceRevision.current) return;
-        const target = options.jobId ? state.jobs?.find((item) => item.id === options.jobId)
-          : currentJob.current ? state.jobs?.find((item) => item.id === currentJob.current?.id)
-            : !restored.current ? state.jobs?.[0] : undefined;
+        const id = options.jobId ?? currentJob.current?.id;
+        const target = id ? state.jobs.find(item => item.id === id)
+          : !upload && !pendingUpload.current ? state.jobs.find(item => item.status === 'running') : undefined;
         if (target) {
-          updateJob(target); setUpload(target.upload);
-          setFirst(String(target.pageStart)); setLast(String(target.pageEnd)); setModel(target.model); setWorkers(String(target.workers));
-        } else if (options.jobId || currentJob.current) { reset(); }
-        restored.current = true;
+          updateJob(target);
+          setUpload(target.upload);
+          setFirst(String(target.pageStart)); setLast(String(target.pageEnd));
+          setModel(target.model); setWorkers(String(target.workers));
+        } else if (id) {
+          reset();
+        }
       } catch {
         if (revision !== sourceRevision.current) return;
         setAvailable(false);
         setServiceMessage('转换服务未连接。请从 Scan2Ebook 本地服务打开此页面，已有电子书仍可正常阅读。');
       }
     },
-    selectFile,
+    async getDraftUploadId() {
+      const pending = await pendingUpload.current?.catch(() => null);
+      return pending?.id ?? (currentJob.current ? undefined : upload?.id);
+    },
     deactivate() { sourceRevision.current += 1; setActive(false); setApiKey(''); setReveal(false); },
-  }), [api, job, uploading, busy]);
+  }));
   useEffect(() => {
     let listening = true;
     const listener = (event: Event) => {
       const detail = (event as CustomEvent<{ removedId?: string; cleanup?: boolean }>).detail;
-      if (detail?.removedId && detail.removedId === currentJob.current?.id) { reset(); return; }
+      const current = currentJob.current;
+      if (!current) return;
+      if (detail?.removedId === current.id) { reset(); return; }
       if (!detail?.cleanup) return;
-      if (currentJob.current?.status !== 'running') { reset(); return; }
-      const id = currentJob.current.id;
+      if (current.status !== 'running') { reset(); return; }
+      const id = current.id;
       api.status().then((state) => {
         if (!listening || currentJob.current?.id !== id) return;
         const remaining = state.jobs.find((item) => item.id === id);
@@ -121,15 +139,24 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
 
   async function selectFile(file?: File) {
     if (!file) return;
-    if (uploading || busy) { showError('当前已有任务，请先等待完成或取消，再更换 PDF'); return; }
-    showError();
-    if (!/\.pdf$/i.test(file.name)) { showError('请选择 PDF 文件，已有 .s2e 电子书可从书库导入'); return; }
-    if (!file.size || file.size > 512 * 1024 * 1024) { showError('PDF 应大于 0 且不超过 512 MB'); return; }
-    sourceRevision.current += 1; restored.current = true;
-    setUploading(true); setUpload(null); setJob(null); currentJob.current = null;
-    try { const info = await api.upload(file); setUpload(info); setFirst('1'); setLast(String(info.pages)); setAvailable(true); setServiceMessage(''); }
-    catch (failure) { showError(messageOf(failure)); }
-    finally { setUploading(false); }
+    if (pendingUpload.current) return;
+    if (busy) { toastError('当前已有任务，请先等待完成或取消，再更换 PDF'); return; }
+    if (!/\.pdf$/i.test(file.name)) { toastError('请选择 PDF 文件，已有 .s2e 电子书可从书库导入'); return; }
+    if (!file.size || file.size > 512 * 1024 * 1024) { toastError('PDF 应大于 0 且不超过 512 MB'); return; }
+    sourceRevision.current += 1;
+    setUploading(true);
+    pendingUpload.current = api.upload(file);
+    try {
+      const info = await pendingUpload.current;
+      currentJob.current = null;
+      setJob(null); setUpload(info); setFirst('1'); setLast(String(info.pages));
+      setAvailable(true); setServiceMessage(''); showError();
+    } catch (failure) {
+      toastError(messageOf(failure));
+    } finally {
+      pendingUpload.current = null;
+      setUploading(false);
+    }
   }
   async function start(event: FormEvent) {
     event.preventDefault();
@@ -152,7 +179,7 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
     if (!job || cancelling) return;
     setCancelling(true);
     try { updateJob(await api.cancel(job.id)); }
-    catch (failure) { showError(messageOf(failure)); }
+    catch (failure) { toastError(messageOf(failure)); }
     finally { setCancelling(false); }
   }
   async function read() {
@@ -161,7 +188,7 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
     setReading(true);
     try {
       await onImport?.(await api.book(file), job.id);
-    } catch (failure) { showError(messageOf(failure)); }
+    } catch (failure) { toastError(messageOf(failure)); }
     finally { setReading(false); }
   }
   function reset() {
@@ -178,11 +205,17 @@ export const ConversionPage = forwardRef<ConversionHandle, ConversionProps>(func
     <header className="converter-heading"><h1>转换 PDF</h1></header>
     <div id="conversion-service" className="cv-notice" role="status" hidden={!serviceMessage}>{serviceMessage}</div>
     <form id="conversion-form" className={'converter-layout' + (job ? ' has-job' : '') + (job && !busy && !completed ? ' retry-state' : '')} noValidate onSubmit={start}>
-      <fieldset id="conversion-fields" disabled={busy || completed}>
+      <fieldset id="conversion-fields" disabled={busy}>
         <section className={'source-panel' + (upload ? ' source-selected' : '')} onDragOver={(event) => { event.preventDefault(); event.currentTarget.classList.add('drag-over'); }} onDragLeave={(event) => event.currentTarget.classList.remove('drag-over')} onDrop={(event) => { event.preventDefault(); event.stopPropagation(); event.currentTarget.classList.remove('drag-over'); selectFile(event.dataTransfer.files[0]); }}>
           <input ref={fileInput} id="conversion-file" type="file" accept=".pdf,application/pdf" hidden onChange={(event) => { selectFile(event.target.files?.[0]); event.target.value = ''; }} />
           <button id="conversion-drop" className={'cv-drop' + (upload ? ' has-file' : '')} type="button" aria-label="选择扫描版 PDF" disabled={uploading} onClick={() => fileInput.current?.click()}>
-            <span className="cv-file-icon"><Icon name={upload ? 'file' : 'upload'} size={upload ? 23 : 34} /></span><span className="source-file-info"><strong id="conversion-file-name">{uploading ? '正在读取 PDF…' : upload?.name || '把 PDF 拖到这里'}</strong><span id="conversion-file-meta">{uploading ? '正在确认页数，文件仅传至本机' : upload ? `${upload.pages} 页 · ${(upload.size / 1024 / 1024).toFixed(1)} MB` : '点击选择扫描版 PDF'}</span></span>{upload ? <span className="source-replace">更换<Icon name="diagonal" size={15} /></span> : <span className="cv-file-tag">最大 512 MB</span>}
+            <span className="cv-file-icon"><Icon name={upload ? 'file' : 'upload'} size={upload ? 23 : 34} /></span>
+            <span className="source-file-info">
+              <strong id="conversion-file-name">{uploading ? '正在读取 PDF…' : upload?.name || '把 PDF 拖到这里'}</strong>
+              <span id="conversion-file-meta">{uploading ? '正在确认页数' : upload ? `${upload.pages} 页 · ${(upload.size / 1024 / 1024).toFixed(1)} MB` : '点击选择扫描版 PDF'}</span>
+            </span>
+            {upload ? !busy && !uploading && <span className="source-replace">更换<Icon name="diagonal" size={15} /></span>
+              : <span className="cv-file-tag">最大 512 MB</span>}
           </button>
           {upload ? <><div className="source-preview-stage">{upload.url ? <PdfPreview url={upload.url} pageNumber={Math.max(1, Math.min(upload.pages, Number(first) || 1))} /> : <div className="preview-placeholder"><Icon name="file" size={40} /><span>PDF 已就绪</span></div>}</div><footer className="source-preview-footer">{upload.url && <a href={upload.url} target="_blank" rel="noopener noreferrer">查看原 PDF<Icon name="diagonal" size={14} /></a>}</footer></> : null}
         </section>

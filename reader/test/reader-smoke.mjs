@@ -83,7 +83,7 @@ const real = errors.filter((e) => !/pdf|PDF|renderTasks|canvas/i.test(e));
 console.log(real.length ? real.join('\n') : '（无）');
 
 /* ==== 首页交互：切到首页 → 单击行选中 → 详情面板 ==== */
-const homeTab = document.querySelectorAll('#tabs .tab')[0];
+const homeTab = document.querySelectorAll('#tabs .tab-open')[0];
 homeTab.click();
 await new Promise((r) => setTimeout(r, 200));
 const firstRow = document.querySelector('#home-table .ht-row');
@@ -118,7 +118,7 @@ console.log('面板回显新作者:', dp2.textContent.includes('测试作者·�
 console.log('=== 阶段错误 ===', errors.filter((e) => !/pdf|PDF|renderTasks|canvas/i.test(e)).join('\n') || '（无）');
 
 /* ==== 每本书视图配置（顶栏工具条）：默认双栏、切换、摊开仅PDF、首页隐藏 ==== */
-document.querySelectorAll('#tabs .tab')[1].click();
+document.querySelectorAll('#tabs .tab-open')[1].click();
 await new Promise((r) => setTimeout(r, 300));
 const vs = document.getElementById('view-switch');
 const bwv = document.querySelector('.book-view');
@@ -140,7 +140,7 @@ console.log('再切仅PDF:', bwv.querySelector('.pdf-panel').classList.contains(
 vs.querySelector('button[data-mode="text"]').click();
 await new Promise((r) => setTimeout(r, 150));
 console.log('仅文字模式:', bwv.dataset.mode, '| PDF面板隐藏:', bwv.querySelector('.pdf-panel').offsetParent === null ? '是' : '否');
-document.querySelectorAll('#tabs .tab')[0].click();
+document.querySelectorAll('#tabs .tab-open')[0].click();
 await new Promise((r) => setTimeout(r, 200));
 console.log('首页时工具条隐藏:', !vs.classList.contains('show'));
 console.log('====');
@@ -160,7 +160,7 @@ console.log('无结果计数:', document.getElementById('find-count').textConten
 setFind('');
 await new Promise((r) => setTimeout(r, 150));
 console.log('清空后表格:', countRowsFn(), '本');
-document.querySelectorAll('#tabs .tab')[1].click();
+document.querySelectorAll('#tabs .tab-open')[1].click();
 await new Promise((r) => setTimeout(r, 300));
 setFind('马克思');
 await new Promise((r) => setTimeout(r, 200));

@@ -289,10 +289,11 @@ test('删除某个任务不会顺带删除其他尚未使用的上传', async (t
   assert.equal((await fetch(app.url + unused.url)).status, 200);
 });
 
-test('清理仅删除结束任务和未引用上传，保留运行任务及其 PDF', async (t) => {
+test('清理保留运行任务和正在编辑的 PDF 草稿', async (t) => {
   const { upload, request, remove, app, root } = await setup(t);
   const used = (await upload()).value;
   const unused = (await upload('%PDF-1.7\nUnused PDF')).value;
+  const draft = (await upload('%PDF-1.7\nDraft PDF')).value;
   const args = { uploadId: used.id, apiKey: key };
   const first = await request('/jobs', args).then((r) => r.json());
   const completed = await settled(request, first.id);
@@ -301,7 +302,7 @@ test('清理仅删除结束任务和未引用上传，保留运行任务及其 P
   await writeFile(unrelated, '保留的文件');
   assert.equal((await remove(active.id)).status, 409);
   assert.equal((await request('/cleanup', {}, { origin: 'https://example.invalid' })).status, 403);
-  const cleaned = await request('/cleanup', {});
+  const cleaned = await request('/cleanup', { keepUploadId: draft.id });
   assert.equal(cleaned.status, 200);
   assert.deepEqual(await cleaned.json(), {
     removedJobs: 1, removedUploads: 1,
@@ -311,10 +312,11 @@ test('清理仅删除结束任务和未引用上传，保留运行任务及其 P
   assert.equal((await request('/jobs/' + active.id).then((r) => r.json())).status, 'running');
   assert.equal((await fetch(app.url + used.url)).status, 200);
   assert.equal((await fetch(app.url + unused.url)).status, 404);
+  assert.equal((await fetch(app.url + draft.url)).status, 200);
   assert.equal(await readFile(unrelated, 'utf8'), '保留的文件');
   const cancelled = await request('/jobs/' + active.id + '/cancel', {}).then((r) => r.json());
   assert.equal(cancelled.status, 'cancelled');
-  const final = await request('/cleanup', {}).then((r) => r.json());
+  const final = await request('/cleanup', { keepUploadId: draft.id }).then((r) => r.json());
   assert.equal(final.removedJobs, 1);
   assert.equal(final.removedUploads, 1);
 });

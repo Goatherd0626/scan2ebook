@@ -74,4 +74,9 @@ test('通知铃铛只提示本次任务的新结果，重复刷新不重复通�
   assert.equal(tab.defaultPrevented, true);
   assert.equal(document.activeElement, document.querySelector('[data-close-tasks]'));
   assert.equal(Boolean(document.querySelector('.delete-confirmation')), false);
+  document.activeElement.blur();
+  const escape = new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+  act(() => document.body.dispatchEvent(escape));
+  assert.equal(document.querySelector('.task-drawer'), null, '任务按钮禁用导致失焦后，Escape 仍可关闭');
+  assert.equal(document.activeElement.id, 'btn-tasks');
 });

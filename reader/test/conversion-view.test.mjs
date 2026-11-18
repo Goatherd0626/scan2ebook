@@ -8,7 +8,7 @@ const { createConversionView } = await import('../src/core/conversion.js');
 const { act } = await import('react');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-function setup(t, { jobs = [], status = null, onImport = async () => 'book-1', onRead = () => {} } = {}) {
+function setup(t, { jobs = [], status = null, onImport = async () => 'book-1' } = {}) {
   const dom = new JSDOM('<main id="workspace"></main>', { url: 'http://127.0.0.1:8765/' });
   globalThis.document = dom.window.document;
   globalThis.window = dom.window;
@@ -22,7 +22,7 @@ function setup(t, { jobs = [], status = null, onImport = async () => 'book-1', o
     return { ok: true, json: async () => value };
   };
   let view;
-  act(() => { view = createConversionView({ fetchImpl, onImport, onRead }); });
+  act(() => { view = createConversionView({ fetchImpl, onImport }); });
   document.getElementById('workspace').append(view.element);
   t.after(() => { act(() => view.deactivate()); dom.window.close(); });
   const upload = async () => {
@@ -130,6 +130,37 @@ test('清理任务后移除已失效的转换结果入口', async (t) => {
   assert.equal(document.getElementById('conversion-result').hidden, true);
   assert.equal(document.getElementById('conversion-submit').disabled, true);
   assert.match(document.getElementById('conversion-file-name').textContent, /把 PDF 拖到这里/);
+});
+
+test('直接打开转换页可选新文件，清理历史保留草稿及页码', async (t) => {
+  const source = { id: 'upload-old', name: '历史扫描件.pdf', pages: 9, size: 30 };
+  const completed = { id: 'completed', upload: source, status: 'completed', pageStart: 1, pageEnd: 9, model: 'test-model', workers: 2, progress: 100, files: [] };
+  const { view, upload, fill } = setup(t, { jobs: [completed] });
+  await act(() => view.open());
+  assert.equal(document.getElementById('conversion-result').hidden, true);
+  assert.match(document.getElementById('conversion-file-name').textContent, /把 PDF 拖到这里/);
+  await upload();
+  await fill('conversion-start', '2');
+  assert.equal(await view.getDraftUploadId(), 'upload-1');
+  act(() => window.dispatchEvent(new window.CustomEvent('s2e:tasks-changed', { detail: { cleanup: true } })));
+  assert.equal(document.getElementById('conversion-start').value, '2');
+  assert.match(document.getElementById('conversion-file-name').textContent, /样书.pdf/);
+});
+
+test('默认恢复正在运行的任务，已完成任务可更换 PDF', async (t) => {
+  const source = { id: 'upload-old', name: '历史扫描件.pdf', pages: 9, size: 30 };
+  const completed = { id: 'completed', upload: source, status: 'completed', pageStart: 1, pageEnd: 9, model: 'test-model', workers: 2, progress: 100, files: [] };
+  const running = { ...completed, id: 'running', status: 'running', progress: 45 };
+  const { view, upload } = setup(t, { jobs: [completed, running] });
+  await act(() => view.open());
+  assert.equal(document.getElementById('conversion-progress').dataset.status, 'running');
+  assert.equal(await view.getDraftUploadId(), undefined);
+  await act(() => view.open({ jobId: 'completed' }));
+  assert.equal(document.getElementById('conversion-result').hidden, false);
+  assert.equal(document.getElementById('conversion-drop').matches(':disabled'), false);
+  await upload();
+  assert.equal(document.getElementById('conversion-result').hidden, true);
+  assert.equal(document.getElementById('conversion-submit').disabled, false);
 });
 
 test('书籍移出书库后仍可由保留的转换结果再次加入', async (t) => {

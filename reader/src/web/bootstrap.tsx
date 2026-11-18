@@ -1,11 +1,15 @@
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { Shell } from './Shell';
-import { init, readerBridge, importFile } from '../core/app.js';
+import { init, readerBridge } from '../core/app.js';
 
 export function startWorkbench() {
   const root = createRoot(document.getElementById('app')!);
-  flushSync(() => root.render(<Shell onOpenJob={(id) => readerBridge.showConversion(id)} onImportTask={(file, id) => importFile(file, id)} />));
+  flushSync(() => root.render(<Shell
+    onOpenJob={readerBridge.showConversion}
+    onImportTask={readerBridge.importConversion}
+    getDraftUploadId={readerBridge.getDraftUploadId}
+  />));
   init().catch(() => {
     const message = document.createElement('p');
     message.className = 'startup-error';

@@ -14,9 +14,8 @@ export function createConversionView(props: ConversionProps = {}) {
     async open(options: ConversionOpen = {}) {
       element.hidden = false;
       await ref.current?.open(options);
-      flushSync(() => {});
-      if (options.file) await ref.current?.selectFile(options.file);
     },
+    getDraftUploadId: () => ref.current?.getDraftUploadId(),
     deactivate() { element.hidden = true; flushSync(() => ref.current?.deactivate()); },
   };
 }

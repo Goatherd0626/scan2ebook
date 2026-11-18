@@ -357,7 +357,7 @@ export async function createConversionManager({ directory, ...options }) {
     return publicJob(job);
   }
 
-  async function removeJobs(selected, allUnused = false) {
+  async function removeJobs(selected, { allUnused = false, keepUploadId } = {}) {
     if (cleaning) throw problem('正在清理转换记录，请稍后再试', 409);
     if (selected.some((job) => job.status === 'running' || job.child)) throw problem('任务仍在运行或退出中，请稍后再删除', 409);
     cleaning = true;
@@ -366,7 +366,8 @@ export async function createConversionManager({ directory, ...options }) {
       const selectedUploads = new Set(selected.map((job) => job.upload.id));
       const referenced = new Set([...jobs.values()].filter((job) => !removing.has(job.id)).map((job) => job.upload.id));
       if (startingUploadId) referenced.add(startingUploadId);
-      const unused = [...uploads.values()].filter((upload) => (allUnused || selectedUploads.has(upload.id)) && !referenced.has(upload.id));
+      const unused = [...uploads.values()].filter((upload) =>
+        upload.id !== keepUploadId && !referenced.has(upload.id) && (allUnused || selectedUploads.has(upload.id)));
       let freedBytes = 0;
       for (const job of selected) {
         freedBytes += await directoryBytes(job.out);
@@ -400,8 +401,9 @@ export async function createConversionManager({ directory, ...options }) {
         } else if (path === '/jobs' && request.method === 'POST') {
           json(response, 202, await start(await payload(request)));
         } else if (path === '/cleanup' && request.method === 'POST') {
-          await payload(request);
-          json(response, 200, await removeJobs([...jobs.values()].filter((job) => job.status !== 'running' && !job.child), true));
+          const body = await payload(request);
+          const finished = [...jobs.values()].filter((job) => job.status !== 'running' && !job.child);
+          json(response, 200, await removeJobs(finished, { allUnused: true, keepUploadId: body?.keepUploadId }));
         } else if (/^\/uploads\/[^/]+\/pdf$/.test(path) && request.method === 'GET') {
           const upload = uploads.get(path.split('/')[2]);
           if (!upload) throw problem('找不到这份 PDF，请重新选择文件', 404);

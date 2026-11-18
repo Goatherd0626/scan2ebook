@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterLibrary, readingPosition, continueReading, folderTrail, folderBookCount } from '../src/web/library-model.ts';
+import { filterFolders, filterLibrary, readingPosition, continueReading, folderTrail, folderBookCount } from '../src/web/library-model.ts';
 
 const books = [
   { id: 'a', s2eName: '山川', importedAt: 30, folderId: 'child', meta: { title: '山川之间', author: '林间' }, bookJson: { pages: [7, 8, 9, 10].map((pdf_page) => ({ pdf_page })) }, progress: { page: 8, at: 100 } },
@@ -17,7 +17,13 @@ test('阅读位置按转换范围里的页序计算，不把原始 PDF 页码当
 test('搜索同时匹配作者和文件夹，父文件夹筛选包含子文件夹', () => {
   assert.deepEqual(filterLibrary(books, folders, { query: '林间' }).map((b) => b.id), ['a']);
   assert.deepEqual(filterLibrary(books, folders, { query: '散文', folderId: 'parent' }).map((b) => b.id), ['a']);
+  assert.deepEqual(filterLibrary(books, folders, { query: '文学' }).map(b => b.id), ['a']);
   assert.deepEqual(filterLibrary(books, folders, { folderId: 'parent' }).map((b) => b.id), ['a']);
+});
+
+test('搜索能找到嵌套文件夹，进入文件夹后搜索仍在其范围内', () => {
+  assert.deepEqual(filterFolders(folders, { query: '散文' }).map(f => f.id), ['child']);
+  assert.deepEqual(filterFolders(folders, { folderId: 'child', query: '文学' }), []);
 });
 
 test('继续阅读选择真正有进度的最近一本，排序不改写书库数组', () => {

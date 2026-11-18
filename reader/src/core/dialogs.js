@@ -17,7 +17,7 @@ function focusableElements(root) {
 
 function openSheet(options, inputOptions = null) {
   activeSheet?.close(null);
-  const source = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const source = options.anchor || (document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const mask = document.createElement('div');
   mask.className = 'app-sheet-mask';
   const dialog = document.createElement('section');
@@ -84,7 +84,7 @@ function openSheet(options, inputOptions = null) {
     controller.abort();
     mask.remove();
     activeSheet = null;
-    source?.focus();
+    source?.focus({ preventScroll: true });
     resolveResult(value);
   };
   activeSheet = { close };

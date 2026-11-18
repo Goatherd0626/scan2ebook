@@ -7,11 +7,15 @@ import { NotificationBell } from '../components/ui/notification-bell';
 import { conversionApi, notifyTasksChanged, type ConversionJob } from './conversion-api';
 import { Icon } from './Icon';
 
-type Props = { onOpenJob?: (id: string) => unknown; onImport?: (file: File, id: string) => Promise<string> };
+type Props = {
+  onOpenJob?: (id: string) => unknown;
+  onImport?: (file: File, id: string) => Promise<string>;
+  getDraftUploadId?: () => Promise<string | undefined> | undefined;
+};
 const labels = { running: '转换中', completed: '已完成', failed: '未完成', cancelled: '已取消', interrupted: '已中断' };
 function bytes(value: number) { return value >= 1024 * 1024 ? (value / 1024 / 1024).toFixed(1) + ' MB' : (value > 0 ? Math.max(1, Math.round(value / 1024)) : 0) + ' KB'; }
 
-export function TaskCenter({ onOpenJob, onImport }: Props) {
+export function TaskCenter({ onOpenJob, onImport, getDraftUploadId }: Props) {
   const [open, setOpen] = useState(false);
   const [jobs, setJobs] = useState<ConversionJob[]>([]);
   const [connected, setConnected] = useState(true);
@@ -65,12 +69,36 @@ export function TaskCenter({ onOpenJob, onImport }: Props) {
     return () => { stopped = true; clearTimeout(timer); };
   }, [hasActive, open, refresh]);
   useEffect(() => {
-    if (!open) return;
-    const source = document.activeElement as HTMLElement | null;
+    const drawer = panel.current;
+    if (!open || !drawer) return;
     const app = document.getElementById('app');
+    const trigger = document.getElementById('btn-tasks');
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closePanel();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = [...drawer.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], [tabindex="0"]')]
+        .filter(item => item.getClientRects().length);
+      const [first] = items;
+      const last = items[items.length - 1];
+      const focused = document.activeElement;
+      if (!drawer.contains(focused) || focused === (event.shiftKey ? first : last)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first)?.focus();
+      }
+    };
     app?.setAttribute('inert', '');
-    panel.current?.querySelector<HTMLButtonElement>('[data-close-tasks]')?.focus();
-    return () => { app?.removeAttribute('inert'); if (source?.isConnected) source.focus(); };
+    drawer.querySelector<HTMLButtonElement>('[data-close-tasks]')?.focus();
+    document.addEventListener('keydown', handleKeydown, true);
+    return () => {
+      document.removeEventListener('keydown', handleKeydown, true);
+      app?.removeAttribute('inert');
+      trigger?.focus({ preventScroll: true });
+    };
   }, [open]);
 
   function closePanel() { openRef.current = false; setOpen(false); }
@@ -86,7 +114,8 @@ export function TaskCenter({ onOpenJob, onImport }: Props) {
     if (!await confirmDelete({ anchor, title: '清理已结束的任务？', message: '将移除转换产物，请先下载所需文件。正在转换的任务和书库不受影响。', confirmLabel: '清理副本' })) return;
     setWorking('cleanup');
     try {
-      const result = await api.cleanup(); notifyTasksChanged({ cleanup: true });
+      const result = await api.cleanup(await getDraftUploadId?.());
+      notifyTasksChanged({ cleanup: true });
       showToast({ type: 'success', message: '已清理 ' + result.removedJobs + ' 项任务', description: '释放 ' + bytes(result.freedBytes) });
     } catch (failure) { reportError(failure, '清理未完成，请重试'); }
     finally { setWorking(null); }
@@ -109,15 +138,7 @@ export function TaskCenter({ onOpenJob, onImport }: Props) {
 
   return <>
     <NotificationBell id="btn-tasks" count={unread.size} progress={active?.progress} className={'task-center-trigger' + (active ? ' has-active-task' : '')} title="通知与转换任务" aria-label={unread.size ? `通知，${unread.size} 条未读` : active ? '通知，正在转换' : '通知'} aria-haspopup="dialog" aria-expanded={open} onClick={() => { openRef.current = true; setUnread(new Set()); setOpen(true); refresh(); }} />
-    {open && createPortal(<div className="task-drawer-mask" onMouseDown={(event) => { if (event.target === event.currentTarget) closePanel(); }}><section ref={panel} className="task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-drawer-title" onKeyDown={(event) => {
-      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closePanel(); }
-      if (event.key === 'Tab') {
-        const items = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], [tabindex="0"]')].filter((item) => item.getClientRects().length);
-        const first = items[0], last = items[items.length - 1];
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-      }
-    }}>
+    {open && createPortal(<div className="task-drawer-mask" onMouseDown={(event) => { if (event.target === event.currentTarget) closePanel(); }}><section ref={panel} className="task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-drawer-title">
       <header className="task-drawer-heading"><div><h2 id="task-drawer-title">通知与任务<span>{jobs.length}</span></h2></div><Button data-close-tasks variant="ghost" size="icon" aria-label="关闭通知与任务" onClick={closePanel}><Icon name="close" /></Button></header>
       {!connected && <div className="task-connection-error" role="status">本机服务暂时无法连接。<button onClick={refresh}>重新连接</button></div>}
       <div className="task-list">{!jobs.length ? <div className="task-empty"><Icon name="activity" size={36} /><h3>还没有转换任务</h3><Button variant="outline" onClick={() => { closePanel(); document.getElementById('nav-convert')?.click(); }}>去转换 PDF<Icon name="arrow" size={17} /></Button></div> : jobs.map((job) => <article className={'task-card task-' + job.status} key={job.id}>

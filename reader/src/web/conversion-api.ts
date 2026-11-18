@@ -25,7 +25,7 @@ export function conversionApi(fetchImpl: typeof fetch = (...args) => fetch(...ar
     job: (id: string) => request<ConversionJob>('/jobs/' + id),
     cancel: (id: string) => post<ConversionJob>('/jobs/' + id + '/cancel', {}),
     remove: (id: string) => request<{ removedJobs: number; removedUploads: number; freedBytes: number }>('/jobs/' + id, { method: 'DELETE' }),
-    cleanup: () => post<{ removedJobs: number; removedUploads: number; freedBytes: number }>('/cleanup', {}),
+    cleanup: (keepUploadId?: string) => post<{ removedJobs: number; removedUploads: number; freedBytes: number }>('/cleanup', { keepUploadId }),
     async book(file: OutputFile) {
       const response = await fetchImpl(file.url);
       if (!response.ok) throw new Error('电子书下载失败，请重试');

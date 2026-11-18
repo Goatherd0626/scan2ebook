@@ -567,7 +567,7 @@ impl Shared {
         self.job(id)
     }
 
-    fn remove(&self, id: Option<&str>) -> ApiResult<Value> {
+    fn remove(&self, id: Option<&str>, keep_upload: Option<&str>) -> ApiResult<Value> {
         let mut state = self.state.lock().unwrap();
         let selected: HashSet<String> = if let Some(id) = id {
             let job = state.jobs.iter().find(|job| job.id == id).ok_or_else(|| ApiError::new(404, "找不到这项转换任务"))?;
@@ -576,7 +576,9 @@ impl Shared {
         } else { state.jobs.iter().filter(|job| job.status != "running" && !state.children.contains_key(&job.id)).map(|job| job.id.clone()).collect() };
         let selected_uploads: HashSet<String> = state.jobs.iter().filter(|job| selected.contains(&job.id)).map(|job| job.upload.id.clone()).collect();
         let referenced: HashSet<String> = state.jobs.iter().filter(|job| !selected.contains(&job.id)).map(|job| job.upload.id.clone()).collect();
-        let uploads: Vec<String> = state.uploads.keys().filter(|upload| !referenced.contains(*upload) && (id.is_none() || selected_uploads.contains(*upload))).cloned().collect();
+        let uploads: Vec<String> = state.uploads.keys().filter(|upload|
+            Some(upload.as_str()) != keep_upload && !referenced.contains(*upload) && (id.is_none() || selected_uploads.contains(*upload))
+        ).cloned().collect();
         let mut freed = 0;
         for id in &selected { let root = self.job_dir(id); freed += directory_bytes(&root)?; remove_directory(&root)?; }
         state.jobs.retain(|job| !selected.contains(&job.id));
@@ -680,7 +682,10 @@ fn route(request: &mut Request, shared: &Arc<Shared>, storage: &Storage, dist: &
             return Ok(json_response(201, shared.upload(&name, request.as_reader())?));
         }
         if path == "/jobs" && method == Method::Post { return Ok(json_response(202, shared.start_job(payload(request, 16 * 1024)?)?)); }
-        if path == "/cleanup" && method == Method::Post { payload(request, 16 * 1024)?; return Ok(json_response(200, shared.remove(None)?)); }
+        if path == "/cleanup" && method == Method::Post {
+            let args = payload(request, 16 * 1024)?;
+            return Ok(json_response(200, shared.remove(None, args["keepUploadId"].as_str())?));
+        }
         if let Some(id) = path.strip_prefix("/uploads/").and_then(|path| path.strip_suffix("/pdf")) {
             if method != Method::Get { return Err(ApiError::new(405, "不支持此操作")); }
             let state = shared.state.lock().unwrap();
@@ -691,7 +696,7 @@ fn route(request: &mut Request, shared: &Arc<Shared>, storage: &Storage, dist: &
             let parts: Vec<&str> = job_path.split('/').collect();
             match parts.as_slice() {
                 [id] if method == Method::Get => return Ok(json_response(200, shared.job(id)?)),
-                [id] if method == Method::Delete => return Ok(json_response(200, shared.remove(Some(id))?)),
+                [id] if method == Method::Delete => return Ok(json_response(200, shared.remove(Some(id), None)?)),
                 [id, "cancel"] if method == Method::Post => { payload(request, 16 * 1024)?; return Ok(json_response(200, shared.cancel(id)?)); }
                 [id, "files", kind] if method == Method::Get => {
                     shared.job(id)?;
@@ -946,17 +951,18 @@ mod tests {
     }
 
     #[test]
-    fn cancellation_cleanup_and_deletion_protect_running_jobs_and_shared_uploads() {
+    fn cleanup_retains_running_jobs_and_the_draft_upload() {
         let fixture = Fixture::new();
         let upload = fixture.upload();
         let unused = fixture.upload();
+        let draft = fixture.upload();
         let first = fixture.job(&upload, "test-success");
         let complete = fixture.settle(first["id"].as_str().unwrap());
         let active = fixture.job(&upload, "test-slow");
         assert!(fixture.backend.busy());
         assert_eq!(fixture.json(&format!("{API}/jobs"), json!({"uploadId":upload["id"],"apiKey":KEY})).status, 409);
         assert_eq!(fixture.request("DELETE", &format!("{API}/jobs/{}", active["id"].as_str().unwrap()), b"", &[]).status, 409);
-        let cleanup = fixture.json(&format!("{API}/cleanup"), json!({}));
+        let cleanup = fixture.json(&format!("{API}/cleanup"), json!({"keepUploadId":draft["id"]}));
         assert_eq!(cleanup.status, 200);
         assert_eq!(cleanup.json()["removedJobs"], 1);
         assert_eq!(cleanup.json()["removedUploads"], 1);
@@ -964,6 +970,7 @@ mod tests {
         assert_eq!(cleanup.json()["freedBytes"], output_bytes + unused["size"].as_u64().unwrap());
         assert_eq!(fixture.request("GET", upload["url"].as_str().unwrap(), b"", &[]).status, 200);
         assert_eq!(fixture.request("GET", unused["url"].as_str().unwrap(), b"", &[]).status, 404);
+        assert_eq!(fixture.request("GET", draft["url"].as_str().unwrap(), b"", &[]).status, 200);
         let cancelled = fixture.json(&format!("{API}/jobs/{}/cancel", active["id"].as_str().unwrap()), json!({}));
         assert_eq!(cancelled.json()["status"], "cancelled");
         assert!(!fixture.backend.busy());
