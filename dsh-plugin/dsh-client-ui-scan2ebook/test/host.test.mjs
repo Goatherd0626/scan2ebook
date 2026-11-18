@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 import { createServer as createHttpServer } from 'node:http'
 import { mkdtempSync } from 'node:fs'
-import { mkdtemp, realpath, writeFile } from 'node:fs/promises'
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import net from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -75,13 +75,19 @@ function createHarness(config = {}, sessions) {
   }
 }
 
-test('plugin starts and terminates its managed reader', async () => {
+test('plugin starts and terminates its managed reader', async (t) => {
+  const distDir = await mkdtemp(join(tmpdir(), 'scan2ebook-plugin-frontend-'))
+  t.after(() => rm(distDir, { recursive: true, force: true }))
+  await writeFile(join(distDir, 'index.html'), '<!doctype html>')
   let openedUrl
-  const harness = createHarness({ openExternalUrl: async (url) => { openedUrl = url } })
+  const harness = createHarness({
+    readerApi: { ...readerApi, startReader: options => readerApi.startReader({ ...options, distDir }) },
+    openExternalUrl: async (url) => { openedUrl = url },
+  })
   const port = await freePort()
   try {
     const started = await harness.rpc('reader-start', { args: { port } })
-    assert.equal(started.ok, true)
+    assert.equal(started.ok, true, started.error?.message)
     assert.equal(started.value.running, true)
     assert.equal(started.value.managed, true)
 
