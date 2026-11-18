@@ -2,7 +2,20 @@
 
 在本机浏览器里管理书库、阅读 `.s2e` 电子书和转换扫描 PDF。Web 通过 Node.js 提供本机服务，转换与 macOS App 共用 Swift 原生引擎，使用系统 PDFKit 和 Vision。转换时由用户输入本次使用的 DeepSeek API Key。原生 PDF 转换要求 macOS 14.4 及以上和匹配处理器架构的引擎。
 
-## 启动当前仓库的改版
+## 安装与启动
+
+使用 Node.js 20.19 或更新版本。npm 的 `0.2.0` 包含 Apple Silicon 原生转换引擎，适用于 macOS 14.4 及以上。其他平台可使用书库与阅读功能。
+
+```sh
+npm install --global scan2ebook-reader@0.2.0
+scan2ebook-reader
+```
+
+也可用 `npx scan2ebook-reader@0.2.0` 临时启动。若已安装早期版本，运行同一条安装命令即可升级，重新启动本机服务后生效。
+
+服务默认打开 `http://127.0.0.1:8765`。点击「添加书籍」后，PDF 会进入转换页，`.s2e` 或电子书 ZIP 会加入书库。预览并确认页码后，输入本次 Key 开始转换。完成后可下载结果或直接加入书库阅读。Key 只用于当前任务，重试需要重新输入。文件上传到本机服务，转换时选中页面会发送给所选模型服务。
+
+## 从源码启动
 
 项目已经构建好时，双击仓库根目录的 `打开 Scan2Ebook.command`，或在本目录运行：
 
@@ -11,8 +24,6 @@ npm start
 ```
 
 首次从源码准备时，在本目录执行 `npm ci`、`npm run build`、`npm run build:engine`。源码构建需要 Node.js 20.19.x 或 22.12 及以上版本和 macOS Xcode 工具链。运行时可使用包内、仓库内或已安装 Scan2Ebook App 中对应架构的原生引擎。
-
-浏览器访问 `http://127.0.0.1:8765`。点击「添加书籍」：PDF 会自动进入转换页，`.s2e` 或电子书 ZIP 会直接导入书库。转换前可预览原页、确认页码，再输入本次 Key 后开始；完成后可下载结果或直接加入书库阅读。Key 不存储，重试需要重新输入。文件只上传到本机服务，转换时选中页面会发送给所选模型服务。
 
 网页转换的产物保存在应用数据目录的 `conversions/`，可通过下载按钮另存。
 
@@ -36,34 +47,6 @@ npm run build:engine
 操作提示统一使用 Toast；删除、导航和通知的后续开发约定见 [前端交互约定](../docs/frontend-ui.md)。
 
 自动化验证使用隔离的 `--data-dir` 和 `test/fixtures/converter.mjs` 模拟进程，不调用真实模型，也不读取用户书库。默认原生引擎的完整本机验收可运行 `npm run test:native -- --pdf /path/to/self-made.pdf`：使用自制 PDF、仅回环模拟模型和隔离数据目录，验证真实 Swift 引擎、下载及取消清理。桌面版见 [`../desktop/README.md`](../desktop/README.md)。
-
-## 安装
-
-npm 上的 `scan2ebook-reader@0.1.0` 是此前发布的阅读版。使用转换或本机接口时，请按上方步骤从当前源码运行。
-
-需要 Node.js 20.19 或更高版本；转换还需 macOS 14.4 及以上和包内对应处理器架构的引擎。其他平台可使用书库与阅读。
-
-```bash
-npm install --global scan2ebook-reader
-```
-
-## 启动
-
-```bash
-scan2ebook-reader
-```
-
-阅读器会自动在系统默认浏览器中打开。也可以直接访问：
-
-```text
-http://127.0.0.1:8765
-```
-
-如果不想全局安装，可以临时启动：
-
-```bash
-npx scan2ebook-reader
-```
 
 ## 使用方法
 

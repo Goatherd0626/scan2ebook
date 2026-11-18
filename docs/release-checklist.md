@@ -2,8 +2,8 @@
 
 ## 发布状态
 
-- 当前源码版本为 0.2.0。2026-11-18 核对，npm 的 `scan2ebook-reader@0.1.0` 为早期阅读器。原生转换与本机自动化以当前源码和本地构建为准。 [npm 版本记录](https://www.npmjs.com/package/scan2ebook-reader?activeTab=versions)
-- GitHub Releases 暂无安装包。本地 `.app` 和 `.dmg` 使用临时签名，公开分发前需完成 Developer ID 签名和公证。 [GitHub Releases](https://github.com/Goatherd0626/scan2ebook/releases) · [桌面版说明](../desktop/README.md)
+- Web 通过 npm 分发，`0.2.0` 包含 Apple Silicon 原生引擎和本机自动化接口。 [npm 版本记录](https://www.npmjs.com/package/scan2ebook-reader?activeTab=versions)
+- macOS 桌面包通过 GitHub Release 分发。`v0.2.0` 的 Apple Silicon DMG 使用临时签名，首次打开的处理见安装文档。 [GitHub Release](https://github.com/Goatherd0626/scan2ebook/releases/tag/v0.2.0) · [桌面版说明](../desktop/README.md)
 
 ## 发布前
 

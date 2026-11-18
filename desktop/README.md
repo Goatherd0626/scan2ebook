@@ -2,15 +2,15 @@
 
 复用网页的书库、转换和阅读界面。Tauri 使用系统 WebKit；Rust 管理书库和转换任务，Swift 直接使用 PDFKit 与 Vision。应用不包含 Python、Node 或浏览器运行时。
 
-## 使用
+## 安装与使用
 
-本地构建产物放在 `dist/macos/`。打开 `.dmg`，将 **Scan2Ebook** 拖到「应用程序」，也可以直接打开 `Scan2Ebook.app`。
+从 GitHub Release 下载 [Scan2Ebook 0.2.0 DMG](https://github.com/Goatherd0626/scan2ebook/releases/download/v0.2.0/Scan2Ebook_0.2.0_aarch64.dmg)。打开 DMG，将 **Scan2Ebook** 拖到「应用程序」，然后从「应用程序」打开它。
 
 1. 添加 PDF 或已有的 `.s2e` 电子书。
 2. 转换 PDF 时确认页码，输入自己本次使用的 DeepSeek API Key。
 3. 完成后阅读或下载电子书。任务中心保留转换历史，并提供取消和清理。
 
-当前构建面向 Apple Silicon，最低 macOS 14.4，实际验收系统为 macOS 27.2.1。应用使用本机临时签名，公开分发需要 Developer ID 签名和公证。
+发行包面向 Apple Silicon，最低 macOS 14.4，实际验收系统为 macOS 27.2.1。应用采用临时签名，尚未经过 Apple 公证。若从上述官方 Release 下载，首次打开时遇到无法验证开发者的提示，可先尝试打开 App，再到「系统设置 → 隐私与安全性」为该 App 选择「仍要打开」。 [Apple 官方说明](https://support.apple.com/zh-cn/102445)
 
 桌面书库位于 `~/Library/Application Support/com.scan2ebook.desktop/`，与原网页阅读器的 `Scan2Ebook Reader/` 目录分开，不自动修改或迁移原书库。已有电子书可通过「添加书籍」导入。Key 输入在开始任务或离开转换页时清空，只传入转换子进程的临时环境，不进入配置、历史、日志或命令行。退出应用会停止进行中的转换；完成的结果保留，中断任务可以重新转换。
 

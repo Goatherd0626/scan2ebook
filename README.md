@@ -4,18 +4,16 @@
 
 Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时可以在原 PDF 和识别文字之间双向跳转，查看原始页码，适合阅读史料、旧书、扫描教材和论文参考文献。
 
-当前源码版本 **0.2.0** · [MIT License](LICENSE)
+当前版本 **0.2.0** · [MIT License](LICENSE)
 
 ## 使用方式
 
 | 入口 | 功能 | 获取方式 |
 |---|---|---|
-| macOS 独立应用 | 转换、书库、阅读和本机自动化 | 本地构建 `.app` 或 `.dmg`，见 [桌面版说明](desktop/README.md) |
-| 本机网页版 | 转换、书库、阅读和本机自动化 | 从当前仓库启动或自行构建 npm 包，见 [网页版说明](reader/README.md) |
+| macOS 独立应用 | 转换、书库、阅读和本机自动化 | [下载 0.2.0 DMG](https://github.com/Goatherd0626/scan2ebook/releases/download/v0.2.0/Scan2Ebook_0.2.0_aarch64.dmg) |
+| 本机网页版 | 转换、书库、阅读和本机自动化 | [npm `scan2ebook-reader@0.2.0`](https://www.npmjs.com/package/scan2ebook-reader/v/0.2.0) |
 
 Web 和 App 共用 Swift 原生引擎，使用 macOS 的 PDFKit 和 Vision。此前为 DSH 和旧命令行工作流保留的插件、Skill 和 Python 转换器已退役。
-
-目前 GitHub Releases 暂无安装包，npm 上的 `scan2ebook-reader@0.1.0` 是早期阅读器。使用本文所述功能请从当前源码构建。 [GitHub Releases](https://github.com/Goatherd0626/scan2ebook/releases) · [npm 版本记录](https://www.npmjs.com/package/scan2ebook-reader?activeTab=versions)
 
 ## 你可以用它做什么
 
@@ -27,13 +25,18 @@ Web 和 App 共用 Swift 原生引擎，使用 macOS 的 PDFKit 和 Vision。此
 
 ## macOS 独立应用
 
-在 Apple Silicon Mac 上使用，最低要求 macOS 14.4。桌面应用内置原生转换器，运行时无需安装 Python 或 Node.js。打开 `dist/macos/` 下本地构建的 `.dmg`，将 Scan2Ebook 拖到「应用程序」即可。桌面包目前使用本机临时签名，尚未进行 Developer ID 签名和公证。 [桌面版构建说明](desktop/README.md)
+在 Apple Silicon Mac 上使用，最低要求 macOS 14.4。打开从 GitHub Release 下载的 DMG，将 Scan2Ebook 拖到「应用程序」。桌面包采用临时签名。首次打开时若 macOS 提示无法验证开发者，请查看桌面版说明。 [桌面安装说明](desktop/README.md)
 
 ## 本机网页版
 
-网页版通过本机 Node.js 服务运行。匹配架构的原生引擎用于 macOS 14.4 及以上版本的 PDF 转换。Windows 和 Linux 可使用书库与阅读功能。 [网页版安装和构建说明](reader/README.md)
+安装 Node.js 20.19 或更新版本，然后通过终端安装并启动网页版。
 
-首次构建后，双击仓库根目录的 **`打开 Scan2Ebook.command`**，或在 `reader/` 下运行 `npm start`。服务默认在 `http://127.0.0.1:8765` 提供页面。
+```sh
+npm install --global scan2ebook-reader@0.2.0
+scan2ebook-reader
+```
+
+服务默认在 `http://127.0.0.1:8765` 打开页面。此 npm 版本内置 Apple Silicon 原生引擎，支持在 macOS 14.4 及以上转换 PDF。Windows 和 Linux 可使用书库与阅读功能。 [网页版安装和构建说明](reader/README.md)
 
 ## 转换与阅读
 
