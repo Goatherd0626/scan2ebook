@@ -4,14 +4,14 @@
 
 ## 安装与启动
 
-使用 Node.js 20.19 或更新版本。npm 的 `0.2.0` 包含 Apple Silicon 原生转换引擎，适用于 macOS 14.4 及以上。其他平台可使用书库与阅读功能。
+使用 Node.js 20.19 或更新版本。npm 的 `0.2.1` 包含 Apple Silicon 原生转换引擎，适用于 macOS 14.4 及以上。其他平台可使用书库与阅读功能。
 
 ```sh
-npm install --global scan2ebook-reader@0.2.0
+npm install --global scan2ebook-reader@0.2.1
 scan2ebook-reader
 ```
 
-也可用 `npx scan2ebook-reader@0.2.0` 临时启动。若已安装早期版本，运行同一条安装命令即可升级，重新启动本机服务后生效。
+也可用 `npx scan2ebook-reader@0.2.1` 临时启动。若已安装早期版本，运行同一条安装命令即可升级，重新启动本机服务后生效。
 
 服务默认打开 `http://127.0.0.1:8765`。点击「添加书籍」后，PDF 会进入转换页，`.s2e` 或电子书 ZIP 会加入书库。预览并确认页码后，输入本次 Key 开始转换。完成后可下载结果或直接加入书库阅读。Key 只用于当前任务，重试需要重新输入。文件上传到本机服务，转换时选中页面会发送给所选模型服务。
 

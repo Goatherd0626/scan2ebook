@@ -10,13 +10,13 @@
 
 ## 本机网页版
 
-检查 Node.js 是否为 20.19 或更新版本。使用 `npm install --global scan2ebook-reader@0.2.0` 安装，并用 `scan2ebook-reader --version` 核对版本为 `0.2.0`。当前 npm 包内含 Apple Silicon 引擎，转换要求 macOS 14.4 及以上。
+检查 Node.js 是否为 20.19 或更新版本。使用 `npm install --global scan2ebook-reader@0.2.1` 安装，并用 `scan2ebook-reader --version` 核对版本为 `0.2.1`。当前 npm 包内含 Apple Silicon 引擎，转换要求 macOS 14.4 及以上。
 
 运行 `scan2ebook-reader` 打开页面，默认地址为 `http://127.0.0.1:8765`。需要从源码构建或查看启动参数时，参照 [网页版说明](reader/README.md)。
 
 ## macOS App
 
-核对机器为 Apple Silicon，macOS 版本为 14.4 或更新版本。安装包在 GitHub 的 [v0.2.0 Release](https://github.com/Goatherd0626/scan2ebook/releases/tag/v0.2.0)。使用 `Scan2Ebook_0.2.0_aarch64.dmg`，将 App 拖到「应用程序」。临时签名和首次打开的处理见 [桌面版说明](desktop/README.md)。
+核对机器为 Apple Silicon，macOS 版本为 14.4 或更新版本。安装包在 GitHub 的 [v0.2.1 Release](https://github.com/Goatherd0626/scan2ebook/releases/tag/v0.2.1)。使用 `Scan2Ebook_0.2.1_aarch64.dmg`，将 App 拖到「应用程序」。临时签名和首次打开的处理见 [桌面版说明](desktop/README.md)。
 
 从源码构建和运行原生引擎测试的步骤见 [桌面版说明](desktop/README.md)。测试使用自制 PDF、占位 Key 和本机回环模拟模型。 [发布与维护检查清单](docs/release-checklist.md)
 

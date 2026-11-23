@@ -4,7 +4,7 @@
 
 ## 安装与使用
 
-从 GitHub Release 下载 [Scan2Ebook 0.2.0 DMG](https://github.com/Goatherd0626/scan2ebook/releases/download/v0.2.0/Scan2Ebook_0.2.0_aarch64.dmg)。打开 DMG，将 **Scan2Ebook** 拖到「应用程序」，然后从「应用程序」打开它。
+从 GitHub Release 下载 [Scan2Ebook 0.2.1 DMG](https://github.com/Goatherd0626/scan2ebook/releases/download/v0.2.1/Scan2Ebook_0.2.1_aarch64.dmg)。打开 DMG，将 **Scan2Ebook** 拖到「应用程序」，然后从「应用程序」打开它。
 
 1. 添加 PDF 或已有的 `.s2e` 电子书。
 2. 转换 PDF 时确认页码，输入自己本次使用的 DeepSeek API Key。

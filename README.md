@@ -4,14 +4,14 @@
 
 Scan2Ebook 会保留原始 PDF，并生成可搜索的文字版本。阅读时可以在原 PDF 和识别文字之间双向跳转，查看原始页码，适合阅读史料、旧书、扫描教材和论文参考文献。
 
-当前版本 **0.2.0** · [MIT License](LICENSE)
+当前版本 **0.2.1** · [MIT License](LICENSE)
 
 ## 使用方式
 
 | 入口 | 功能 | 获取方式 |
 |---|---|---|
-| macOS 独立应用 | 转换、书库、阅读和本机自动化 | [下载 0.2.0 DMG](https://github.com/Goatherd0626/scan2ebook/releases/download/v0.2.0/Scan2Ebook_0.2.0_aarch64.dmg) |
-| 本机网页版 | 转换、书库、阅读和本机自动化 | [npm `scan2ebook-reader@0.2.0`](https://www.npmjs.com/package/scan2ebook-reader/v/0.2.0) |
+| macOS 独立应用 | 转换、书库、阅读和本机自动化 | [下载 0.2.1 DMG](https://github.com/Goatherd0626/scan2ebook/releases/download/v0.2.1/Scan2Ebook_0.2.1_aarch64.dmg) |
+| 本机网页版 | 转换、书库、阅读和本机自动化 | [npm `scan2ebook-reader@0.2.1`](https://www.npmjs.com/package/scan2ebook-reader/v/0.2.1) |
 
 Web 和 App 共用 Swift 原生引擎，使用 macOS 的 PDFKit 和 Vision。此前为 DSH 和旧命令行工作流保留的插件、Skill 和 Python 转换器已退役。
 
@@ -32,7 +32,7 @@ Web 和 App 共用 Swift 原生引擎，使用 macOS 的 PDFKit 和 Vision。此
 安装 Node.js 20.19 或更新版本，然后通过终端安装并启动网页版。
 
 ```sh
-npm install --global scan2ebook-reader@0.2.0
+npm install --global scan2ebook-reader@0.2.1
 scan2ebook-reader
 ```
 

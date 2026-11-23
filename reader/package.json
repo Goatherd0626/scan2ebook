@@ -1,6 +1,6 @@
 {
   "name": "scan2ebook-reader",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Convert scanned PDFs and read page-anchored .s2e ebooks in a local browser.",
   "license": "MIT",

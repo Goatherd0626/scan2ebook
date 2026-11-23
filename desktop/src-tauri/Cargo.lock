@@ -2831,7 +2831,7 @@ dependencies = [
 
 [[package]]
 name = "scan2ebook-desktop"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "libc",
  "percent-encoding",

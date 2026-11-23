@@ -1,6 +1,6 @@
 [package]
 name = "scan2ebook-desktop"
-version = "0.2.0"
+version = "0.2.1"
 description = "Scan2Ebook macOS desktop reader and converter"
 edition = "2021"
 license = "MIT"
