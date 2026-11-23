@@ -32,9 +32,12 @@ actor ModelClient {
 
     func finish() { session.invalidateAndCancel() }
 
-    private func completion(messages: [[String: Any]], model: String, jsonFormat: Bool = false, countUsage: Bool = true) async throws -> String {
+    private func completion(messages: [[String: Any]], model: String, forMetadata: Bool = false) async throws -> String {
         var payload: [String: Any] = ["model": model, "temperature": 0, "messages": messages]
-        if jsonFormat { payload["response_format"] = ["type": "json_object"] }
+        if forMetadata {
+            payload["response_format"] = ["type": "json_object"]
+            payload["thinking"] = ["type": "disabled"]
+        }
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -42,7 +45,7 @@ actor ModelClient {
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         for attempt in 0..<3 {
             try Task.checkCancellation()
-            if countUsage { requests += 1 }
+            if !forMetadata { requests += 1 }
             do {
                 let (data, response) = try await session.data(for: request)
                 guard let response = response as? HTTPURLResponse else { throw EngineFailure("模型服务响应无法读取") }
@@ -58,7 +61,7 @@ actor ModelClient {
                       let message = choice["message"] as? [String: Any], let content = message["content"] as? String else {
                     throw EngineFailure("模型服务响应格式无法读取，请重试")
                 }
-                if countUsage, let usage = object["usage"] as? [String: Any] {
+                if !forMetadata, let usage = object["usage"] as? [String: Any] {
                     inputTokens += number(usage["prompt_tokens"], fallback: 0)
                     outputTokens += number(usage["completion_tokens"], fallback: 0)
                 }
@@ -95,7 +98,7 @@ actor ModelClient {
         do {
             let raw = try await completion(messages: [["role": "system", "content": system],
                                                        ["role": "user", "content": "书页 OCR 文本：\n" + String(text.prefix(4000))]],
-                                           model: "deepseek-chat", jsonFormat: true, countUsage: false)
+                                           model: "deepseek-flash", forMetadata: true)
             guard let object = extractJSONObject(raw) else { return [:] }
             return Dictionary(uniqueKeysWithValues: ["title", "author", "publisher", "edition", "isbn"].compactMap { key in
                 let value = cleanString(object[key])

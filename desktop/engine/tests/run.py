@@ -14,6 +14,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 KEY = "native-offline-test-placeholder"
+BOOK_METADATA = {
+    "title": "原生引擎离线样书",
+    "author": "自制测试",
+    "publisher": "本机",
+    "edition": "第1版",
+    "isbn": "978-7-000-00000-1",
+}
 
 
 class ModelHandler(BaseHTTPRequestHandler):
@@ -62,7 +69,14 @@ class ModelHandler(BaseHTTPRequestHandler):
                     {"type": "footnote", "index": 1, "text": "①自制测试脚注"},
                 ], "toc": []}
             else:
-                result = {"title": "原生引擎离线样书", "author": "自制测试", "publisher": "本机"}
+                if body.get("model") != "deepseek-flash":
+                    self.send_error(404, "Metadata model unavailable")
+                    return
+                if (body.get("response_format") != {"type": "json_object"}
+                        or body.get("thinking") != {"type": "disabled"}):
+                    self.send_error(400, "Invalid metadata request options")
+                    return
+                result = BOOK_METADATA
             content = "broken JSON" if mode == "invalid" or (mode == "retry" and request_number == 1) else json.dumps(result, ensure_ascii=False)
             output = json.dumps({"choices": [{"message": {"content": content}}], "usage": {"prompt_tokens": 12, "completion_tokens": 8}}).encode()
             self.send_response(200)
@@ -162,12 +176,13 @@ class NativeEngineTests(unittest.TestCase):
         self.assertEqual(items[1]["text"], "离线测试正文[1]。")
         self.assertEqual(items[2], {"type": "figure"})
         self.assertEqual(items[-1]["text"], "自制测试脚注")
-        self.assertEqual(book["book"]["title"], "原生引擎离线样书")
+        self.assertEqual(book["book"], BOOK_METADATA)
         self.assertLessEqual(server.peak, 2)
         self.assertEqual(server.requests, 3)
         events = [json.loads(line[10:]) for line in result.stdout.splitlines() if line.startswith("S2E_EVENT ")]
         self.assertEqual(events[-1]["stage"], "complete")
         self.assertEqual(events[-1]["progress"], 100)
+        self.assertEqual(events[-1]["usage"]["requests"], 2)
         with zipfile.ZipFile(out / "sample.s2e") as archive:
             self.assertEqual(set(archive.namelist()), {"book.json", "book.pdf"})
             self.assertEqual(archive.read("book.pdf"), self.fixture.read_bytes())
